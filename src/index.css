@@ -28,14 +28,17 @@
   --color-outline: #6f797c;
   --color-outline-variant: #bfc8cc;
   --color-primary: #373f54;
+  --color-primary-rgb: 55, 63, 84;
   --color-on-primary: #ffffff;
   --color-primary-container: #4f566c;
   --color-on-primary-container: #c4cce6;
   --color-secondary: #13677b;
+  --color-secondary-rgb: 19, 103, 123;
   --color-on-secondary: #ffffff;
   --color-secondary-container: #a1e7ff;
   --color-on-secondary-container: #18697e;
   --color-tertiary: #004930;
+  --color-tertiary-rgb: 0, 73, 48;
   --color-on-tertiary: #ffffff;
   --color-tertiary-container: #006343;
   --color-on-tertiary-container: #55e4a8;
@@ -58,6 +61,25 @@
 
 .paper-shadow {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.05);
+}
+
+/* Print Styles */
+@media print {
+  @page {
+    margin: 20mm;
+    size: auto;
+  }
+  
+  body {
+    background: white !important;
+  }
+
+  .print-paper {
+    background: white;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 .custom-scrollbar::-webkit-scrollbar {
