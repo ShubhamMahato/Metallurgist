@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-inverse-primary: #bec6e0;
+  --color-inverse-surface: #2d3133;
+  --color-on-tertiary-fixed-variant: #005236;
+  --color-tertiary-fixed: #6ffbbe;
+  --color-on-primary-fixed-variant: #3f465c;
+  --color-tertiary-fixed-dim: #4edea3;
+  --color-on-tertiary-fixed: #002113;
+  --color-on-primary-fixed: #131b2e;
+  --color-primary-fixed: #dae2fd;
+  --color-primary-fixed-dim: #bec6e0;
+  --color-surface-bright: #f7f9fb;
+  --color-surface-dim: #d8dadc;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container: #eceef0;
+  --color-surface-container-high: #e6e8ea;
+  --color-surface-container-highest: #e0e3e5;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #3f484c;
+  --color-outline: #6f797c;
+  --color-outline-variant: #bfc8cc;
+  --color-primary: #373f54;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #4f566c;
+  --color-on-primary-container: #c4cce6;
+  --color-secondary: #13677b;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #a1e7ff;
+  --color-on-secondary-container: #18697e;
+  --color-tertiary: #004930;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #006343;
+  --color-on-tertiary-container: #55e4a8;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-background: #f7f9fb;
+  --color-on-background: #191c1e;
+  --color-surface: #f7f9fb;
+  --color-surface-variant: #e0e3e5;
+  --color-inverse-on-surface: #eff1f3;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-background font-body antialiased;
+  }
+}
+
+.paper-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.05);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3f484c;
+  border-radius: 10px;
+}
