@@ -4,7 +4,6 @@ import {
   UploadCloud,
   LockOpen,
   Lock,
-  Sparkles,
   History,
   CheckCircle2,
   FileText,
@@ -203,8 +202,6 @@ export default function Dashboard() {
         return {
           ...m,
           value: base.toFixed(3),
-
-          // ❌ clear all adjustment tracking
           previous: undefined,
           delta: undefined,
           percentChange: undefined,
@@ -215,6 +212,7 @@ export default function Dashboard() {
       }),
     );
 
+    setTempValues({}); // 🔥 CRITICAL: Clear temp values so inputs reset
     setLastEditedId(null);
   };
 
