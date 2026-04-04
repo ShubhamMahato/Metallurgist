@@ -2,7 +2,6 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   Printer,
   UploadCloud,
-  LockOpen,
   Lock,
   History,
   CheckCircle2,
@@ -16,8 +15,18 @@ import {
   ShieldCheck,
   Plus,
   X,
+  Settings,
+  Save,
+  LockOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { 
+  getFileHandle, 
+  saveFileHandle, 
+  verifyPermission, 
+  readFileContent,
+  clearFileHandle
+} from "../lib/fileSystem";
 
 interface MetalValue {
   id: string;
@@ -204,11 +213,18 @@ export default function Dashboard() {
   const [isParsed, setIsParsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [karat, setKarat] = useState<string>("0");
-  const [baselineKarat, setBaselineKarat] = useState<string>("0");
+  const [karat, setKarat] = useState<string>("18.06");
+  const [baselineKarat, setBaselineKarat] = useState<string>("18.06");
   const [isAddingMetal, setIsAddingMetal] = useState(false);
+  const [fileHandle, setFileHandle] = useState<any | null>(null);
+  const [isPersistent, setIsPersistent] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [lastModified, setLastModified] = useState<number | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMetalRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -218,20 +234,195 @@ export default function Dashboard() {
       ) {
         setIsAddingMetal(false);
       }
+      if (
+        settingsRef.current &&
+        !settingsRef.current.contains(event.target as Node)
+      ) {
+        setShowSettings(false);
+      }
     };
 
-    if (isAddingMetal) {
-      document.addEventListener("mousedown", handleClickOutside);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
-    }
-
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isAddingMetal]);
+  }, []);
   const [originalContent, setOriginalContent] = useState("");
   const rebalanceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const initFile = async () => {
+      try {
+        const handle = await getFileHandle();
+        if (handle) {
+          setFileHandle(handle);
+          const status = await handle.queryPermission({ mode: 'readwrite' });
+          
+          if (status === 'granted') {
+            await loadFileFromHandle(handle);
+            setIsPersistent(true);
+          } else {
+            // Permission is 'prompt' or 'denied'
+            // We don't auto-load, but we keep the handle reference
+            setIsPersistent(false);
+          }
+        }
+      } catch (err) {
+        console.error("Error initializing file handle:", err);
+      }
+    };
+    initFile();
+  }, []);
+
+  const loadFileFromHandle = async (handle: any) => {
+    try {
+      const content = await readFileContent(handle);
+      const file = await handle.getFile();
+      setLastModified(file.lastModified);
+      setOriginalContent(content);
+      const clean = content.includes("{\\rtf") ? rtfToText(content) : content;
+      parseFileContent(clean);
+      setUploadError(null);
+    } catch (err) {
+      console.error("Failed to read file:", err);
+      setUploadError("File not accessible, please reselect.");
+      setIsPersistent(false);
+    }
+  };
+
+  const requestFilePermission = async () => {
+    if (!fileHandle) return;
+    try {
+      const hasPermission = await verifyPermission(fileHandle, true);
+      if (hasPermission) {
+        await loadFileFromHandle(fileHandle);
+        setIsPersistent(true);
+      }
+    } catch (err) {
+      console.error("Permission request failed:", err);
+      setUploadError("Permission denied. Please select file manually.");
+    }
+  };
+
+  // Polling for changes
+  useEffect(() => {
+    if (!fileHandle || !isParsed) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const file = await fileHandle.getFile();
+        if (lastModified && file.lastModified > lastModified) {
+          console.log("File changed on disk, reloading...");
+          const content = await file.text();
+          setLastModified(file.lastModified);
+          setOriginalContent(content);
+          const clean = content.includes("{\\rtf") ? rtfToText(content) : content;
+          parseFileContent(clean);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fileHandle, lastModified, isParsed]);
+
+  const connectFile = async () => {
+    setIsConnecting(true);
+    setUploadError(null);
+    try {
+      const [handle] = await (window as any).showOpenFilePicker({
+        types: [
+          {
+            description: 'Laboratory Reports',
+            accept: {
+              'text/plain': ['.txt'],
+              'application/msword': ['.doc'],
+            },
+          },
+        ],
+        multiple: false,
+      });
+
+      if (handle) {
+        await saveFileHandle(handle);
+        setFileHandle(handle);
+        const hasPermission = await verifyPermission(handle, true);
+        if (hasPermission) {
+          const content = await readFileContent(handle);
+          const file = await handle.getFile();
+          setLastModified(file.lastModified);
+          setOriginalContent(content);
+          const clean = content.includes("{\\rtf") ? rtfToText(content) : content;
+          parseFileContent(clean);
+          setIsPersistent(true);
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error("Connection error:", err);
+        setUploadError("Failed to connect to file.");
+      }
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const saveToOriginalFile = async () => {
+    if (!fileHandle || !isPersistent) return;
+    
+    setIsSaving(true);
+    try {
+      const content = generateUpdatedContent();
+      const writable = await fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      
+      // Update last modified to avoid self-triggering polling reload
+      const file = await fileHandle.getFile();
+      setLastModified(file.lastModified);
+      
+      // Optional: show success state
+      console.log("File saved successfully");
+    } catch (err) {
+      console.error("Save error:", err);
+      setUploadError("Failed to save to original file. Falling back to download.");
+      downloadDOC();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const reloadFile = async () => {
+    if (!fileHandle) return;
+    
+    try {
+      const hasPermission = await verifyPermission(fileHandle);
+      if (!hasPermission) return;
+
+      const content = await readFileContent(fileHandle);
+      const file = await fileHandle.getFile();
+      setLastModified(file.lastModified);
+      setOriginalContent(content);
+      const clean = content.includes("{\\rtf") ? rtfToText(content) : content;
+      parseFileContent(clean);
+      setUploadError(null);
+    } catch (err) {
+      console.error("Reload error:", err);
+      setUploadError("Failed to reload file.");
+    }
+  };
+
+  const disconnectFile = async () => {
+    await clearFileHandle();
+    setFileHandle(null);
+    setIsPersistent(false);
+    setLastModified(null);
+    setIsParsed(false);
+    setOriginalContent("");
+    setMetals(INITIAL_METALS);
+    setShowSettings(false);
+  };
 
   const calculateKarat = (goldPercent: number) => {
     return ((goldPercent * 24) / 100).toFixed(2);
@@ -642,6 +833,15 @@ export default function Dashboard() {
 
       setMetals(rest);
     } else {
+      // If no GOLD PURITY match, check if we found gold in the loop for Karat calculation
+      if (!karatMatch) {
+        const goldInLoop = newMetals.find((m) => m.id === "gold");
+        if (goldInLoop) {
+          const calculated = calculateKarat(parseFloat(goldInLoop.value));
+          setKarat(calculated);
+          setBaselineKarat(calculated);
+        }
+      }
       setMetals(newMetals);
     }
 
@@ -658,6 +858,7 @@ export default function Dashboard() {
       return;
     }
 
+    setIsPersistent(false); // One-time upload mode
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
@@ -855,19 +1056,84 @@ export default function Dashboard() {
             </h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={downloadDOC}
-              disabled={!isParsed}
-              className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
-                isParsed
-                  ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
-                  : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
-              }`}
-            >
-              <FileText size={14} className="shrink-0" />
-              <span className="hidden sm:inline">Download File</span>
-              <span className="sm:hidden">Download</span>
-            </button>
+            {fileHandle && isParsed && (
+              <button
+                onClick={reloadFile}
+                className="p-2 text-outline-variant hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+                title="Reload latest from disk"
+              >
+                <History size={18} />
+              </button>
+            )}
+            
+            {isPersistent ? (
+              <button
+                onClick={saveToOriginalFile}
+                disabled={!isParsed || isSaving}
+                className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                  isParsed && !isSaving
+                    ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
+                    : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
+                }`}
+              >
+                <Save size={14} className={`shrink-0 ${isSaving ? 'animate-pulse' : ''}`} />
+                <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save to Original File'}</span>
+                <span className="sm:hidden">{isSaving ? 'Saving...' : 'Save'}</span>
+              </button>
+            ) : (
+              <button
+                onClick={downloadDOC}
+                disabled={!isParsed}
+                className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                  isParsed
+                    ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
+                    : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
+                }`}
+              >
+                <FileText size={14} className="shrink-0" />
+                <span className="hidden sm:inline">Download File</span>
+                <span className="sm:hidden">Download</span>
+              </button>
+            )}
+
+            <div className="relative" ref={settingsRef}>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-2 text-outline-variant hover:text-on-surface hover:bg-surface-container rounded-xl transition-all"
+                title="Settings"
+              >
+                <Settings size={18} />
+              </button>
+              
+              <AnimatePresence>
+                {showSettings && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 top-full mt-2 w-48 bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/30 p-2 z-[100]"
+                  >
+                    <button
+                      onClick={() => {
+                        connectFile();
+                        setShowSettings(false);
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-surface-container rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-on-surface"
+                    >
+                      <History size={14} className="text-primary" />
+                      Change File
+                    </button>
+                    <button
+                      onClick={disconnectFile}
+                      className="w-full text-left px-3 py-2 hover:bg-error/10 rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-error"
+                    >
+                      <X size={14} />
+                      Disconnect File
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
@@ -908,11 +1174,32 @@ export default function Dashboard() {
                   <div className="space-y-2">
                     <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest">
                       <Activity size={10} className="animate-pulse" />
-                      Live Analysis System
+                      {fileHandle ? "Live File Connection Active" : "Live Analysis System"}
                     </div>
                     <h2 className="text-3xl font-black tracking-tight font-headline text-on-surface leading-tight">
-                      Report <span className="text-primary">Composition</span>
+                      {fileHandle ? (
+                        <>Connected <span className="text-primary">Report</span></>
+                      ) : (
+                        <>Report <span className="text-primary">Composition</span></>
+                      )}
                     </h2>
+                    {fileHandle && (
+                      <div className="flex flex-col gap-1">
+                        <p className="text-[10px] text-outline-variant font-mono flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${isPersistent ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
+                          {isPersistent ? 'Connected:' : 'Access Required:'} {fileHandle.name}
+                        </p>
+                        {!isPersistent && (
+                          <button 
+                            onClick={requestFilePermission}
+                            className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1"
+                          >
+                            <LockOpen size={10} />
+                            Grant Access to Sync
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div
@@ -995,39 +1282,63 @@ export default function Dashboard() {
                     <motion.div
                       initial={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                      onDragOver={onDragOver}
-                      onDragLeave={onDragLeave}
-                      onDrop={onDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`group relative border-2 border-dashed rounded-3xl p-10 transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
-                        isDragging
-                          ? "bg-secondary-container/20 border-secondary scale-[1.01]"
-                          : "bg-surface-container-low border-outline-variant/30 hover:border-secondary/50 hover:bg-surface-container-lowest"
-                      }`}
+                      className="grid grid-cols-1 md:grid-cols-2 gap-6"
                     >
-                      <div className="w-12 h-12 bg-surface-container-lowest rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-outline-variant/20">
-                        <UploadCloud
-                          className={
-                            isDragging
-                              ? "text-secondary animate-bounce"
-                              : "text-secondary"
-                          }
-                          size={24}
-                        />
-                      </div>
-                      <p className="text-sm font-bold text-on-surface">
-                        Drop laboratory report or click to upload
-                      </p>
-                      <p className="text-[10px] text-on-surface-variant mt-1">
-                        Supports .doc and .txt formats (Max 10MB)
-                      </p>
+                      <motion.div
+                        onDragOver={onDragOver}
+                        onDragLeave={onDragLeave}
+                        onDrop={onDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`group relative border-2 border-dashed rounded-3xl p-10 transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
+                          isDragging
+                            ? "bg-secondary-container/20 border-secondary scale-[1.01]"
+                            : "bg-surface-container-low border-outline-variant/30 hover:border-secondary/50 hover:bg-surface-container-lowest"
+                        }`}
+                      >
+                        <div className="w-12 h-12 bg-surface-container-lowest rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-outline-variant/20">
+                          <UploadCloud
+                            className={
+                              isDragging
+                                ? "text-secondary animate-bounce"
+                                : "text-secondary"
+                            }
+                            size={24}
+                          />
+                        </div>
+                        <p className="text-sm font-bold text-on-surface">
+                          One-time Upload
+                        </p>
+                        <p className="text-[10px] text-on-surface-variant mt-1">
+                          Drop report or click to upload
+                        </p>
+                      </motion.div>
+
+                      <motion.div
+                        onClick={connectFile}
+                        className={`group relative border-2 border-dashed rounded-3xl p-10 transition-all flex flex-col items-center justify-center text-center cursor-pointer bg-primary/5 border-primary/30 hover:border-primary hover:bg-primary/10 ${
+                          isConnecting ? "opacity-50 pointer-events-none" : ""
+                        }`}
+                      >
+                        <div className="w-12 h-12 bg-surface-container-lowest rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-primary/20">
+                          <Zap
+                            className="text-primary"
+                            size={24}
+                          />
+                        </div>
+                        <p className="text-sm font-bold text-primary">
+                          {isConnecting ? "Connecting..." : "Persistent Connection"}
+                        </p>
+                        <p className="text-[10px] text-primary/70 mt-1">
+                          Auto-syncs when file changes on disk
+                        </p>
+                      </motion.div>
 
                       {uploadError && (
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 10 }}
-                          className="mt-4 flex items-center gap-2 text-error text-xs font-bold bg-error-container/50 px-3 py-1.5 rounded-full"
+                          className="md:col-span-2 flex items-center justify-center gap-2 text-error text-xs font-bold bg-error-container/50 px-3 py-1.5 rounded-full"
                         >
                           <AlertCircle size={14} />
                           {uploadError}
