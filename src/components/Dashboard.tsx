@@ -15,6 +15,7 @@ import {
   Activity,
   ShieldCheck,
   Plus,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -330,27 +331,50 @@ export default function Dashboard() {
     );
   };
 
+  const removeMetal = (id: string) => {
+    setMetals((prev) => {
+      const metalToRemove = prev.find((m) => m.id === id);
+      if (!metalToRemove) return prev;
+
+      // If it's a baseline metal, we just set it to 0 instead of removing it from the array
+      // If it's purely manual (baseline undefined), we can remove it from the array
+      const isPurelyManual = metalToRemove.baseline === undefined;
+
+      let nextMetals: MetalValue[];
+      if (isPurelyManual) {
+        nextMetals = prev.filter((m) => m.id !== id);
+      } else {
+        nextMetals = prev.map((m) =>
+          m.id === id ? { ...m, value: "0.000", isManual: false } : m,
+        );
+      }
+
+      // Rebalance the remaining metals to absorb the removed value
+      return rebalanceMetals(nextMetals, id, "0.000");
+    });
+  };
+
   const resetToOriginal = () => {
-    setMetals((prev) =>
-      prev.map((m) => {
-        const base = m.baseline ?? parseFloat(m.value || "0");
+    setMetals((prev) => {
+      // Filter out purely manual metals that weren't in the original report
+      // Original metals have a defined baseline
+      const originalMetals = prev.filter((m) => m.baseline !== undefined);
+
+      return originalMetals.map((m) => {
+        const base = m.baseline ?? 0;
 
         return {
           ...m,
           value: base.toFixed(3),
-          locked: m.id === "gold" ? true : m.locked,
-          previous: undefined,
-          delta: undefined,
-          percentChange: undefined,
-          changed: false,
+          locked: m.id === "gold" ? true : false,
+          isManual: false,
           history: [],
-          lastAdjustedBy: undefined,
         };
-      }),
-    );
+      });
+    });
 
     setKarat(baselineKarat);
-    setTempValues({}); // 🔥 CRITICAL: Clear temp values so inputs reset
+    setTempValues({});
     setLastEditedId(null);
   };
 
@@ -366,16 +390,16 @@ export default function Dashboard() {
       numValue: m.id === editedId ? newValueNum : parseFloat(m.value || "0"),
     }));
 
+    // If we're removing a metal, it might not be in parsedMetals anymore
     const editedMetal = parsedMetals.find((m) => m.id === editedId);
-    if (!editedMetal) return prevMetals;
+    const sourceName = editedMetal ? editedMetal.name : "Removal";
 
-    // Requirement: Only adjust metals that had > 0 quantity at upload AND are not locked/edited
-    // 🔥 Special Rule: Gold never adjusts automatically when other metals are edited.
+    // Requirement: Only adjust metals that are "active" (visible) and not locked/edited
+    // Active means: positive baseline, positive current value, or manually added.
     const isAdjustable = (m: any) =>
       !m.locked &&
       m.id !== editedId &&
-      ((m.baseline ?? 0) > 0 || m.numValue > 0) &&
-      m.name.toLowerCase() !== "gold";
+      ((m.baseline ?? 0) > 0 || m.numValue > 0 || m.isManual);
 
     let delta = 100 - parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
 
@@ -393,8 +417,11 @@ export default function Dashboard() {
       if (adjustable.length === 0) break;
 
       // Weights based on current quantity (proportional distribution)
-      // If current quantity is 0, use baseline as fallback for distribution
-      const weights = adjustable.map((m) => m.numValue || m.baseline || 1);
+      // Use a floor of 1.0 for weights to ensure small/manual metals get a fair share
+      // and don't "stall" when they have small non-zero values.
+      const weights = adjustable.map((m) =>
+        Math.max(m.numValue, (m.baseline ?? 0) > 0 ? m.baseline! : 1.0),
+      );
       const totalWeight = weights.reduce((a, b) => a + b, 0);
 
       let remainingDelta = delta;
@@ -432,9 +459,9 @@ export default function Dashboard() {
 
       if (Math.abs(adjustment) > 0.0001) {
         // Source is either the user (for the edited metal) or the edited metal (for rebalanced ones)
-        const sourceName = m.id === editedId ? "User Edit" : editedMetal.name;
+        const historySource = m.id === editedId ? "User Edit" : sourceName;
 
-        if (lastHistory && lastHistory.source === sourceName) {
+        if (lastHistory && lastHistory.source === historySource) {
           const totalDelta = m.numValue - lastHistory.from;
           const totalPercent =
             lastHistory.from === 0 ? 0 : (totalDelta / lastHistory.from) * 100;
@@ -453,7 +480,7 @@ export default function Dashboard() {
               to: m.numValue,
               delta: adjustment,
               percent: percentChange,
-              source: sourceName,
+              source: historySource,
             },
           ];
         }
@@ -465,9 +492,9 @@ export default function Dashboard() {
         previous: prevValue,
         delta: adjustment,
         percentChange,
-        changed: Math.abs(adjustment) > 0.0001,
-        lastAdjustedBy: m.id === editedId ? "User" : editedMetal.name,
         history: newHistory,
+        lastAdjustedBy: m.id === editedId ? "User" : sourceName,
+        changed: Math.abs(adjustment) > 0.0001,
       };
     });
   };
@@ -730,48 +757,44 @@ export default function Dashboard() {
   };
 
   const addMetal = (metalId: string) => {
-  const metalInfo = ALL_AVAILABLE_METALS.find(m => m.id === metalId);
-  if (!metalInfo) return;
+    const metalInfo = ALL_AVAILABLE_METALS.find((m) => m.id === metalId);
+    if (!metalInfo) return;
 
-  const existing = metals.find(m => m.id === metalId);
+    const existing = metals.find((m) => m.id === metalId);
 
-  // 👉 If already exists (but hidden because 0), just activate it
-  if (existing) {
-    setMetals(prev =>
-      prev.map(m =>
-        m.id === metalId
-          ? { ...m, isManual: true } // 👈 KEY CHANGE
-          : m
-      )
-    );
+    // 👉 If already exists (but hidden because 0), just activate it
+    if (existing) {
+      setMetals((prev) =>
+        prev.map((m) => (m.id === metalId ? { ...m, isManual: true } : m)),
+      );
 
+      setIsAddingMetal(false);
+      return;
+    }
+
+    // 👉 If completely new metal
+    const info = METAL_MAP[metalId.toUpperCase()] || {
+      name: metalInfo.name,
+      color: "bg-slate-100",
+      textColor: "text-slate-700",
+    };
+
+    const newMetal: MetalValue = {
+      id: metalId,
+      name: metalInfo.name,
+      symbol: metalInfo.symbol,
+      value: "0.000",
+      locked: metalId === "gold",
+      isManual: true,
+      color: info.color,
+      textColor: info.textColor,
+      baseline: undefined, // 🔥 Manual metals have no baseline
+      history: [],
+    };
+
+    setMetals((prev) => [...prev, newMetal]);
     setIsAddingMetal(false);
-    return;
-  }
-
-  // 👉 If completely new metal
-  const info = METAL_MAP[metalId.toUpperCase()] || {
-    name: metalInfo.name,
-    color: "bg-slate-100",
-    textColor: "text-slate-700",
   };
-
-  const newMetal: MetalValue = {
-    id: metalId,
-    name: metalInfo.name,
-    symbol: metalInfo.symbol,
-    value: "0.000", // keep 0
-    locked: metalId === "gold",
-    isManual: true, // 👈 KEY
-    color: info.color,
-    textColor: info.textColor,
-    baseline: 0,
-    history: [],
-  };
-
-  setMetals(prev => [...prev, newMetal]);
-  setIsAddingMetal(false);
-};
 
   const handlePrint = () => {
     const content = generateUpdatedContent();
@@ -822,37 +845,36 @@ export default function Dashboard() {
       {/* Main UI */}
       <div className="flex flex-col h-full">
         {/* TopNavBar */}
-        <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 w-full bg-surface-container-lowest border-b border-outline-variant/30">
-          <div className="flex items-center gap-8">
-            <h1 className="text-xl font-bold tracking-tighter text-on-surface font-headline flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-on-primary">
+        <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 w-full bg-surface-container-lowest border-b border-outline-variant/30">
+          <div className="flex items-center gap-2 sm:gap-8 min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-on-surface font-headline flex items-center gap-2 whitespace-nowrap">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-on-primary shrink-0">
                 <Sparkles size={18} />
               </div>
-              Metallurgist Pro
+              <span className="truncate">Metallurgist Pro</span>
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 mr-4">
-              <button
-                onClick={downloadDOC}
-                disabled={!isParsed}
-                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 ${
-                  isParsed
-                    ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
-                    : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
-                }`}
-              >
-                <FileText size={14} />
-                Download File
-              </button>
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={downloadDOC}
+              disabled={!isParsed}
+              className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                isParsed
+                  ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
+                  : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
+              }`}
+            >
+              <FileText size={14} className="shrink-0" />
+              <span className="hidden sm:inline">Download File</span>
+              <span className="sm:hidden">Download</span>
+            </button>
           </div>
         </header>
 
         <div className="flex flex-1 overflow-hidden">
           <main className="w-full flex h-full overflow-hidden bg-surface">
             {/* Main Column: Editor */}
-            <div className="w-full flex flex-col p-8 overflow-y-auto custom-scrollbar relative bg-surface">
+            <div className="w-full flex flex-col p-4 sm:p-8 overflow-y-auto custom-scrollbar relative bg-surface">
               {/* Background Pattern & Gradients */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(var(--color-primary-rgb),0.12),transparent_40%),radial-gradient(circle_at_100%_100%,rgba(var(--color-secondary-rgb),0.12),transparent_40%)]"></div>
@@ -894,7 +916,7 @@ export default function Dashboard() {
                   </div>
 
                   <div
-                    className="flex flex-wrap items-center gap-3"
+                    className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full md:w-auto"
                     style={{
                       opacity: isParsed ? 1 : 0,
                       transform: isParsed ? "none" : "translateY(10px)",
@@ -902,44 +924,47 @@ export default function Dashboard() {
                       pointerEvents: isParsed ? "auto" : "none",
                     }}
                   >
-                    <div className="flex items-center gap-3 bg-white/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/40 shadow-sm">
-                      <div className="w-8 h-8 rounded-xl bg-secondary/20 flex items-center justify-center text-secondary">
-                        <ShieldCheck size={16} />
+                    <div className="flex items-center gap-2 sm:gap-3 bg-white/40 backdrop-blur-xl px-3 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-secondary/20 flex items-center justify-center text-secondary shrink-0">
+                        <ShieldCheck size={14} className="sm:w-4 sm:h-4" />
                       </div>
                       <div className="flex flex-col">
-                        <p className="text-[8px] font-black text-outline uppercase tracking-widest">
+                        <p className="text-[7px] sm:text-[8px] font-black text-outline uppercase tracking-widest leading-none mb-1">
                           Aggregate
                         </p>
                         <div className="flex items-baseline gap-0.5">
                           <motion.span
                             key={totalAggregate}
-                            className={`text-xl font-black font-headline ${isVerified ? "text-green-600" : "text-red-600"}`}
+                            className={`text-lg sm:text-xl font-black font-headline ${isVerified ? "text-green-600" : "text-red-600"}`}
                           >
                             {totalAggregate}
                           </motion.span>
-                          <span className="text-[8px] font-bold text-outline">
+                          <span className="text-[7px] sm:text-[8px] font-bold text-outline">
                             %
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 bg-white/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/40 shadow-sm">
-                      <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
-                        <Gem size={16} />
+                    <div 
+                      title={`Current Karat value: ${karat}K`}
+                      className="flex items-center gap-2 sm:gap-3 bg-white/40 backdrop-blur-xl px-3 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm"
+                    >
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary shrink-0">
+                        <Gem size={14} className="sm:w-4 sm:h-4" />
                       </div>
                       <div className="flex flex-col">
-                        <p className="text-[8px] font-black text-outline uppercase tracking-widest">
+                        <p className="text-[7px] sm:text-[8px] font-black text-outline uppercase tracking-widest leading-none mb-1">
                           Karat
                         </p>
                         <div className="flex items-baseline gap-0.5">
                           <motion.span
                             key={karat}
-                            className="text-xl font-black font-headline text-primary"
+                            className="text-lg sm:text-xl font-black font-headline text-primary"
                           >
                             {karat}
                           </motion.span>
-                          <span className="text-[8px] font-black text-outline uppercase tracking-widest ml-0.5">
+                          <span className="text-[7px] sm:text-[8px] font-black text-outline uppercase tracking-widest ml-0.5">
                             K
                           </span>
                         </div>
@@ -948,15 +973,16 @@ export default function Dashboard() {
 
                     <button
                       onClick={resetToOriginal}
-                      className="flex items-center gap-3 bg-white/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/40 shadow-sm hover:bg-primary-fixed transition-all group"
+                      title="Reset all constituents to original laboratory report values"
+                      className="flex items-center gap-2 sm:gap-3 bg-white/40 backdrop-blur-xl px-3 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm hover:bg-primary-fixed transition-all group cursor-pointer col-span-2 sm:flex-none justify-center sm:justify-start"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-outline-variant/20 flex items-center justify-center text-outline group-hover:text-primary transition-colors">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-outline-variant/20 flex items-center justify-center text-outline group-hover:text-primary transition-colors shrink-0">
                         <History
-                          size={16}
-                          className="group-hover:rotate-[-45deg] transition-transform"
+                          size={14}
+                          className="sm:w-4 sm:h-4 group-hover:rotate-[-45deg] transition-transform"
                         />
                       </div>
-                      <span className="text-sm font-black font-headline text-on-surface group-hover:text-primary transition-colors">
+                      <span className="text-xs sm:text-sm font-black font-headline text-on-surface group-hover:text-primary transition-colors">
                         Reset
                       </span>
                     </button>
@@ -1018,10 +1044,10 @@ export default function Dashboard() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 20 }}
-                      className="space-y-4 relative z-20"
+                      className="space-y-4 relative z-30"
                     >
                       <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between relative z-30">
+                        <div className="flex flex-wrap items-center justify-between gap-4 relative z-40">
                           <div className="flex items-center gap-3">
                             <h3 className="text-lg font-black font-headline text-on-surface">
                               Constituents
@@ -1036,10 +1062,11 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 relative z-40">
+                          <div className="flex items-center gap-3 relative z-50">
                             <div className="relative" ref={addMetalRef}>
                               <button
                                 onClick={() => setIsAddingMetal(!isAddingMetal)}
+                                title="Add a new metal constituent to the report"
                                 className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline flex items-center gap-1 cursor-pointer p-3 -m-3 bg-white/5 rounded-lg border border-transparent hover:border-primary/20 transition-all"
                               >
                                 <Plus size={12} />
@@ -1052,7 +1079,7 @@ export default function Dashboard() {
                                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                    className="absolute right-0 top-full mt-4 w-64 bg-white rounded-2xl shadow-2xl border border-black/5 p-2 z-50 max-h-[400px] overflow-y-auto custom-scrollbar"
+                                    className="absolute right-0 top-full mt-4 w-64 bg-white rounded-2xl shadow-2xl border border-black/5 p-2 z-[100] max-h-[400px] overflow-y-auto custom-scrollbar"
                                   >
                                     <div className="p-2 text-[10px] font-black text-outline uppercase tracking-widest border-b border-black/5 mb-1">
                                       Select Metal to Add
@@ -1100,27 +1127,27 @@ export default function Dashboard() {
                               </AnimatePresence>
                             </div>
 
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setIsParsed(false);
-                                setUploadError(null);
-                                setTimeout(() => {
-                                  if (fileInputRef.current) {
-                                    fileInputRef.current.click();
-                                  }
-                                }, 100);
-                              }}
-                              className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline flex items-center gap-1 cursor-pointer p-3 -m-3 bg-white/5 rounded-lg border border-transparent hover:border-primary/20 transition-all"
-                            >
-                              <UploadCloud size={12} />
-                              Upload New
-                            </button>
-                          </div>
-                        </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setIsParsed(false);
+                                    setUploadError(null);
+                                    setTimeout(() => {
+                                      if (fileInputRef.current) {
+                                        fileInputRef.current.click();
+                                      }
+                                    }, 100);
+                                  }}
+                                  className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline flex items-center gap-1 cursor-pointer p-3 -m-3 bg-white/5 rounded-lg border border-transparent hover:border-primary/20 transition-all"
+                                >
+                                  <UploadCloud size={12} />
+                                  Upload New
+                                </button>
+                              </div>
+                            </div>
 
-                        {/* Composition Bar */}
+                            {/* Composition Bar */}
                         <div className="w-full h-2.5 bg-surface-container-high rounded-full overflow-hidden flex shadow-inner border border-white/20">
                           {metals
                             .filter(
@@ -1132,6 +1159,7 @@ export default function Dashboard() {
                             .map((metal) => (
                               <motion.div
                                 key={`bar-${metal.id}`}
+                                title={`${metal.name}: ${metal.value}%`}
                                 initial={{ width: 0 }}
                                 animate={{ width: `${metal.value}%` }}
                                 style={{
@@ -1163,7 +1191,8 @@ export default function Dashboard() {
                             <motion.div
                               layout
                               key={metal.id}
-                              className={`flex flex-col p-5 rounded-2xl border-2 transition-all relative overflow-hidden group/card ${
+                              title={`${metal.name} (${metal.symbol}): ${metal.value}%`}
+                              className={`flex flex-col p-5 rounded-2xl border-2 transition-all relative group/card ${
                                 lastEditedId === metal.id
                                   ? "border-primary/60 ring-4 ring-primary/5 scale-[1.02] shadow-lg"
                                   : "border-outline-variant/40 hover:border-primary/40 shadow-sm hover:shadow-md"
@@ -1221,9 +1250,8 @@ export default function Dashboard() {
                                     <input
                                       className="w-full bg-transparent border-0 focus:ring-0 font-mono text-xl font-black text-on-surface p-0 tracking-tighter"
                                       type="text"
-                                      value={
-                                        tempValues[metal.id] ?? metal.value
-                                      }
+                                      title={`Edit concentration of ${metal.name}`}
+                                      value={tempValues[metal.id] ?? metal.value}
                                       onChange={(e) =>
                                         handleValueChange(
                                           metal.id,
@@ -1239,6 +1267,7 @@ export default function Dashboard() {
                                 </div>
                                 <button
                                   onClick={() => toggleLock(metal.id)}
+                                  title={metal.locked ? "Unlock to allow rebalancing" : "Lock to prevent changes during rebalancing"}
                                   className={`p-1.5 rounded-lg transition-all ${
                                     metal.locked
                                       ? "bg-secondary-container/30 text-secondary"
@@ -1251,6 +1280,15 @@ export default function Dashboard() {
                                     <LockOpen size={14} />
                                   )}
                                 </button>
+                                {metal.isManual && (
+                                  <button
+                                    onClick={() => removeMetal(metal.id)}
+                                    className="p-1.5 rounded-lg text-outline-variant hover:text-red-500 hover:bg-red-50 transition-all"
+                                    title="Remove constituent"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                )}
                               </div>
 
                               {metal.history && metal.history.length > 0 && (
