@@ -129,8 +129,7 @@ export default function Dashboard() {
   const rebalanceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const calculateKarat = (goldPercent: number) => {
-    if (goldPercent >= 99) return "24.00";
-    return ((goldPercent / 99) * 24).toFixed(2);
+    return ((goldPercent * 24) / 100).toFixed(2);
   };
 
   const generateUpdatedContent = () => {
