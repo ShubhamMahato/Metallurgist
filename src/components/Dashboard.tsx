@@ -486,28 +486,19 @@ export default function Dashboard() {
     }
 
     rebalanceTimeoutRef.current = setTimeout(() => {
-      // Don't commit if the value is incomplete (e.g., just a dot or empty)
       if (newValue === "" || newValue === "." || newValue.endsWith(".")) return;
 
-      let processedValue = newValue;
       const numValue = parseFloat(newValue);
-
-      // 🔥 If value is 100 or more, force it to exactly 100.000
-      if (numValue >= 100) {
-        processedValue = "100.000";
-      }
+      const processedValue = numValue >= 100 ? "100.000" : newValue;
 
       setMetals((prev) => {
-        // Update Karat if Gold changed
         if (id === "gold") {
           setKarat(calculateKarat(parseFloat(processedValue)));
         }
-
-        // Pass the previous state and the new value to rebalanceMetals
         return rebalanceMetals(prev, id, processedValue);
       });
 
-      // Clear the temporary value once committed
+      // Clear the temporary value after the state update is queued
       setTempValues((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -596,24 +587,26 @@ export default function Dashboard() {
 
     // Iterative distribution to handle clamping and ensure aggregate is exactly 100
     let attempts = 0;
-    while (Math.abs(delta) > 0.0001 && attempts < 10) {
+    while (Math.abs(delta) > 0.0001 && attempts < 15) {
       attempts++;
       const adjustable = parsedMetals.filter((m) => {
         if (!isAdjustable(m)) return false;
-        if (delta < 0 && m.numValue <= 0) return false; // Can't decrease further
-        if (delta > 0 && m.numValue >= 100) return false; // Can't increase further
+        if (delta < 0 && m.numValue <= 0.0001) return false; // Can't decrease further
+        if (delta > 0 && m.numValue >= 99.9999) return false; // Can't increase further
         return true;
       });
 
       if (adjustable.length === 0) break;
 
-      // Weights based on current quantity (proportional distribution)
-      // Use a floor of 1.0 for weights to ensure small/manual metals get a fair share
-      // and don't "stall" when they have small non-zero values.
-      const weights = adjustable.map((m) =>
-        Math.max(m.numValue, (m.baseline ?? 0) > 0 ? m.baseline! : 1.0),
-      );
+      // Weights calculation
+      const weights = adjustable.map((m) => {
+        // If it's a manual metal with 0 value, give it a boost to ensure it picks up the delta
+        if (m.isManual && m.numValue < 0.001) return 10.0;
+        return Math.max(m.numValue, (m.baseline ?? 0) > 0 ? m.baseline! : 1.0);
+      });
+      
       const totalWeight = weights.reduce((a, b) => a + b, 0);
+      if (totalWeight === 0) break;
 
       let remainingDelta = delta;
       parsedMetals = parsedMetals.map((m) => {
@@ -627,12 +620,18 @@ export default function Dashboard() {
         if (newValue < 0) newValue = 0;
         if (newValue > 100) newValue = 100;
 
-        remainingDelta -= newValue - m.numValue;
+        remainingDelta -= (newValue - m.numValue);
         return { ...m, numValue: newValue };
       });
 
       delta = remainingDelta;
     }
+
+    // Final safety check: ensure the edited metal is EXACTLY what the user typed
+    // and hasn't been accidentally modified by any logic
+    parsedMetals = parsedMetals.map(m => 
+      m.id === editedId ? { ...m, numValue: newValueNum } : m
+    );
 
     // Final pass to update strings and history
     return parsedMetals.map((m) => {
@@ -1065,7 +1064,7 @@ export default function Dashboard() {
                 <History size={18} />
               </button>
             )}
-            
+
             {isPersistent ? (
               <button
                 onClick={saveToOriginalFile}
@@ -1111,24 +1110,35 @@ export default function Dashboard() {
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-2 w-48 bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/30 p-2 z-[100]"
+                    className="absolute right-0 top-full mt-2 w-64 bg-surface-container-highest rounded-2xl shadow-2xl border border-outline-variant/30 p-2 z-[100]"
                   >
+                    <div className="px-3 py-2 border-b border-outline-variant/30 mb-1">
+                      <p className="text-[10px] font-black text-outline uppercase tracking-widest">
+                        File Settings
+                      </p>
+                    </div>
                     <button
                       onClick={() => {
                         connectFile();
                         setShowSettings(false);
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-surface-container rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-on-surface"
+                      className="w-full text-left px-3 py-2.5 hover:bg-surface-container rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-on-surface"
                     >
-                      <History size={14} className="text-primary" />
-                      Change File
+                      <History size={16} className="text-primary" />
+                      <div className="flex flex-col">
+                        <span>Change File</span>
+                        <span className="text-[9px] font-medium text-outline-variant">Select a different report</span>
+                      </div>
                     </button>
                     <button
                       onClick={disconnectFile}
-                      className="w-full text-left px-3 py-2 hover:bg-error/10 rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-error"
+                      className="w-full text-left px-3 py-2.5 hover:bg-error/10 rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-error"
                     >
-                      <X size={14} />
-                      Disconnect File
+                      <X size={16} />
+                      <div className="flex flex-col">
+                        <span>Disconnect File</span>
+                        <span className="text-[9px] font-medium text-error/60">Stop persistent sync</span>
+                      </div>
                     </button>
                   </motion.div>
                 )}
