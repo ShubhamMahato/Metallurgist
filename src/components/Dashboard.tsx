@@ -1041,20 +1041,20 @@ export default function Dashboard() {
     }
   };
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background text-on-background font-body">
+    <div className="flex flex-col h-screen overflow-x-hidden overflow-y-hidden bg-background text-on-background font-body">
       {/* Main UI */}
       <div className="flex flex-col h-full">
         {/* TopNavBar */}
-        <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 w-full bg-surface-container-lowest border-b border-outline-variant/30">
-          <div className="flex items-center gap-2 sm:gap-8 min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold tracking-tighter text-on-surface font-headline flex items-center gap-2 whitespace-nowrap">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-on-primary shrink-0">
-                <Sparkles size={18} />
+        <header className="sticky top-0 z-50 flex items-center justify-between px-2 sm:px-6 py-3 w-full bg-surface-container-lowest border-b border-outline-variant/30">
+          <div className="flex items-center gap-1.5 sm:gap-8 min-w-0">
+            <h1 className="text-base sm:text-xl font-bold tracking-tighter text-on-surface font-headline flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary rounded-lg flex items-center justify-center text-on-primary shrink-0">
+                <Sparkles size={16} />
               </div>
-              <span className="truncate">Metallurgist Pro</span>
+              <span className="truncate font-black">Metallurgist Pro</span>
             </h1>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {fileHandle && isParsed && (
               <button
                 onClick={reloadFile}
@@ -1110,7 +1110,7 @@ export default function Dashboard() {
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-2 w-64 bg-surface-container-highest rounded-2xl shadow-2xl border border-outline-variant/30 p-2 z-[100]"
+                    className="fixed sm:absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 top-20 sm:top-full mt-2 w-[calc(100%-2rem)] sm:w-64 max-w-sm bg-surface-container-highest rounded-2xl shadow-2xl border border-outline-variant/30 p-2 z-[100]"
                   >
                     <div className="px-3 py-2 border-b border-outline-variant/30 mb-1">
                       <p className="text-[10px] font-black text-outline uppercase tracking-widest">
@@ -1150,7 +1150,7 @@ export default function Dashboard() {
         <div className="flex flex-1 overflow-hidden">
           <main className="w-full flex h-full overflow-hidden bg-surface">
             {/* Main Column: Editor */}
-            <div className="w-full flex flex-col p-4 sm:p-8 overflow-y-auto custom-scrollbar relative bg-surface">
+            <div className="w-full flex flex-col p-3 sm:p-8 overflow-y-auto custom-scrollbar relative bg-surface">
               {/* Background Pattern & Gradients */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(var(--color-primary-rgb),0.12),transparent_40%),radial-gradient(circle_at_100%_100%,rgba(var(--color-secondary-rgb),0.12),transparent_40%)]"></div>
@@ -1221,7 +1221,7 @@ export default function Dashboard() {
                       pointerEvents: isParsed ? "auto" : "none",
                     }}
                   >
-                    <div className="flex items-center gap-2 sm:gap-3 bg-white/40 backdrop-blur-xl px-3 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm">
+                    <div className="flex items-center gap-1.5 sm:gap-3 bg-white/40 backdrop-blur-xl px-2 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm">
                       <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-secondary/20 flex items-center justify-center text-secondary shrink-0">
                         <ShieldCheck size={14} className="sm:w-4 sm:h-4" />
                       </div>
@@ -1245,7 +1245,7 @@ export default function Dashboard() {
 
                     <div 
                       title={`Current Karat value: ${karat}K`}
-                      className="flex items-center gap-2 sm:gap-3 bg-white/40 backdrop-blur-xl px-3 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm"
+                      className="flex items-center gap-1.5 sm:gap-3 bg-white/40 backdrop-blur-xl px-2 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm"
                     >
                       <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary shrink-0">
                         <Gem size={14} className="sm:w-4 sm:h-4" />
@@ -1271,7 +1271,7 @@ export default function Dashboard() {
                     <button
                       onClick={resetToOriginal}
                       title="Reset all constituents to original laboratory report values"
-                      className="flex items-center gap-2 sm:gap-3 bg-white/40 backdrop-blur-xl px-3 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm hover:bg-primary-fixed transition-all group cursor-pointer col-span-2 sm:flex-none justify-center sm:justify-start"
+                      className="flex items-center gap-1.5 sm:gap-3 bg-white/40 backdrop-blur-xl px-2 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm hover:bg-primary-fixed transition-all group cursor-pointer col-span-2 sm:flex-none justify-center sm:justify-start"
                     >
                       <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-outline-variant/20 flex items-center justify-center text-outline group-hover:text-primary transition-colors shrink-0">
                         <History
@@ -1383,7 +1383,7 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 relative z-50">
+                          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 relative z-50">
                             <div className="relative" ref={addMetalRef}>
                               <button
                                 onClick={() => setIsAddingMetal(!isAddingMetal)}
@@ -1400,7 +1400,7 @@ export default function Dashboard() {
                                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                    className="absolute right-0 top-full mt-4 w-64 bg-white rounded-2xl shadow-2xl border border-black/5 p-2 z-[100] max-h-[400px] overflow-y-auto custom-scrollbar"
+                                    className="fixed sm:absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 top-1/2 -translate-y-1/2 sm:translate-y-0 sm:top-full mt-4 w-[calc(100%-2rem)] sm:w-64 max-w-sm bg-white rounded-2xl shadow-2xl border border-black/5 p-2 z-[100] max-h-[80vh] sm:max-h-[400px] overflow-y-auto custom-scrollbar"
                                   >
                                     <div className="p-2 text-[10px] font-black text-outline uppercase tracking-widest border-b border-black/5 mb-1">
                                       Select Metal to Add
@@ -1513,7 +1513,7 @@ export default function Dashboard() {
                               layout
                               key={metal.id}
                               title={`${metal.name} (${metal.symbol}): ${metal.value}%`}
-                              className={`flex flex-col p-5 rounded-2xl border-2 transition-all relative group/card ${
+                              className={`flex flex-col p-5 rounded-2xl border-2 transition-all relative group/card overflow-hidden ${
                                 lastEditedId === metal.id
                                   ? "border-primary/60 ring-4 ring-primary/5 scale-[1.02] shadow-lg"
                                   : "border-outline-variant/40 hover:border-primary/40 shadow-sm hover:shadow-md"
