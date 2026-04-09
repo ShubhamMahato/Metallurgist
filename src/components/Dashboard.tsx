@@ -27,6 +27,8 @@ import {
   readFileContent,
   clearFileHandle
 } from "../lib/fileSystem";
+import { reportTemplate } from "../lib/reportTemplate";
+import { Printer as PrinterIcon } from "lucide-react";
 
 interface MetalValue {
   id: string;
@@ -215,6 +217,9 @@ export default function Dashboard() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [karat, setKarat] = useState<string>("18.06");
   const [baselineKarat, setBaselineKarat] = useState<string>("18.06");
+  const [customerName, setCustomerName] = useState<string>("JAJ");
+  const [weight, setWeight] = useState<string>("1.510");
+  const [sampleType, setSampleType] = useState<string>("RAWA");
   const [isAddingMetal, setIsAddingMetal] = useState(false);
   const [fileHandle, setFileHandle] = useState<any | null>(null);
   const [isPersistent, setIsPersistent] = useState(false);
@@ -247,6 +252,24 @@ export default function Dashboard() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasChanges = metals.some((m) => (m.history && m.history.length > 0) || m.isManual);
+      if (hasChanges) {
+        const message =
+          "The changes you made will be lost and you will switch to persisted file data.";
+        e.preventDefault();
+        e.returnValue = message;
+        return message;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [metals]);
   const [originalContent, setOriginalContent] = useState("");
   const rebalanceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -368,6 +391,72 @@ export default function Dashboard() {
     }
   };
 
+  const generateTemplateHtml = () => {
+    let html = reportTemplate;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB').replace(/\//g, '-');
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
+    const replacements: Record<string, string> = {
+      '{{DATE}}': dateStr,
+      '{{TIME}}': timeStr,
+      '{{CUSTOMER_NAME}}': customerName,
+      '{{WEIGHT}}': weight,
+      '{{SAMPLE_TYPE}}': sampleType,
+      '{{GOLD_PURITY}}': parseFloat(metals.find(m => m.id === 'gold')?.value || '0').toFixed(2),
+      '{{KARAT}}': karat,
+    };
+
+    // Add all metals to replacements
+    metals.forEach(m => {
+      const id = m.id.toUpperCase();
+      replacements[`{{${id}}}`] = parseFloat(m.value).toFixed(3);
+      
+      // Handle specific mappings for template placeholders
+      if (id === 'CADIMIUM') replacements['{{CADMIUM}}'] = parseFloat(m.value).toFixed(3);
+      if (id === 'TUNGESTAN') replacements['{{TUNGESTAN}}'] = parseFloat(m.value).toFixed(3);
+      if (id === 'IREDIUM') replacements['{{IREDIUM}}'] = parseFloat(m.value).toFixed(3);
+      if (id === 'CROMIUM') replacements['{{CROMIUM}}'] = parseFloat(m.value).toFixed(3);
+    });
+
+    // Ensure all placeholders in template are replaced (even if not in metals)
+    const placeholders = html.match(/{{[A-Z_]+}}/g) || [];
+    placeholders.forEach(p => {
+      if (!replacements[p]) {
+        replacements[p] = '0.000';
+      }
+    });
+
+    Object.entries(replacements).forEach(([key, value]) => {
+      html = html.replace(new RegExp(key, 'g'), value);
+    });
+
+    return html;
+  };
+
+  const handlePrint = () => {
+    const html = generateTemplateHtml();
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+      
+      // Wait for resources to load if any (though here it's mostly inline)
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      }, 500);
+    }
+  };
+
   const saveToOriginalFile = async () => {
     if (!fileHandle || !isPersistent) return;
     
@@ -382,8 +471,10 @@ export default function Dashboard() {
       const file = await fileHandle.getFile();
       setLastModified(file.lastModified);
       
-      // Optional: show success state
       console.log("File saved successfully");
+      
+      // Also trigger print using template as requested
+      handlePrint();
     } catch (err) {
       console.error("Save error:", err);
       setUploadError("Failed to save to original file. Falling back to download.");
@@ -800,6 +891,13 @@ export default function Dashboard() {
     // ✅ GOLD PURITY override (always first)
     const goldMatch = cleanText.match(/GOLD\s+PURITY\s*:\s*(\d+\.\d+)/);
     const karatMatch = cleanText.match(/KARAT\s*:\s*(\d+\.\d+|\d+)/);
+    const customerMatch = cleanText.match(/CUSTOMER\s+NAME\s*:\s*([^\n\r]+)/);
+    const weightMatch = cleanText.match(/WEIGHT\s*:\s*(\d+\.\d+|\d+)/);
+    const sampleTypeMatch = cleanText.match(/SAMPLE\s+TYPE\s*:\s*([^\n\r]+)/);
+
+    if (customerMatch) setCustomerName(customerMatch[1].trim());
+    if (weightMatch) setWeight(weightMatch[1].trim());
+    if (sampleTypeMatch) setSampleType(sampleTypeMatch[1].trim());
 
     if (karatMatch) {
       setKarat(karatMatch[1]);
@@ -896,65 +994,6 @@ export default function Dashboard() {
     .toFixed(2);
   const isVerified = Math.abs(parseFloat(totalAggregate) - 100) < 0.01;
 
-  const rtfToHtmlForPrint = (rtf: string) => {
-    if (!rtf.includes("{\\rtf")) return rtf.replace(/\n/g, "<br/>");
-
-    let html = rtf;
-
-    // 1. Handle Tables (Basic support for lab reports)
-    // RTF rows start with \trowd and end with \row
-    html = html.replace(/\\trowd([\s\S]*?)\\row/g, (match, rowContent) => {
-      let cells = rowContent.split(/\\cell/);
-      let rowHtml = "<tr>";
-      cells.forEach((cell, i) => {
-        if (i === cells.length - 1) return; // Skip the part after the last \cell
-        // Clean cell content but keep some basic formatting if possible
-        let clean = cell
-          .replace(/\\[a-z]+\d* ?/gi, "")
-          .replace(/[{}]/g, "")
-          .trim();
-        rowHtml += `<td style="border: 1px solid #ccc; padding: 8px; min-width: 50px; vertical-align: top;">${clean}</td>`;
-      });
-      rowHtml += "</tr>";
-      return `<table style="border-collapse: collapse; width: 100%; margin: 15px 0; border: 1px solid #ccc;">${rowHtml}</table>`;
-    });
-
-    // 2. Handle Paragraphs and Line Breaks
-    html = html.replace(/\\par\b/g, "<br/>");
-    html = html.replace(/\\line\b/g, "<br/>");
-    html = html.replace(/\\tab\b/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
-
-    // 3. Handle Basic Formatting
-    html = html.replace(/\\b\b/g, "<strong>");
-    html = html.replace(/\\b0\b/g, "</strong>");
-    html = html.replace(/\\i\b/g, "<em>");
-    html = html.replace(/\\i0\b/g, "</em>");
-
-    // 4. Final Cleanup of remaining RTF tags
-    html = html
-      .replace(/\\rtf1[\s\S]*?{\\fonttbl[\s\S]*?}/g, "")
-      .replace(/{\\colortbl[\s\S]*?}/g, "")
-      .replace(/{\\stylesheet[\s\S]*?}/g, "")
-      .replace(/{\\info[\s\S]*?}/g, "")
-      .replace(/\\[a-z]+\d* ?/gi, "")
-      .replace(/[{}]/g, "")
-      .trim();
-
-    return `
-      <div style="
-        font-family: 'Times New Roman', serif; 
-        line-height: 1.5; 
-        font-size: 11pt; 
-        color: #000;
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 40px;
-        background: white;
-      ">
-        ${html}
-      </div>
-    `;
-  };
 
   const addMetal = (metalId: string) => {
     const metalInfo = ALL_AVAILABLE_METALS.find((m) => m.id === metalId);
@@ -996,50 +1035,6 @@ export default function Dashboard() {
     setIsAddingMetal(false);
   };
 
-  const handlePrint = () => {
-    const content = generateUpdatedContent();
-    const html = rtfToHtmlForPrint(content);
-
-    // Create a hidden iframe for printing
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(`
-        <html>
-          <head>
-            <title>Metallurgist Report</title>
-            <style>
-              @page { margin: 20mm; }
-              body { margin: 0; padding: 0; background: white; }
-            </style>
-          </head>
-          <body>
-            ${html}
-          </body>
-        </html>
-      `);
-      doc.close();
-
-      // Wait for content to load and then print
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        // Remove the iframe after printing
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 1000);
-      }, 500);
-    }
-  };
   return (
     <div className="flex flex-col h-screen overflow-x-hidden overflow-y-hidden bg-background text-on-background font-body">
       {/* Main UI */}
@@ -1066,33 +1061,65 @@ export default function Dashboard() {
             )}
 
             {isPersistent ? (
-              <button
-                onClick={saveToOriginalFile}
-                disabled={!isParsed || isSaving}
-                className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
-                  isParsed && !isSaving
-                    ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
-                    : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
-                }`}
-              >
-                <Save size={14} className={`shrink-0 ${isSaving ? 'animate-pulse' : ''}`} />
-                <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save to Original File'}</span>
-                <span className="sm:hidden">{isSaving ? 'Saving...' : 'Save'}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={saveToOriginalFile}
+                  disabled={!isParsed || isSaving}
+                  className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                    isParsed && !isSaving
+                      ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
+                      : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <Save size={14} className={`shrink-0 ${isSaving ? 'animate-pulse' : ''}`} />
+                  <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save to Original File'}</span>
+                  <span className="sm:hidden">{isSaving ? 'Saving...' : 'Save'}</span>
+                </button>
+                
+                <button
+                  onClick={handlePrint}
+                  disabled={!isParsed}
+                  className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                    isParsed
+                      ? "bg-secondary text-on-secondary hover:opacity-90 cursor-pointer"
+                      : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <PrinterIcon size={14} className="shrink-0" />
+                  <span className="hidden sm:inline">Print Report</span>
+                  <span className="sm:hidden">Print</span>
+                </button>
+              </div>
             ) : (
-              <button
-                onClick={downloadDOC}
-                disabled={!isParsed}
-                className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
-                  isParsed
-                    ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
-                    : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
-                }`}
-              >
-                <FileText size={14} className="shrink-0" />
-                <span className="hidden sm:inline">Download File</span>
-                <span className="sm:hidden">Download</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={downloadDOC}
+                  disabled={!isParsed}
+                  className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                    isParsed
+                      ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
+                      : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <FileText size={14} className="shrink-0" />
+                  <span className="hidden sm:inline">Download File</span>
+                  <span className="sm:hidden">Download</span>
+                </button>
+
+                <button
+                  onClick={handlePrint}
+                  disabled={!isParsed}
+                  className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
+                    isParsed
+                      ? "bg-secondary text-on-secondary hover:opacity-90 cursor-pointer"
+                      : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <PrinterIcon size={14} className="shrink-0" />
+                  <span className="hidden sm:inline">Print Report</span>
+                  <span className="sm:hidden">Print</span>
+                </button>
+              </div>
             )}
 
             <div className="relative" ref={settingsRef}>
@@ -1148,9 +1175,9 @@ export default function Dashboard() {
         </header>
 
         <div className="flex flex-1 overflow-hidden">
-          <main className="w-full flex h-full overflow-hidden bg-surface">
+          <main className="w-full h-full overflow-hidden bg-surface">
             {/* Main Column: Editor */}
-            <div className="w-full flex flex-col p-3 sm:p-8 overflow-y-auto custom-scrollbar relative bg-surface">
+            <div className="w-full h-full flex flex-col p-3 sm:p-8 overflow-y-auto custom-scrollbar relative bg-surface">
               {/* Background Pattern & Gradients */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(var(--color-primary-rgb),0.12),transparent_40%),radial-gradient(circle_at_100%_100%,rgba(var(--color-secondary-rgb),0.12),transparent_40%)]"></div>
@@ -1409,10 +1436,11 @@ export default function Dashboard() {
                                       const existing = metals.find(
                                         (x) => x.id === m.id,
                                       );
-                                      return (
-                                        !existing ||
-                                        parseFloat(existing.value) === 0
-                                      );
+                                      if (!existing) return true;
+                                      
+                                      // A metal is "on screen" if it has a baseline, a positive value, or is manual
+                                      const isOnScreen = (existing.baseline ?? 0) > 0 || parseFloat(existing.value) > 0 || existing.isManual;
+                                      return !isOnScreen;
                                     }).map((metal) => (
                                       <button
                                         key={metal.id}
@@ -1433,12 +1461,12 @@ export default function Dashboard() {
                                         />
                                       </button>
                                     ))}
-                                    {ALL_AVAILABLE_METALS.filter(
-                                      (m) =>
-                                        !metals.some(
-                                          (existing) => existing.id === m.id,
-                                        ),
-                                    ).length === 0 && (
+                                    {ALL_AVAILABLE_METALS.filter((m) => {
+                                      const existing = metals.find((x) => x.id === m.id);
+                                      if (!existing) return true;
+                                      const isOnScreen = (existing.baseline ?? 0) > 0 || parseFloat(existing.value) > 0 || existing.isManual;
+                                      return !isOnScreen;
+                                    }).length === 0 && (
                                       <div className="p-4 text-center text-xs text-slate-400 font-medium">
                                         All metals already added
                                       </div>
