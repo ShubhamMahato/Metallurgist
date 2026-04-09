@@ -1081,7 +1081,7 @@ export default function Dashboard() {
                   disabled={!isParsed}
                   className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
                     isParsed
-                      ? "bg-secondary text-on-secondary hover:opacity-90 cursor-pointer"
+                      ? "bg-primary text-on-primary hover:opacity-90 cursor-pointer"
                       : "bg-surface-container text-outline-variant cursor-not-allowed opacity-60"
                   }`}
                 >
