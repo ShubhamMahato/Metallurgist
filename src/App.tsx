@@ -1,51 +1,28 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { store } from './store';
 import Dashboard from './components/Dashboard';
+import IntakePage from './pages/IntakePage';
 import Login from './components/Login';
 import Register from './components/Register';
 import NoPermission from './components/NoPermission';
 
-type Screen = 'login' | 'register' | 'dashboard' | 'no-permission';
-
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('dashboard');
-
-  const navigateTo = (screen: Screen) => {
-    setCurrentScreen(screen);
-  };
-
   return (
-    <div className="min-h-screen bg-background">
-      {currentScreen === 'login' && (
-        <Login 
-          onLogin={() => navigateTo('dashboard')} 
-          onNavigateToRegister={() => navigateTo('register')} 
-        />
-      )}
-      
-      {currentScreen === 'register' && (
-        <Register 
-          onRegister={() => navigateTo('login')} 
-          onNavigateToLogin={() => navigateTo('login')} 
-        />
-      )}
-      
-      {currentScreen === 'dashboard' && (
-        <div className="relative">
-          <Dashboard />
-          {/* Hidden trigger for No Permission screen for demo purposes */}
-          <button 
-            onClick={() => navigateTo('no-permission')}
-            className="fixed bottom-4 right-4 p-2 bg-slate-800 text-white rounded-full opacity-0 hover:opacity-50 transition-opacity"
-            title="Simulate Permission Error"
-          >
-            !
-          </button>
+    <Provider store={store}>
+      <Router>
+        <div className="min-h-screen bg-background">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/intake" element={<IntakePage />} />
+            <Route path="/login" element={<Login onLogin={() => {}} onNavigateToRegister={() => {}} />} />
+            <Route path="/register" element={<Register onRegister={() => {}} onNavigateToLogin={() => {}} />} />
+            <Route path="/no-permission" element={<NoPermission onBack={() => {}} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
-      )}
-      
-      {currentScreen === 'no-permission' && (
-        <NoPermission onBack={() => navigateTo('dashboard')} />
-      )}
-    </div>
+      </Router>
+    </Provider>
   );
 }

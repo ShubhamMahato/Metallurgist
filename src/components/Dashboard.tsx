@@ -18,8 +18,17 @@ import {
   Settings,
   Save,
   LockOpen,
+  UserPlus,
+  Users,
+  Search,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useNavigate } from "react-router-dom";
+import { 
+  useCreateIntakeMutation, 
+  useGetIntakesQuery, 
+  useCompleteIntakeMutation 
+} from "../store/apiSlice";
 import { 
   getFileHandle, 
   saveFileHandle, 
@@ -208,8 +217,53 @@ const ALL_AVAILABLE_METALS = [
   { id: "osmium", symbol: "Os", name: "Osmium" },
 ];
 
+const MetadataField = ({ label, value, onChange, icon: Icon, placeholder }: any) => {
+  const [localValue, setLocalValue] = React.useState(value);
+
+  React.useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-black text-outline uppercase tracking-widest ml-1">
+        {label}
+      </label>
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline-variant group-focus-within:text-primary transition-colors">
+          <Icon size={14} />
+        </div>
+        <input
+          type="text"
+          value={localValue}
+          onChange={(e) => setLocalValue(e.target.value)}
+          onBlur={() => onChange(localValue)}
+          className="w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary/50 focus:ring-4 focus:ring-primary/5 rounded-2xl py-2.5 pl-9 pr-4 text-xs font-bold text-on-surface transition-all outline-none"
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  );
+};
+
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [lastEditedId, setLastEditedId] = useState<string | null>(null);
+  const [intakeSearch, setIntakeSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedIntakeId, setSelectedIntakeId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(intakeSearch);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [intakeSearch]);
+
+  const { data: intakes = [], isLoading: isIntakesLoading } = useGetIntakesQuery(debouncedSearch);
+  const [completeIntake, { isLoading: isCompleting }] = useCompleteIntakeMutation();
   const [metals, setMetals] = useState<MetalValue[]>(INITIAL_METALS);
   const [tempValues, setTempValues] = useState<Record<string, string>>({});
   const [isParsed, setIsParsed] = useState(false);
@@ -544,24 +598,38 @@ export default function Dashboard() {
     if (gold) {
       const goldValue = parseFloat(gold.value || "0");
       content = content.replace(
-        /(GOLD\s+PURITY\s*:\s*)(?:\\\\[a-z0-9]+ ?|{[^{}]*}|\s)*?(\d+\.?\d*)/i,
-        `$1${goldValue.toFixed(2)}`,
+        /(GOLD\s+PURITY\s*:\s*)((?:\\\\[a-z0-9]+ ?|{[^{}]*}|\s)*?)(\d+\.?\d*)/i,
+        `$1$2${goldValue.toFixed(2)}`,
       );
 
       // 🔥 KARAT fix
       const newKarat = calculateKarat(goldValue);
       content = content.replace(
-        /(KARAT\s*:\s*)(?:\\\\[a-z0-9]+ ?|{[^{}]*}|\s)*?(\d+\.?\d*)/i,
-        `$1${newKarat}`,
+        /(KARAT\s*:\s*)((?:\\\\[a-z0-9]+ ?|{[^{}]*}|\s)*?)(\d+\.?\d*)/i,
+        `$1$2${newKarat}`,
       );
     }
 
+    // 🔥 CUSTOMER NAME fix
+    content = content.replace(
+      /(CUSTOMER\s+NAME\s*:\s*)((?:\\\\[a-z0-9]+ ?|{[^{}]*}|\s)*?)([^\\\n\r{}]+)/i,
+      `$1$2${customerName}`,
+    );
+
+    // 🔥 WEIGHT fix
+    content = content.replace(
+      /(WEIGHT\s*:\s*)((?:\\\\[a-z0-9]+ ?|{[^{}]*}|\s)*?)(\d+\.?\d*)/i,
+      `$1$2${weight}`,
+    );
+
+    // 🔥 SAMPLE TYPE fix
+    content = content.replace(
+      /(SAMPLE\s+TYPE\s*:\s*)((?:\\\\[a-z0-9]+ ?|{[^{}]*}|\s)*?)([^\\\n\r{}]+)/i,
+      `$1$2${sampleType}`,
+    );
+
     return content;
   };
-
-  const updatedContent = React.useMemo(() => {
-    return generateUpdatedContent();
-  }, [metals, originalContent]);
 
   const handleValueChange = (id: string, newValue: string) => {
     if (newValue !== "" && !/^\d*\.?\d*$/.test(newValue)) return;
@@ -780,6 +848,89 @@ export default function Dashboard() {
     });
   };
 
+  const balanceInitialMetals = (initialMetals: MetalValue[]) => {
+    const originalMetals = initialMetals.map((m) => ({ ...m }));
+
+    let parsedMetals = initialMetals.map((m) => ({
+      ...m,
+      numValue: parseFloat(m.value || "0"),
+    }));
+
+    let delta = 100 - parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
+
+    if (Math.abs(delta) < 0.0001) return initialMetals;
+
+    // Only adjust metals that are not locked AND have a positive value
+    const isAdjustable = (m: any) => !m.locked && m.numValue > 0;
+
+    let attempts = 0;
+    while (Math.abs(delta) > 0.0001 && attempts < 15) {
+      attempts++;
+      const adjustable = parsedMetals.filter((m) => {
+        if (!isAdjustable(m)) return false;
+        if (delta < 0 && m.numValue <= 0.0001) return false;
+        if (delta > 0 && m.numValue >= 99.9999) return false;
+        return true;
+      });
+
+      if (adjustable.length === 0) break;
+
+      const weights = adjustable.map((m) =>
+        Math.max(m.numValue, (m.baseline ?? 0) > 0 ? m.baseline! : 1.0),
+      );
+      const totalWeight = weights.reduce((a, b) => a + b, 0);
+      if (totalWeight === 0) break;
+
+      let remainingDelta = delta;
+      parsedMetals = parsedMetals.map((m) => {
+        const adjIndex = adjustable.findIndex((a) => a.id === m.id);
+        if (adjIndex === -1) return m;
+
+        const share = (weights[adjIndex] / totalWeight) * delta;
+        let newValue = m.numValue + share;
+        if (newValue < 0) newValue = 0;
+        if (newValue > 100) newValue = 100;
+
+        remainingDelta -= newValue - m.numValue;
+        return { ...m, numValue: newValue };
+      });
+      delta = remainingDelta;
+    }
+
+    return parsedMetals.map((m) => {
+      const original = originalMetals.find((o) => o.id === m.id)!;
+      const originalVal = parseFloat(original.value);
+      const diff = m.numValue - originalVal;
+
+      if (Math.abs(diff) > 0.0001) {
+        const percent = originalVal === 0 ? 0 : (diff / originalVal) * 100;
+        return {
+          ...m,
+          value: m.numValue.toFixed(3),
+          previous: originalVal,
+          delta: diff,
+          percentChange: percent,
+          changed: true,
+          history: [
+            {
+              from: originalVal,
+              to: m.numValue,
+              delta: diff,
+              percent: percent,
+              source: "Auto-Balance",
+            },
+          ],
+        };
+      }
+
+      return {
+        ...m,
+        value: m.numValue.toFixed(3),
+        history: [],
+      };
+    });
+  };
+
   // 🔥 RTF → TEXT CLEANER
   const rtfToText = (rtf: string) => {
     return rtf
@@ -928,7 +1079,7 @@ export default function Dashboard() {
         history: [],
       });
 
-      setMetals(rest);
+      setMetals(balanceInitialMetals(rest));
     } else {
       // If no GOLD PURITY match, check if we found gold in the loop for Karat calculation
       if (!karatMatch) {
@@ -939,7 +1090,7 @@ export default function Dashboard() {
           setBaselineKarat(calculated);
         }
       }
-      setMetals(newMetals);
+      setMetals(balanceInitialMetals(newMetals));
     }
 
     if (newMetals.length > 0) {
@@ -1048,6 +1199,28 @@ export default function Dashboard() {
               </div>
               <span className="truncate font-black">Metallurgist Pro</span>
             </h1>
+            <button
+              onClick={() => navigate("/intake")}
+              className="hidden md:flex items-center gap-2 px-4 py-2 bg-[#141414] text-[#E4E3E0] rounded-xl hover:bg-[#E4E3E0] hover:text-[#141414] transition-all text-[10px] font-black uppercase tracking-widest border border-[#141414]"
+            >
+              <UserPlus size={14} />
+              Customer Intake
+            </button>
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border ${
+                selectedIntakeId 
+                  ? "bg-secondary/10 text-secondary border-secondary/30 shadow-sm" 
+                  : "bg-surface-container text-on-surface border-outline-variant/30 hover:bg-surface-container-high"
+              }`}
+            >
+              <Users size={14} />
+              {selectedIntakeId ? (
+                <span className="flex items-center gap-2">
+                  Linked: <span className="text-on-surface truncate max-w-[100px]">{intakes.find(i => i.id === selectedIntakeId)?.name || 'Customer'}</span>
+                </span>
+              ) : "Link Customer"}
+            </button>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {fileHandle && isParsed && (
@@ -1174,8 +1347,8 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
-          <main className="w-full h-full overflow-hidden bg-surface">
+        <div className="flex flex-1 overflow-hidden relative">
+          <main className="flex-1 h-full overflow-hidden bg-surface relative">
             {/* Main Column: Editor */}
             <div className="w-full h-full flex flex-col p-3 sm:p-8 overflow-y-auto custom-scrollbar relative bg-surface">
               {/* Background Pattern & Gradients */}
@@ -1392,8 +1565,33 @@ export default function Dashboard() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 20 }}
-                      className="space-y-4 relative z-30"
+                      className="space-y-6 relative z-30"
                     >
+                      {/* Report Metadata Section */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white/40 backdrop-blur-xl p-6 rounded-3xl border border-white/40 shadow-sm relative z-50">
+                        <MetadataField
+                          label="Customer Name"
+                          value={customerName}
+                          onChange={setCustomerName}
+                          icon={FileText}
+                          placeholder="Enter customer name"
+                        />
+                        <MetadataField
+                          label="Sample Type"
+                          value={sampleType}
+                          onChange={setSampleType}
+                          icon={Sparkles}
+                          placeholder="Enter sample type"
+                        />
+                        <MetadataField
+                          label="Weight (g)"
+                          value={weight}
+                          onChange={setWeight}
+                          icon={Activity}
+                          placeholder="Enter weight"
+                        />
+                      </div>
+
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-wrap items-center justify-between gap-4 relative z-40">
                           <div className="flex items-center gap-3">
@@ -1482,11 +1680,6 @@ export default function Dashboard() {
                                     e.stopPropagation();
                                     setIsParsed(false);
                                     setUploadError(null);
-                                    setTimeout(() => {
-                                      if (fileInputRef.current) {
-                                        fileInputRef.current.click();
-                                      }
-                                    }, 100);
                                   }}
                                   className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline flex items-center gap-1 cursor-pointer p-3 -m-3 bg-white/5 rounded-lg border border-transparent hover:border-primary/20 transition-all"
                                 >
@@ -1684,6 +1877,204 @@ export default function Dashboard() {
             </div>
           </main>
         </div>
+
+        {/* Modern Overlay / Split Sidebar for Customer Selection */}
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <>
+              {/* Backdrop - Only on mobile/tablet */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSidebarOpen(false)}
+                className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[60] lg:hidden"
+              />
+              
+              {/* Sidebar / Drawer */}
+              <motion.aside
+                initial={{ x: "100%", width: 0 }}
+                animate={{ x: 0, width: "auto" }}
+                exit={{ x: "100%", width: 0 }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                className="fixed right-0 top-0 lg:relative h-full w-full sm:w-[400px] lg:w-[450px] bg-surface-container-lowest shadow-2xl lg:shadow-none z-[70] lg:z-10 border-l border-outline-variant/30 flex flex-col overflow-hidden"
+              >
+                {/* Drawer Header - Technical Style */}
+                <div className="p-6 bg-surface-container-lowest border-b border-outline-variant/30 shrink-0">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-primary/5 rounded-xl flex items-center justify-center text-primary border border-primary/10">
+                        <Users size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black font-headline text-on-surface uppercase tracking-tighter">
+                          Customer Queue
+                        </h3>
+                        <p className="text-[9px] font-mono text-outline-variant uppercase tracking-[0.2em]">
+                          Active Intake Records
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setIsSidebarOpen(false)}
+                      className="p-2 hover:bg-surface-container rounded-xl transition-colors text-outline-variant hover:text-on-surface"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-outline-variant group-focus-within:text-primary transition-colors">
+                      <Search size={14} />
+                    </div>
+                    <input
+                      type="text"
+                      value={intakeSearch}
+                      onChange={(e) => setIntakeSearch(e.target.value)}
+                      className="w-full bg-surface-container-low border border-outline-variant/20 focus:border-primary/40 focus:ring-4 focus:ring-primary/5 rounded-xl py-2.5 pl-10 pr-4 text-xs font-bold text-on-surface transition-all outline-none placeholder:text-outline-variant/40 font-mono"
+                      placeholder="SEARCH BY NAME/PHONE..."
+                    />
+                  </div>
+                </div>
+
+                {/* Drawer Content - Bento List */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2 bg-surface-container-lowest">
+                  {isIntakesLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                      <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                      <p className="text-[9px] font-mono text-outline-variant uppercase tracking-widest">
+                        Syncing Database...
+                      </p>
+                    </div>
+                  ) : intakes.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 border-2 border-dashed border-outline-variant/10 rounded-3xl">
+                      <div className="w-12 h-12 bg-surface-container rounded-2xl flex items-center justify-center text-outline-variant/20">
+                        <Search size={24} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-on-surface">No Pending Intakes</p>
+                        <p className="text-[9px] font-mono text-outline-variant uppercase tracking-tight mt-1">
+                          Check search filters or add new
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2">
+                      {intakes.map((intake: any) => (
+                        <motion.button
+                          layout
+                          key={intake.id}
+                          onClick={() => setSelectedIntakeId(intake.id)}
+                          className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center gap-4 group relative overflow-hidden ${
+                            selectedIntakeId === intake.id
+                              ? "bg-primary/5 border-primary/40 shadow-sm"
+                              : "bg-white border-outline-variant/10 hover:border-primary/20 text-on-surface hover:bg-surface-container-lowest"
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                            selectedIntakeId === intake.id 
+                              ? "bg-primary text-on-primary rotate-3" 
+                              : "bg-surface-container-highest text-outline-variant group-hover:text-primary group-hover:bg-primary/5"
+                          }`}>
+                            {selectedIntakeId === intake.id ? <CheckCircle2 size={18} /> : <UserPlus size={18} />}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <h4 className={`text-xs font-black uppercase tracking-tight truncate ${selectedIntakeId === intake.id ? 'text-primary' : 'text-on-surface'}`}>
+                                {intake.name}
+                              </h4>
+                              <span className="text-[8px] font-mono text-outline-variant">
+                                {new Date(intake.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <p className="text-[10px] font-mono text-outline-variant flex items-center gap-1">
+                                <Activity size={10} className="opacity-50" />
+                                {intake.phone_number}
+                              </p>
+                              <p className="text-[10px] font-mono text-primary font-bold flex items-center gap-1">
+                                <Coins size={10} className="opacity-50" />
+                                {intake.gold_weight}g
+                              </p>
+                            </div>
+                          </div>
+
+                          {selectedIntakeId === intake.id && (
+                            <motion.div 
+                              layoutId="active-glow"
+                              className="absolute inset-0 border-2 border-primary/20 rounded-2xl pointer-events-none" 
+                            />
+                          )}
+                        </motion.button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Drawer Footer - Action Area */}
+                <div className="p-6 bg-surface-container-lowest border-t border-outline-variant/30 space-y-4">
+                  {selectedIntakeId && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 rounded-2xl bg-secondary/5 border border-secondary/20 flex items-center gap-3"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
+                        <ShieldCheck size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[8px] font-black text-secondary uppercase tracking-widest leading-none mb-1">
+                          Linked Customer
+                        </p>
+                        <p className="text-xs font-bold text-on-surface truncate">
+                          {intakes.find(i => i.id === selectedIntakeId)?.name}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedIntakeId(null)}
+                        className="p-1.5 hover:bg-secondary/10 rounded-lg text-secondary transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </motion.div>
+                  )}
+
+                  <button
+                    disabled={!selectedIntakeId || isCompleting}
+                    onClick={async () => {
+                      if (!selectedIntakeId) return;
+                      try {
+                        await completeIntake(selectedIntakeId).unwrap();
+                        setSelectedIntakeId(null);
+                        setIntakeSearch("");
+                        setIsSidebarOpen(false);
+                      } catch (err) {
+                        console.error("Failed to complete intake:", err);
+                      }
+                    }}
+                    className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg ${
+                      selectedIntakeId && !isCompleting
+                        ? "bg-primary text-on-primary hover:scale-[1.02] active:scale-[0.98] shadow-primary/20"
+                        : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
+                    }`}
+                  >
+                    {isCompleting ? (
+                      <div className="w-4 h-4 border-2 border-on-primary/20 border-t-on-primary rounded-full animate-spin" />
+                    ) : (
+                      <Zap size={16} />
+                    )}
+                    {isCompleting ? "Processing..." : "Finalize & Send"}
+                  </button>
+                  
+                  <p className="text-[8px] font-mono text-center text-outline-variant uppercase tracking-widest">
+                    Action will mark intake as completed
+                  </p>
+                </div>
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

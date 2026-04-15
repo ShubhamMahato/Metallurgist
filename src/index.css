@@ -55,31 +55,12 @@
 
 @layer base {
   body {
-    @apply bg-background text-on-background font-body antialiased;
+    @apply bg-background text-on-background font-body antialiased overflow-x-hidden;
   }
 }
 
 .paper-shadow {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.05);
-}
-
-/* Print Styles */
-@media print {
-  @page {
-    margin: 20mm;
-    size: auto;
-  }
-  
-  body {
-    background: white !important;
-  }
-
-  .print-paper {
-    background: white;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-  }
 }
 
 .custom-scrollbar::-webkit-scrollbar {
