@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
+// @ts-ignore
 import Database from "better-sqlite3";
 import fs from "fs";
 
