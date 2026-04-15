@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // --- Database Setup (Repository Pattern) ---
-const dbPath = "intake.db";
+const dbPath = "/home/pi/data/intake.db";
 const dbDir = path.dirname(dbPath);
 
 // Ensure directory exists
