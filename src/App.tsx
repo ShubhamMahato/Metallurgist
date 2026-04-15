@@ -8,6 +8,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import NoPermission from './components/NoPermission';
 
+
 export default function App() {
   return (
     <Provider store={store}>
