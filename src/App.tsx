@@ -2,12 +2,11 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store';
-import Dashboard from './components/Dashboard';
+import DashboardPage from './pages/DashboardPage';
 import IntakePage from './pages/IntakePage';
 import Login from './components/Login';
 import Register from './components/Register';
 import NoPermission from './components/NoPermission';
-
 
 export default function App() {
   return (
@@ -15,7 +14,7 @@ export default function App() {
       <Router>
         <div className="min-h-screen bg-background">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<DashboardPage />} />
             <Route path="/intake" element={<IntakePage />} />
             <Route path="/login" element={<Login onLogin={() => {}} onNavigateToRegister={() => {}} />} />
             <Route path="/register" element={<Register onRegister={() => {}} onNavigateToLogin={() => {}} />} />

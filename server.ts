@@ -8,7 +8,7 @@ import fs from "fs";
 
 
 // --- Database Setup (Repository Pattern) ---
-const dbPath = "/home/pi/data/intake.db";
+const dbPath = "intake.db";
 const dbDir = path.dirname(dbPath);
 
 // Ensure directory exists
