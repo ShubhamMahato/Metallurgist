@@ -1,12 +1,11 @@
 import React from "react";
-import { ShieldCheck, Gem, History } from "lucide-react";
+import { ShieldCheck, Gem, History, CheckCircle2 } from "lucide-react";
 import { motion } from "motion/react";
 
 interface CalculationSummaryProps {
   totalAggregate: string;
   isVerified: boolean;
   karat: string;
-  resetToOriginal: () => void;
   isParsed: boolean;
 }
 
@@ -14,7 +13,6 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
   totalAggregate,
   isVerified,
   karat,
-  resetToOriginal,
   isParsed,
 }) => {
   return (
@@ -75,22 +73,6 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
           </div>
         </div>
       </div>
-
-      <button
-        onClick={resetToOriginal}
-        title="Reset all constituents to original laboratory report values"
-        className="flex items-center gap-1.5 sm:gap-3 bg-white/40 backdrop-blur-xl px-2 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm hover:bg-primary-fixed transition-all group cursor-pointer col-span-2 sm:flex-none justify-center sm:justify-start"
-      >
-        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-outline-variant/20 flex items-center justify-center text-outline group-hover:text-primary transition-colors shrink-0">
-          <History
-            size={14}
-            className="sm:w-4 sm:h-4 group-hover:rotate-[-45deg] transition-transform"
-          />
-        </div>
-        <span className="text-xs sm:text-sm font-black font-headline text-on-surface group-hover:text-primary transition-colors">
-          Reset
-        </span>
-      </button>
     </div>
   );
 };

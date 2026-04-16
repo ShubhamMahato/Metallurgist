@@ -1,13 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { UserCircle, Lock, ArrowRight } from 'lucide-react';
+import { UserCircle, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { useLoginMutation } from '../store/apiSlice';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (user: any) => void;
   onNavigateToRegister: () => void;
 }
 
 export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [login, { isLoading, error }] = useLoginMutation();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const user = await login({ email, password }).unwrap();
+      localStorage.setItem('user', JSON.stringify(user));
+      onLogin(user);
+    } catch (err) {
+      console.error('Login failed:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <motion.div 
@@ -21,7 +37,14 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
             <p className="text-on-surface-variant text-sm">Access the precision laboratory dashboard.</p>
           </div>
 
-          <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onLogin(); }}>
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2 text-red-600 text-xs font-bold">
+                <AlertCircle size={14} />
+                {(error as any).data?.message || 'Authentication failed'}
+              </div>
+            )}
+            
             <div className="space-y-2">
               <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">Email Address</label>
               <div className="relative group">
@@ -30,6 +53,8 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
                 </div>
                 <input 
                   type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 bg-surface-container-low border-0 border-b border-outline-variant/30 focus:ring-0 focus:border-secondary transition-all font-body text-sm"
                   placeholder="technician@foundry.lab"
                   required
@@ -45,6 +70,8 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
                 </div>
                 <input 
                   type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 bg-surface-container-low border-0 border-b border-outline-variant/30 focus:ring-0 focus:border-secondary transition-all font-body text-sm"
                   placeholder="••••••••"
                   required
@@ -54,10 +81,11 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
 
             <button 
               type="submit"
-              className="w-full py-4 bg-primary text-on-primary font-bold rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2 group"
+              disabled={isLoading}
+              className="w-full py-4 bg-primary text-on-primary font-bold rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
             >
-              Authenticate
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              {isLoading ? "Authenticating..." : "Authenticate"}
+              {!isLoading && <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />}
             </button>
           </form>
 

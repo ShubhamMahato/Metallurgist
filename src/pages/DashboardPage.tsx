@@ -20,7 +20,9 @@ import { AddMetalModal } from "../components/dashboard/AddMetalModal";
 import { MetadataField } from "../components/dashboard/MetadataField";
 import { ALL_AVAILABLE_METALS } from "../constants/metals";
 
-export default function DashboardPage() {
+import { LogOut, Settings as SettingsIcon } from "lucide-react";
+
+export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
   const {
     navigate,
     lastEditedId,
@@ -80,13 +82,29 @@ export default function DashboardPage() {
     totalAggregate,
     isVerified,
     addMetal,
+    saveFinalReport,
+    isSavingFinalReport,
   } = useDashboard();
+
+  const [notification, setNotification] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  const handleSaveFinalReport = async () => {
+    try {
+      await saveFinalReport();
+      setNotification({ type: 'success', message: 'Final report saved successfully!' });
+      setTimeout(() => setNotification(null), 5000);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Failed to save final report' });
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen overflow-x-hidden overflow-y-hidden bg-background text-on-background font-body">
       <div className="flex flex-col h-full">
         <DashboardHeader
           navigate={navigate}
+          onLogout={onLogout}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
           selectedIntakeId={selectedIntakeId}
@@ -95,6 +113,9 @@ export default function DashboardPage() {
           isParsed={isParsed}
           isPersistent={isPersistent}
           isSaving={isSaving}
+          isVerified={isVerified}
+          onSaveFinalReport={handleSaveFinalReport}
+          isSavingFinalReport={isSavingFinalReport}
           reloadFile={reloadFile}
           saveToOriginalFile={saveToOriginalFile}
           downloadDOC={downloadDOC}
@@ -145,6 +166,18 @@ export default function DashboardPage() {
                   <span>Disconnect File</span>
                   <span className="text-[9px] font-medium text-error/60">
                     Stop persistent sync
+                  </span>
+                </div>
+              </button>
+              <button
+                onClick={onLogout}
+                className="w-full text-left px-3 py-2.5 hover:bg-error/10 rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-error mt-1 border-t border-outline-variant/10"
+              >
+                <LogOut size={16} />
+                <div className="flex flex-col">
+                  <span>Sign Out</span>
+                  <span className="text-[9px] font-medium text-error/60">
+                    Exit laboratory system
                   </span>
                 </div>
               </button>
@@ -233,8 +266,31 @@ export default function DashboardPage() {
                     karat={karat}
                     resetToOriginal={resetToOriginal}
                     isParsed={isParsed}
+                    onSaveFinalReport={handleSaveFinalReport}
+                    isSavingFinalReport={isSavingFinalReport}
                   />
                 </header>
+
+                <AnimatePresence>
+                  {notification && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className={`fixed top-20 right-6 z-[200] px-6 py-3 rounded-2xl shadow-lg font-bold text-sm flex items-center gap-3 ${
+                        notification.type === 'success' 
+                          ? 'bg-green-500 text-white' 
+                          : 'bg-red-500 text-white'
+                      }`}
+                    >
+                      {notification.type === 'success' ? <Zap size={18} /> : <AlertCircle size={18} />}
+                      {notification.message}
+                      <button onClick={() => setNotification(null)} className="ml-4 opacity-70 hover:opacity-100">
+                        <X size={16} />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <AnimatePresence>
                   {!isParsed && (

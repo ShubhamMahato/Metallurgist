@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   useGetIntakesQuery,
   useCompleteIntakeMutation,
+  useSaveFinalResultsMutation,
 } from "../store/apiSlice";
 import {
   getFileHandle,
@@ -33,9 +34,37 @@ export const useDashboard = () => {
 
   const { data: intakes = [], isLoading: isIntakesLoading } = useGetIntakesQuery(debouncedSearch);
   const [completeIntakeMutation, { isLoading: isCompleting }] = useCompleteIntakeMutation();
+  const [saveFinalResultsMutation, { isLoading: isSavingFinalReport }] = useSaveFinalResultsMutation();
   
   const completeIntake = async (id: string) => {
     return await completeIntakeMutation(id).unwrap();
+  };
+
+  const saveFinalReport = async () => {
+    if (!selectedIntakeId) {
+      throw new Error("Please select a customer intake record first.");
+    }
+
+    const selectedIntake = intakes.find(i => i.id === selectedIntakeId);
+    if (!selectedIntake) {
+      throw new Error("Selected intake record not found.");
+    }
+
+    const payload = {
+      customerId: selectedIntake.customer_id,
+      intakeId: selectedIntake.id,
+      totalValue: parseFloat(totalAggregate),
+      purityPercentage: parseFloat(metals.find(m => m.id === "gold")?.value || "0"),
+      metals: metals
+        .filter(m => parseFloat(m.value) > 0)
+        .map(m => ({
+          metal_id: m.id,
+          value: parseFloat(m.value),
+          percentage: parseFloat(m.value) // In this case value is percentage
+        }))
+    };
+
+    return await saveFinalResultsMutation(payload).unwrap();
   };
 
   const [metals, setMetals] = useState<MetalValue[]>(INITIAL_METALS);
@@ -944,5 +973,7 @@ export const useDashboard = () => {
     totalAggregate,
     isVerified,
     addMetal,
+    saveFinalReport,
+    isSavingFinalReport,
   };
 };

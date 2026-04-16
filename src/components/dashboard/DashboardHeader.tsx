@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 
 interface DashboardHeaderProps {
   navigate: ReturnType<typeof useNavigate>;
+  onLogout: () => void;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
   selectedIntakeId: string | null;
@@ -23,6 +24,9 @@ interface DashboardHeaderProps {
   isParsed: boolean;
   isPersistent: boolean;
   isSaving: boolean;
+  isVerified: boolean;
+  onSaveFinalReport: () => void;
+  isSavingFinalReport: boolean;
   reloadFile: () => void;
   saveToOriginalFile: () => void;
   downloadDOC: () => void;
@@ -37,6 +41,7 @@ interface DashboardHeaderProps {
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   navigate,
+  onLogout,
   isSidebarOpen,
   setIsSidebarOpen,
   selectedIntakeId,
@@ -45,6 +50,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   isParsed,
   isPersistent,
   isSaving,
+  isVerified,
+  onSaveFinalReport,
+  isSavingFinalReport,
   reloadFile,
   saveToOriginalFile,
   downloadDOC,
@@ -56,6 +64,20 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setShowSettings,
   settingsRef,
 }) => {
+  const handleSaveWrapper = () => {
+    // 1. Always attempt original save logic
+    if (isPersistent) {
+      saveToOriginalFile();
+    } else {
+      downloadDOC();
+    }
+
+    // 2. If verified and customer linked, also save to DB
+    if (isVerified && selectedIntakeId) {
+      onSaveFinalReport();
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between px-3 sm:px-6 py-2.5 w-full bg-surface-container-lowest border-b border-outline-variant/30 backdrop-blur-md bg-opacity-90">
       <div className="flex items-center gap-2 sm:gap-6 min-w-0">
@@ -126,16 +148,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           {isPersistent ? (
             <>
               <button
-                onClick={saveToOriginalFile}
-                disabled={!isParsed || isSaving}
+                onClick={handleSaveWrapper}
+                disabled={!isParsed || isSaving || isSavingFinalReport}
                 className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${
-                  isParsed && !isSaving
+                  isParsed && !isSaving && !isSavingFinalReport
                     ? "bg-primary text-on-primary hover:shadow-lg shadow-primary/20"
                     : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
                 }`}
               >
-                <Save size={14} className={isSaving ? "animate-pulse" : ""} />
-                <span>{isSaving ? "Saving..." : "Save"}</span>
+                <Save size={14} className={isSaving || isSavingFinalReport ? "animate-pulse" : ""} />
+                <span>{isSaving || isSavingFinalReport ? "Saving..." : "Save"}</span>
               </button>
 
               <button
@@ -154,16 +176,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           ) : (
             <>
               <button
-                onClick={downloadDOC}
-                disabled={!isParsed}
+                onClick={handleSaveWrapper}
+                disabled={!isParsed || isSavingFinalReport}
                 className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${
-                  isParsed
+                  isParsed && !isSavingFinalReport
                     ? "bg-primary text-on-primary hover:shadow-lg shadow-primary/20"
                     : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
                 }`}
               >
-                <FileText size={14} />
-                <span>Download</span>
+                <FileText size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
+                <span>{isSavingFinalReport ? "Saving..." : "Download"}</span>
               </button>
 
               <button
@@ -220,26 +242,26 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 {isPersistent ? (
                   <button
                     onClick={() => {
-                      saveToOriginalFile();
+                      handleSaveWrapper();
                       setShowMobileMenu(false);
                     }}
-                    disabled={!isParsed || isSaving}
+                    disabled={!isParsed || isSaving || isSavingFinalReport}
                     className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-surface-container rounded-xl transition-colors disabled:opacity-50"
                   >
-                    <Save size={16} className="text-primary" />
-                    {isSaving ? "Saving..." : "Save"}
+                    <Save size={16} className={isSaving || isSavingFinalReport ? "text-primary animate-pulse" : "text-primary"} />
+                    {isSaving || isSavingFinalReport ? "Saving..." : "Save"}
                   </button>
                 ) : (
                   <button
                     onClick={() => {
-                      downloadDOC();
+                      handleSaveWrapper();
                       setShowMobileMenu(false);
                     }}
-                    disabled={!isParsed}
+                    disabled={!isParsed || isSavingFinalReport}
                     className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-surface-container rounded-xl transition-colors disabled:opacity-50"
                   >
-                    <FileText size={16} className="text-primary" />
-                    Download
+                    <FileText size={16} className={isSavingFinalReport ? "text-primary animate-pulse" : "text-primary"} />
+                    {isSavingFinalReport ? "Saving..." : "Download"}
                   </button>
                 )}
 
