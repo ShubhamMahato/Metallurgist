@@ -44,7 +44,7 @@ export default function App() {
             />
             <Route 
               path="/intake" 
-              element={user ? <IntakePage /> : <Navigate to="/login" replace />} 
+              element={user || new URLSearchParams(window.location.search).has('user_id') ? <IntakePage /> : <Navigate to="/login" replace />} 
             />
             <Route 
               path="/login" 

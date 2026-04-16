@@ -7,7 +7,6 @@ import fs from "fs";
 import * as Handlebars from "handlebars";
 import puppeteer from "puppeteer";
 import crypto from "crypto";
-
 // --- Database Setup (Repository Pattern) ---
 const dbPath = "/home/pi/data/intake.db";
 const dbDir = path.dirname(dbPath);
@@ -265,24 +264,34 @@ const FinalResultRepository = {
 
     if (!header) return null;
 
+    const metalSymbols: Record<string, string> = {
+      gold: "Au", silver: "Ag", copper: "Cu", zinc: "Zn", cadimium: "Cd",
+      nickel: "Ni", palladium: "Pd", indium: "In", tin: "Sn", iredium: "Ir",
+      ruthenium: "Ru", tungestan: "W", platinum: "Pt", lead: "Pb",
+      cromium: "Cr", manganese: "Mn", rhodium: "Rh", iron: "Fe",
+      cobalt: "Co", gallium: "Ga", vanadium: "V", osmium: "Os"
+    };
+
     const breakdown = db.prepare(`
       SELECT 
         metal_id as metal,
-        metal_id as symbol, -- Placeholder for symbol mapping if needed
         value
       FROM final_metal_breakdown
       WHERE final_result_id = ?
     `).all(reportId) as any[];
 
-    // Map symbols if needed or use metal_id as name
-    const metals = breakdown.map(m => ({
-      metal: m.metal.charAt(0).toUpperCase() + m.metal.slice(1),
-      symbol: m.symbol.substring(0, 2).toUpperCase(),
-      value: parseFloat(m.value).toFixed(3)
-    }));
+    const metals = breakdown.map(m => {
+      const metalId = m.metal.toLowerCase();
+      return {
+        metal: m.metal.charAt(0).toUpperCase() + m.metal.slice(1),
+        symbol: metalSymbols[metalId] || metalId.substring(0, 2).toUpperCase(),
+        value: parseFloat(m.value).toFixed(3)
+      };
+    });
 
     return {
       ...header,
+      date: new Date(header.date).toLocaleDateString('en-GB'),
       metals
     };
   }
@@ -394,7 +403,57 @@ async function startServer() {
     next();
   };
 
-  apiRouter.use(["/intake", "/final-results"], authMiddleware);
+  apiRouter.use(["/final-results"], authMiddleware);
+
+  // POST /intake is PUBLIC but GET /intake is PRIVATE
+  apiRouter.get("/intake", authMiddleware, (req: any, res) => {
+    try {
+      const search = req.query.search as string;
+      const records = IntakeService.getPendingIntakes(req.userId, search);
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching intakes:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  apiRouter.post("/intake", (req: any, res) => {
+    try {
+      const { name, phoneNumber, goldWeight, userId: bodyUserId } = req.body;
+      const headerUserId = req.headers["x-user-id"];
+      
+      const effectiveUserId = bodyUserId || headerUserId;
+
+      if (!effectiveUserId) {
+        return res.status(401).json({ message: "User ID required for intake" });
+      }
+
+      if (!name || !phoneNumber || goldWeight === undefined) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const savedRecord = IntakeService.createIntake(effectiveUserId, { name, phoneNumber, goldWeight });
+      
+      res.status(201).json({
+        id: savedRecord.id,
+        message: "Intake recorded successfully"
+      });
+    } catch (error) {
+      console.error("Error in intake:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  apiRouter.patch("/intake/:id/complete", authMiddleware, (req: any, res) => {
+    try {
+      const { id } = req.params;
+      IntakeService.completeIntake(req.userId, id);
+      res.json({ message: "Intake marked as completed" });
+    } catch (error) {
+      console.error("Error completing intake:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   // PUBLIC REPORT ENDPOINT
   apiRouter.get("/report/:id", async (req, res) => {
@@ -417,21 +476,41 @@ async function startServer() {
       const html = template(reportData);
 
       // Generate PDF
-      const browser = await puppeteer.launch({
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-        headless: true
-      });
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "networkidle0" });
-      const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-      await browser.close();
-
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="report_${id}.pdf"`);
-      res.send(pdfBuffer);
+      console.log(`Generating PDF for report ${id}...`);
+      let browser;
+      try {
+        browser = await puppeteer.launch({
+          args: [
+            "--no-sandbox", 
+            "--disable-setuid-sandbox", 
+            "--disable-dev-shm-usage",
+            "--disable-accelerated-2d-canvas",
+            "--disable-gpu",
+            "--no-first-run",
+            "--no-zygote",
+            "--single-process"
+          ],
+          headless: true
+        });
+        const page = await browser.newPage();
+        // Set a reasonable viewport for A4
+        await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 2 });
+        await page.setContent(html, { waitUntil: "load", timeout: 45000 });
+        const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+        await browser.close();
+        console.log(`PDF generated successfully for report ${id}`);
+        
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="report_${id}.pdf"`);
+        res.send(pdfBuffer);
+      } catch (browserError) {
+        console.error("Puppeteer/Browser error:", browserError);
+        if (browser) await browser.close();
+        throw browserError;
+      }
     } catch (error) {
       console.error("Error generating report:", error);
-      res.status(500).send("Failed to generate PDF report");
+      res.status(500).json({ error: "Failed to generate PDF report", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -459,48 +538,6 @@ async function startServer() {
       });
     } catch (error) {
       console.error("Error saving final results:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  apiRouter.post("/intake", (req: any, res) => {
-    try {
-      const { name, phoneNumber, goldWeight } = req.body;
-      
-      if (!name || !phoneNumber || goldWeight === undefined) {
-        return res.status(400).json({ message: "Missing required fields" });
-      }
-
-      const savedRecord = IntakeService.createIntake(req.userId, { name, phoneNumber, goldWeight });
-      
-      res.status(201).json({
-        id: savedRecord.id,
-        message: "Intake recorded successfully"
-      });
-    } catch (error) {
-      console.error("Error in intake:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  apiRouter.get("/intake", (req: any, res) => {
-    try {
-      const { search } = req.query;
-      const records = IntakeService.getPendingIntakes(req.userId, search as string);
-      res.json(records);
-    } catch (error) {
-      console.error("Error fetching intakes:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  apiRouter.patch("/intake/:id/complete", authMiddleware, (req: any, res) => {
-    try {
-      const { id } = req.params;
-      IntakeService.completeIntake(req.userId, id);
-      res.json({ message: "Intake marked as completed" });
-    } catch (error) {
-      console.error("Error completing intake:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
