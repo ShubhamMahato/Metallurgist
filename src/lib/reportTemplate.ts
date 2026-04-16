@@ -7,6 +7,8 @@ body {
     font-family: Arial, sans-serif;
     width: 600px;
     margin: auto;
+    padding: 20px;
+    background: white;
 }
 
 .header {
@@ -38,21 +40,46 @@ body {
     margin: 10px 0;
 }
 
-.table, th ,td {
+.table {
+    width: 100%;
     border-collapse: collapse;
     border: 1px solid grey;
 }
+
+.table td {
+    border: 1px solid grey;
+    padding: 5px;
+    font-size: 12px;
+}
+
 td:nth-child(1),
 td:nth-child(3),
 td:nth-child(5) {
-    width: 22%;
+    width: 20%;
+    font-weight: bold;
 }
-
+tr:nth-child(even) {background-color: #f2f2f2;}
 td:nth-child(2),
 td:nth-child(4),
 td:nth-child(6) {
-    width: 20%;
+    width: 10%;
     text-align:right;
+}
+
+.label {
+    font-weight: bold;
+}
+
+.value {
+    text-align: right;
+}
+
+@media print {
+    body {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
 }
 </style>
 </head>
@@ -62,24 +89,24 @@ td:nth-child(6) {
 <div class="right">{{DATE}} &nbsp; {{TIME}}</div>
 
 <div class="row">
-    <div>Customer Name : {{CUSTOMER_NAME}}</div>
+    <div><span class="label">Customer Name :</span> {{CUSTOMER_NAME}}</div>
 </div>
 
 <div class="row">
-    <div>Weight : {{WEIGHT}}</div>
-    <div>Sample Type : {{SAMPLE_TYPE}}</div>
+    <div><span class="label">Weight :</span> {{WEIGHT}}</div>
+    <div><span class="label">Sample Type :</span> {{SAMPLE_TYPE}}</div>
 </div>
 
 <div class="line"></div>
 
 <div class="row-gold">
-    <div>Gold Purity : {{GOLD_PURITY}}</div>
-    <div>Karat : {{KARAT}}</div>
+    <div><span class="label">Gold Purity :</span> {{GOLD_PURITY}}</div>
+    <div><span class="label">Karat :</span> {{KARAT}}</div>
 </div>
 
 <div class="line"></div>
 
-<table style="width: 100%;">
+<table class="table">
   <tr>
     <td>SILVER</td><td>{{SILVER}}</td>
     <td>COPPER</td><td>{{COPPER}}</td>
