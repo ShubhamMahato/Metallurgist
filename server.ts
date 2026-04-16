@@ -5,8 +5,6 @@ import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import fs from "fs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // --- Database Setup (Repository Pattern) ---
 const dbPath = "/home/pi/data/intake.db";
