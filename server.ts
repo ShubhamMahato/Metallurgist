@@ -4,7 +4,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import fs from "fs";
-
+import * as Handlebars from "handlebars";
+import puppeteer from "puppeteer";
+import crypto from "crypto";
 
 // --- Database Setup (Repository Pattern) ---
 const dbPath = "/home/pi/data/intake.db";
@@ -243,6 +245,46 @@ const FinalResultRepository = {
 
     transaction(data);
     return { id: data.id };
+  },
+  getReportData: (reportId: string) => {
+    // PUBLIC endpoint, so ID must be validated or hard to guess
+    const header = db.prepare(`
+      SELECT 
+        r.id as report_id,
+        r.total_value as total_aggregate,
+        r.purity_percentage,
+        r.created_at as date,
+        c.name as customer_name,
+        c.phone_number,
+        i.gold_weight
+      FROM final_metal_results r
+      JOIN customers c ON r.customer_id = c.id
+      JOIN intake_records i ON r.intake_id = i.id
+      WHERE r.id = ?
+    `).get(reportId) as any;
+
+    if (!header) return null;
+
+    const breakdown = db.prepare(`
+      SELECT 
+        metal_id as metal,
+        metal_id as symbol, -- Placeholder for symbol mapping if needed
+        value
+      FROM final_metal_breakdown
+      WHERE final_result_id = ?
+    `).all(reportId) as any[];
+
+    // Map symbols if needed or use metal_id as name
+    const metals = breakdown.map(m => ({
+      metal: m.metal.charAt(0).toUpperCase() + m.metal.slice(1),
+      symbol: m.symbol.substring(0, 2).toUpperCase(),
+      value: parseFloat(m.value).toFixed(3)
+    }));
+
+    return {
+      ...header,
+      metals
+    };
   }
 };
 
@@ -353,6 +395,45 @@ async function startServer() {
   };
 
   apiRouter.use(["/intake", "/final-results"], authMiddleware);
+
+  // PUBLIC REPORT ENDPOINT
+  apiRouter.get("/report/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const reportData = FinalResultRepository.getReportData(id);
+
+      if (!reportData) {
+        return res.status(404).send("Report not found");
+      }
+
+      // Load template
+      const templatePath = path.join(process.cwd(), "templates", "report.html");
+      if (!fs.existsSync(templatePath)) {
+        return res.status(500).send("Report template missing");
+      }
+
+      const templateSource = fs.readFileSync(templatePath, "utf-8");
+      const template = Handlebars.compile(templateSource);
+      const html = template(reportData);
+
+      // Generate PDF
+      const browser = await puppeteer.launch({
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        headless: true
+      });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: "networkidle0" });
+      const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+      await browser.close();
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="report_${id}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).send("Failed to generate PDF report");
+    }
+  });
 
   apiRouter.post("/final-results/save", (req: any, res) => {
     try {

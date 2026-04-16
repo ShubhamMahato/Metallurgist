@@ -26,6 +26,10 @@ export const useDashboard = () => {
 
   // Debounce search
   useEffect(() => {
+    if (intakeSearch === "") {
+      setDebouncedSearch("");
+      return;
+    }
     const timer = setTimeout(() => {
       setDebouncedSearch(intakeSearch);
     }, 500);

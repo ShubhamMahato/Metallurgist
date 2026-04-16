@@ -9,6 +9,7 @@ import {
   Printer as PrinterIcon,
   Plus,
   Settings,
+  MessageCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
@@ -27,6 +28,8 @@ interface DashboardHeaderProps {
   isVerified: boolean;
   onSaveFinalReport: () => void;
   isSavingFinalReport: boolean;
+  lastSavedReportId: string | null;
+  onWhatsAppShare: () => void;
   reloadFile: () => void;
   saveToOriginalFile: () => void;
   downloadDOC: () => void;
@@ -53,6 +56,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   isVerified,
   onSaveFinalReport,
   isSavingFinalReport,
+  lastSavedReportId,
+  onWhatsAppShare,
   reloadFile,
   saveToOriginalFile,
   downloadDOC,
@@ -109,7 +114,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border ${
               selectedIntakeId
-                ? "bg-secondary/10 text-secondary border-secondary/30 shadow-sm"
+                ? "bg-secondary text-on-secondary border-secondary shadow-lg shadow-secondary/20"
                 : "bg-surface-container text-on-surface border-outline-variant/30 hover:bg-surface-container-high"
             }`}
             title="Link Customer Record"
@@ -119,7 +124,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               {selectedIntakeId ? (
                 <span className="flex items-center gap-2">
                   Linked:{" "}
-                  <span className="text-on-surface truncate max-w-[80px]">
+                  <span className="font-black uppercase truncate max-w-[120px]">
                     {intakes.find((i) => i.id === selectedIntakeId)?.name ||
                       "Customer"}
                   </span>
@@ -172,6 +177,19 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 <PrinterIcon size={14} />
                 <span>Print</span>
               </button>
+
+              <button
+                onClick={onWhatsAppShare}
+                disabled={!isParsed || !selectedIntakeId || isSavingFinalReport}
+                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${
+                  isParsed && selectedIntakeId && !isSavingFinalReport
+                    ? "bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/20"
+                    : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
+                }`}
+              >
+                <MessageCircle size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
+                <span>{isSavingFinalReport ? "Saving..." : "WhatsApp"}</span>
+              </button>
             </>
           ) : (
             <>
@@ -199,6 +217,19 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               >
                 <PrinterIcon size={14} />
                 <span>Print</span>
+              </button>
+
+              <button
+                onClick={onWhatsAppShare}
+                disabled={!isParsed || !selectedIntakeId || isSavingFinalReport}
+                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${
+                  isParsed && selectedIntakeId && !isSavingFinalReport
+                    ? "bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/20"
+                    : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
+                }`}
+              >
+                <MessageCircle size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
+                <span>{isSavingFinalReport ? "Saving..." : "WhatsApp"}</span>
               </button>
             </>
           )}
@@ -275,6 +306,18 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 >
                   <PrinterIcon size={16} className="text-primary" />
                   Print Report
+                </button>
+
+                <button
+                  onClick={() => {
+                    onWhatsAppShare();
+                    setShowMobileMenu(false);
+                  }}
+                  disabled={!isParsed || !selectedIntakeId || isSavingFinalReport}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-green-500 hover:bg-green-600 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  <MessageCircle size={16} className={isSavingFinalReport ? "animate-pulse" : ""} />
+                  {isSavingFinalReport ? "Saving..." : "WhatsApp"}
                 </button>
               </motion.div>
             )}

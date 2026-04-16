@@ -125,7 +125,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                     <motion.button
                       layout
                       key={intake.id}
-                      onClick={() => setSelectedIntakeId(intake.id)}
+                      onClick={() => {
+                        setSelectedIntakeId(intake.id);
+                        setIsSidebarOpen(false);
+                      }}
                       className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center gap-4 group relative overflow-hidden ${
                         selectedIntakeId === intake.id
                           ? "bg-primary/5 border-primary/40 shadow-sm"
@@ -173,6 +176,14 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                         </div>
                       </div>
 
+                      <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest border ${
+                        selectedIntakeId === intake.id
+                          ? "bg-primary text-on-primary border-primary"
+                          : "bg-surface-container text-outline-variant border-outline-variant/20 group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/30"
+                      }`}>
+                        {selectedIntakeId === intake.id ? "Linked" : "Link"}
+                      </div>
+
                       {selectedIntakeId === intake.id && (
                         <motion.div
                           layoutId="active-glow"
@@ -185,7 +196,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               )}
             </div>
 
-            {/* Drawer Footer - Action Area */}
+            {/* Drawer Footer - Information Area */}
             <div className="p-6 bg-surface-container-lowest border-t border-outline-variant/30 space-y-4">
               {selectedIntakeId && (
                 <motion.div
@@ -198,7 +209,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[8px] font-black text-secondary uppercase tracking-widest leading-none mb-1">
-                      Linked Customer
+                      Active Link
                     </p>
                     <p className="text-xs font-bold text-on-surface truncate">
                       {intakes.find((i) => i.id === selectedIntakeId)?.name}
@@ -213,35 +224,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 </motion.div>
               )}
 
-              <button
-                disabled={!selectedIntakeId || isCompleting}
-                onClick={async () => {
-                  if (!selectedIntakeId) return;
-                  try {
-                    await completeIntake(selectedIntakeId);
-                    setSelectedIntakeId(null);
-                    setIntakeSearch("");
-                    setIsSidebarOpen(false);
-                  } catch (err) {
-                    console.error("Failed to complete intake:", err);
-                  }
-                }}
-                className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-lg ${
-                  selectedIntakeId && !isCompleting
-                    ? "bg-primary text-on-primary hover:scale-[1.02] active:scale-[0.98] shadow-primary/20"
-                    : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
-                }`}
-              >
-                {isCompleting ? (
-                  <div className="w-4 h-4 border-2 border-on-primary/20 border-t-on-primary rounded-full animate-spin" />
-                ) : (
-                  <Zap size={16} />
-                )}
-                {isCompleting ? "Processing..." : "Finalize & Send"}
-              </button>
-
-              <p className="text-[8px] font-mono text-center text-outline-variant uppercase tracking-widest">
-                Action will mark intake as completed
+              <p className="text-[8px] font-mono text-center text-outline-variant uppercase tracking-widest py-4">
+                Select a record to link analysis results to a customer
               </p>
             </div>
           </motion.aside>

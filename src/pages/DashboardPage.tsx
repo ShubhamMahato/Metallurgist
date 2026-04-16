@@ -6,6 +6,7 @@ import {
   AlertCircle,
   History,
   X,
+  Users,
   FileText,
   Sparkles,
   LockOpen,
@@ -87,16 +88,46 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
   } = useDashboard();
 
   const [notification, setNotification] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [lastSavedReportId, setLastSavedReportId] = React.useState<string | null>(null);
 
   const handleSaveFinalReport = async () => {
     try {
-      await saveFinalReport();
+      const result = await saveFinalReport();
+      setLastSavedReportId(result.id);
       setNotification({ type: 'success', message: 'Final report saved successfully!' });
       setTimeout(() => setNotification(null), 5000);
+      return result.id;
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message || 'Failed to save final report' });
       setTimeout(() => setNotification(null), 5000);
+      throw err;
     }
+  };
+
+  const handleWhatsAppShare = async () => {
+    let reportId = lastSavedReportId;
+    
+    // If not saved yet, save it first
+    if (!reportId) {
+      try {
+        reportId = await handleSaveFinalReport();
+      } catch (e) {
+        // Error already handled in handleSaveFinalReport
+        return;
+      }
+    }
+
+    if (!reportId) return;
+    
+    const selectedIntake = intakes.find(i => i.id === selectedIntakeId);
+    if (!selectedIntake) return;
+
+    const domain = window.location.origin;
+    const reportUrl = `${domain}/api/report/${reportId}`;
+    const message = `Download your report: ${reportUrl}`;
+    const whatsappUrl = `https://wa.me/${selectedIntake.phone_number.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -116,6 +147,8 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
           isVerified={isVerified}
           onSaveFinalReport={handleSaveFinalReport}
           isSavingFinalReport={isSavingFinalReport}
+          lastSavedReportId={lastSavedReportId}
+          onWhatsAppShare={handleWhatsAppShare}
           reloadFile={reloadFile}
           saveToOriginalFile={saveToOriginalFile}
           downloadDOC={downloadDOC}
@@ -234,6 +267,20 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                         </>
                       )}
                     </h2>
+                    {selectedIntakeId && (
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-secondary text-on-secondary shadow-lg shadow-secondary/20 border border-secondary/30">
+                        <Users size={14} />
+                        <span className="text-xs font-black uppercase tracking-widest">
+                          Linked: {intakes.find(i => i.id === selectedIntakeId)?.name}
+                        </span>
+                        <button 
+                          onClick={() => setSelectedIntakeId(null)}
+                          className="ml-1 p-1 hover:bg-on-secondary/10 rounded-lg"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
                     {fileHandle && (
                       <div className="flex flex-col gap-1">
                         <p className="text-[10px] text-outline-variant font-mono flex items-center gap-2">
