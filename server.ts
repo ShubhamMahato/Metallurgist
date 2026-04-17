@@ -1,11 +1,9 @@
-import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import Database from "better-sqlite3";
 import fs from "fs";
 import * as Handlebars from "handlebars";
-import puppeteer from "puppeteer";
 import crypto from "crypto";
 import { reportTemplate } from "./reportTemplate";
 
@@ -19,9 +17,7 @@ try {
     fs.mkdirSync(dbDir, { recursive: true });
   }
 } catch (err) {
-  console.error(
-    `Failed to create database directory: ${dbDir}. Falling back to local.`,
-  );
+  console.error(`Failed to create database directory: ${dbDir}. Falling back to local.`);
   dbPath = path.resolve("intake.db");
 }
 
@@ -32,16 +28,12 @@ try {
   console.error(`Failed to open database at ${dbPath}, falling back to local.`);
   db = new Database(path.resolve("intake.db"));
 }
-db.pragma("foreign_keys = ON");
+db.pragma('foreign_keys = ON');
 
 // Refactor: Drop old table if it exists with old schema to apply new normalized structure
 try {
-  const tableInfo = db
-    .prepare("PRAGMA table_info(intake_records)")
-    .all() as any[];
-  const hasOldColumns = tableInfo.some(
-    (col) => col.name === "name" || col.name === "phone_number",
-  );
+  const tableInfo = db.prepare("PRAGMA table_info(intake_records)").all() as any[];
+  const hasOldColumns = tableInfo.some(col => col.name === 'name' || col.name === 'phone_number');
   if (hasOldColumns) {
     db.exec("DROP TABLE intake_records");
   }
@@ -116,30 +108,26 @@ db.exec(`
 // Migration: Ensure all tables have the correct columns for multi-tenancy
 try {
   const tables = ["customers", "intake_records", "final_metal_results"];
-  tables.forEach((table) => {
+  tables.forEach(table => {
     const tableInfo = db.prepare(`PRAGMA table_info(${table})`).all() as any[];
-
+    
     // Add user_id if missing
-    if (!tableInfo.some((col) => col.name === "user_id")) {
+    if (!tableInfo.some(col => col.name === 'user_id')) {
       db.exec(`ALTER TABLE ${table} ADD COLUMN user_id TEXT`);
     }
-
+    
     // Add updated_at if missing
-    if (!tableInfo.some((col) => col.name === "updated_at")) {
-      db.exec(
-        `ALTER TABLE ${table} ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
-      );
+    if (!tableInfo.some(col => col.name === 'updated_at')) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
     }
   });
 
   // Specific migration for intake_records name/phone_number if requested
-  const intakeInfo = db
-    .prepare("PRAGMA table_info(intake_records)")
-    .all() as any[];
-  if (!intakeInfo.some((col) => col.name === "name")) {
+  const intakeInfo = db.prepare("PRAGMA table_info(intake_records)").all() as any[];
+  if (!intakeInfo.some(col => col.name === 'name')) {
     db.exec("ALTER TABLE intake_records ADD COLUMN name TEXT");
   }
-  if (!intakeInfo.some((col) => col.name === "phone_number")) {
+  if (!intakeInfo.some(col => col.name === 'phone_number')) {
     db.exec("ALTER TABLE intake_records ADD COLUMN phone_number TEXT");
   }
 } catch (e) {
@@ -148,46 +136,37 @@ try {
 
 const CustomerRepository = {
   findByPhoneNumber: (userId: string, phoneNumber: string) => {
-    return db
-      .prepare("SELECT * FROM customers WHERE user_id = ? AND phone_number = ?")
-      .get(userId, phoneNumber) as any;
+    return db.prepare("SELECT * FROM customers WHERE user_id = ? AND phone_number = ?").get(userId, phoneNumber) as any;
   },
-  create: (customer: {
-    id: string;
-    userId: string;
-    name: string;
-    phoneNumber: string;
-  }) => {
-    const stmt = db.prepare(
-      "INSERT INTO customers (id, user_id, name, phone_number) VALUES (?, ?, ?, ?)",
-    );
+  create: (customer: { id: string; userId: string; name: string; phoneNumber: string }) => {
+    const stmt = db.prepare("INSERT INTO customers (id, user_id, name, phone_number) VALUES (?, ?, ?, ?)");
     stmt.run(customer.id, customer.userId, customer.name, customer.phoneNumber);
     return customer;
-  },
+  }
 };
 
 const IntakeRepository = {
-  save: (record: {
-    id: string;
-    userId: string;
-    customerId: string;
-    name: string;
-    phoneNumber: string;
-    goldWeight: number;
-    goldPriceAtEntry: number;
+  save: (record: { 
+    id: string; 
+    userId: string; 
+    customerId: string; 
+    name: string; 
+    phoneNumber: string; 
+    goldWeight: number; 
+    goldPriceAtEntry: number 
   }) => {
     const stmt = db.prepare(`
       INSERT INTO intake_records (id, user_id, customer_id, name, phone_number, gold_weight, gold_price_at_entry, is_completed)
       VALUES (?, ?, ?, ?, ?, ?, ?, 0)
     `);
     stmt.run(
-      record.id,
-      record.userId,
-      record.customerId,
-      record.name,
-      record.phoneNumber,
-      record.goldWeight,
-      record.goldPriceAtEntry,
+      record.id, 
+      record.userId, 
+      record.customerId, 
+      record.name, 
+      record.phoneNumber, 
+      record.goldWeight, 
+      record.goldPriceAtEntry
     );
     return record;
   },
@@ -210,11 +189,9 @@ const IntakeRepository = {
     return db.prepare(query).all(...params) as any[];
   },
   markAsCompleted: (userId: string, id: string) => {
-    const stmt = db.prepare(
-      "UPDATE intake_records SET is_completed = 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND id = ?",
-    );
+    const stmt = db.prepare("UPDATE intake_records SET is_completed = 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND id = ?");
     return stmt.run(userId, id);
-  },
+  }
 };
 
 const UserRepository = {
@@ -224,26 +201,14 @@ const UserRepository = {
   findByEmail: (email: string) => {
     return db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
   },
-  create: (user: {
-    id: string;
-    name: string;
-    email: string;
-    phoneNumber: string;
-    passwordHash?: string;
-  }) => {
+  create: (user: { id: string; name: string; email: string; phoneNumber: string; passwordHash?: string }) => {
     const stmt = db.prepare(`
       INSERT INTO users (id, name, email, phone_number, password_hash)
       VALUES (?, ?, ?, ?, ?)
     `);
-    stmt.run(
-      user.id,
-      user.name,
-      user.email,
-      user.phoneNumber,
-      user.passwordHash || null,
-    );
+    stmt.run(user.id, user.name, user.email, user.phoneNumber, user.passwordHash || null);
     return user;
-  },
+  }
 };
 
 const FinalResultRepository = {
@@ -268,7 +233,7 @@ const FinalResultRepository = {
         payload.customerId,
         payload.intakeId,
         payload.totalValue,
-        payload.purityPercentage,
+        payload.purityPercentage
       );
 
       // 2. Insert into final_metal_breakdown
@@ -278,12 +243,7 @@ const FinalResultRepository = {
       `);
 
       for (const metal of payload.metals) {
-        breakdownStmt.run(
-          payload.id,
-          metal.metal_id,
-          metal.value,
-          metal.percentage || null,
-        );
+        breakdownStmt.run(payload.id, metal.metal_id, metal.value, metal.percentage || null);
       }
     });
 
@@ -292,9 +252,7 @@ const FinalResultRepository = {
   },
   getReportData: (reportId: string) => {
     // PUBLIC endpoint, so ID must be validated or hard to guess
-    const header = db
-      .prepare(
-        `
+    const header = db.prepare(`
       SELECT 
         r.id as report_id,
         r.total_value as total_aggregate,
@@ -307,51 +265,39 @@ const FinalResultRepository = {
       JOIN customers c ON r.customer_id = c.id
       JOIN intake_records i ON r.intake_id = i.id
       WHERE r.id = ?
-    `,
-      )
-      .get(reportId) as any;
+    `).get(reportId) as any;
 
     if (!header) return null;
 
-    const breakdown = db
-      .prepare(
-        `
+    const breakdown = db.prepare(`
       SELECT 
         metal_id as metal,
         metal_id as symbol, -- Placeholder for symbol mapping if needed
         value
       FROM final_metal_breakdown
       WHERE final_result_id = ?
-    `,
-      )
-      .all(reportId) as any[];
+    `).all(reportId) as any[];
 
     // Map symbols if needed or use metal_id as name
-    const metals = breakdown.map((m) => ({
+    const metals = breakdown.map(m => ({
       metal: m.metal.charAt(0).toUpperCase() + m.metal.slice(1),
       symbol: m.symbol.substring(0, 2).toUpperCase(),
-      value: parseFloat(m.value).toFixed(3),
+      value: parseFloat(m.value).toFixed(3)
     }));
 
     return {
       ...header,
-      date: new Date(header.date).toLocaleDateString("en-GB"),
-      metals,
+      date: new Date(header.date).toLocaleDateString('en-GB'),
+      metals
     };
-  },
+  }
 };
 
 // --- Service Layer ---
 const IntakeService = {
-  createIntake: (
-    userId: string,
-    data: { name: string; phoneNumber: string; goldWeight: number },
-  ) => {
+  createIntake: (userId: string, data: { name: string; phoneNumber: string; goldWeight: number }) => {
     // 1. Check if customer exists for THIS user
-    let customer = CustomerRepository.findByPhoneNumber(
-      userId,
-      data.phoneNumber,
-    );
+    let customer = CustomerRepository.findByPhoneNumber(userId, data.phoneNumber);
 
     // 2. If not, create new customer for THIS user
     if (!customer) {
@@ -359,13 +305,13 @@ const IntakeService = {
         id: crypto.randomUUID(),
         userId,
         name: data.name,
-        phoneNumber: data.phoneNumber,
+        phoneNumber: data.phoneNumber
       });
     }
 
     // 3. Capture current gold price (mocked as requested)
-    const mockGoldPrice = 75.5;
-
+    const mockGoldPrice = 75.50; 
+    
     // 4. Insert intake record with customer_id and user_id
     const record = {
       id: crypto.randomUUID(),
@@ -375,9 +321,9 @@ const IntakeService = {
       phoneNumber: data.phoneNumber,
       goldWeight: data.goldWeight,
       goldPriceAtEntry: mockGoldPrice,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
-
+    
     return IntakeRepository.save(record);
   },
   getPendingIntakes: (userId: string, search?: string) => {
@@ -385,7 +331,7 @@ const IntakeService = {
   },
   completeIntake: (userId: string, id: string) => {
     return IntakeRepository.markAsCompleted(userId, id);
-  },
+  }
 };
 
 // --- Controller Layer ---
@@ -416,12 +362,10 @@ async function startServer() {
         name,
         email,
         phoneNumber,
-        passwordHash: password, // TODO: Hash password
+        passwordHash: password // TODO: Hash password
       });
 
-      res
-        .status(201)
-        .json({ id: newUser.id, name: newUser.name, email: newUser.email });
+      res.status(201).json({ id: newUser.id, name: newUser.name, email: newUser.email });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -432,7 +376,7 @@ async function startServer() {
     try {
       const { email, password } = req.body;
       const user = UserRepository.findByEmail(email);
-
+      
       // Simple validation for mock auth
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
@@ -470,45 +414,20 @@ async function startServer() {
       const template = Handlebars.compile(reportTemplate);
       const html = template(reportData);
 
-      // Generate PDF
-      const browser = await puppeteer.launch({
-        executablePath: "/usr/bin/chromium",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-          "--no-zygote",
-          "--single-process",
-        ],
-        headless: true,
-      });
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "networkidle0" });
-      const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-      await browser.close();
-
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="report_${id}.pdf"`,
-      );
-      res.send(pdfBuffer);
+      res.setHeader("Content-Type", "text/html");
+      res.send(html);
     } catch (error) {
-      console.error("Error generating report:", error);
-      res.status(500).send("Failed to generate PDF report");
+      console.error("Error displaying report:", error);
+      res.status(500).send("Failed to load report");
     }
   });
 
   apiRouter.post("/final-results/save", (req: any, res) => {
     try {
-      const { customerId, intakeId, totalValue, purityPercentage, metals } =
-        req.body;
-
+      const { customerId, intakeId, totalValue, purityPercentage, metals } = req.body;
+      
       if (!customerId || !intakeId || totalValue === undefined || !metals) {
-        return res
-          .status(400)
-          .json({ message: "Missing required final results data" });
+        return res.status(400).json({ message: "Missing required final results data" });
       }
 
       const result = FinalResultRepository.saveWithTransaction({
@@ -518,12 +437,12 @@ async function startServer() {
         intakeId,
         totalValue,
         purityPercentage,
-        metals,
+        metals
       });
 
       res.status(201).json({
         id: result.id,
-        message: "Final report saved successfully",
+        message: "Final report saved successfully"
       });
     } catch (error) {
       console.error("Error saving final results:", error);
@@ -534,20 +453,16 @@ async function startServer() {
   apiRouter.post("/intake", (req: any, res) => {
     try {
       const { name, phoneNumber, goldWeight } = req.body;
-
+      
       if (!name || !phoneNumber || goldWeight === undefined) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
-      const savedRecord = IntakeService.createIntake(req.userId, {
-        name,
-        phoneNumber,
-        goldWeight,
-      });
-
+      const savedRecord = IntakeService.createIntake(req.userId, { name, phoneNumber, goldWeight });
+      
       res.status(201).json({
         id: savedRecord.id,
-        message: "Intake recorded successfully",
+        message: "Intake recorded successfully"
       });
     } catch (error) {
       console.error("Error in intake:", error);
@@ -558,10 +473,7 @@ async function startServer() {
   apiRouter.get("/intake", (req: any, res) => {
     try {
       const { search } = req.query;
-      const records = IntakeService.getPendingIntakes(
-        req.userId,
-        search as string,
-      );
+      const records = IntakeService.getPendingIntakes(req.userId, search as string);
       res.json(records);
     } catch (error) {
       console.error("Error fetching intakes:", error);
