@@ -1,14 +1,12 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import fs from "fs";
 import * as Handlebars from "handlebars";
 import puppeteer from "puppeteer";
 import crypto from "crypto";
-
-const __dirname = path.resolve();
-
 // --- Database Setup (Repository Pattern) ---
 const dbPath = "/home/pi/data/intake.db";
 const dbDir = path.dirname(dbPath);
@@ -468,9 +466,8 @@ async function startServer() {
       }
 
       // Load template
-      const templatePath = path.join(__dirname, "templates", "report.html");
+      const templatePath = path.join(process.cwd(), "templates", "report.html");
       if (!fs.existsSync(templatePath)) {
-        console.error(`Report template missing at: ${templatePath}`);
         return res.status(500).send("Report template missing");
       }
 
@@ -555,7 +552,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, "dist");
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
