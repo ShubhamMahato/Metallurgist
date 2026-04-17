@@ -10,21 +10,27 @@ import crypto from "crypto";
 const __dirname = path.resolve();
 
 // --- Database Setup (Repository Pattern) ---
-const dbPath = "/home/pi/data/intake.db";
+let dbPath = "/home/pi/data/intake.db";
 const dbDir = path.dirname(dbPath);
 
-// Ensure directory exists
-if (!fs.existsSync(dbDir)) {
-  try {
+// Ensure directory exists or fallback to local
+try {
+  if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
-  } catch (err) {
-    console.error(`Failed to create database directory: ${dbDir}. Falling back to local directory.`);
-    // Fallback if the requested path is not writable in this environment
   }
+} catch (err) {
+  console.error(`Failed to create database directory: ${dbDir}. Falling back to local directory.`);
+  dbPath = path.resolve("intake.db");
 }
 
-// Using SQLite for production-ready local persistence
-const db = new Database(dbPath);
+let db: Database.Database;
+try {
+  db = new Database(dbPath);
+} catch (err) {
+  console.error(`Failed to open database at ${dbPath}, trying local fallback.`);
+  dbPath = path.resolve("intake.db");
+  db = new Database(dbPath);
+}
 db.pragma('foreign_keys = ON');
 
 // Refactor: Drop old table if it exists with old schema to apply new normalized structure
