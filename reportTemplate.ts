@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+export const reportTemplate = `<!DOCTYPE html>
 <html>
 <head>
     <style>
@@ -88,4 +88,4 @@
         This document is an electronically generated analysis report. Verified and digitally signed.
     </div>
 </body>
-</html>
+</html>`;

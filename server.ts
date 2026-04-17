@@ -1,12 +1,12 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import fs from "fs";
 import * as Handlebars from "handlebars";
 import puppeteer from "puppeteer";
 import crypto from "crypto";
+import { reportTemplate } from "./reportTemplate";
 
 // --- Database Setup (Repository Pattern) ---
 const dbPath = "/home/pi/data/intake.db";
@@ -283,6 +283,7 @@ const FinalResultRepository = {
 
     return {
       ...header,
+      date: new Date(header.date).toLocaleDateString('en-GB'),
       metals
     };
   }
@@ -406,14 +407,7 @@ async function startServer() {
         return res.status(404).send("Report not found");
       }
 
-      // Load template
-      const templatePath = path.join(process.cwd(), "templates", "report.html");
-      if (!fs.existsSync(templatePath)) {
-        return res.status(500).send("Report template missing");
-      }
-
-      const templateSource = fs.readFileSync(templatePath, "utf-8");
-      const template = Handlebars.compile(templateSource);
+      const template = Handlebars.compile(reportTemplate);
       const html = template(reportData);
 
       // Generate PDF
@@ -515,7 +509,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = path.resolve("dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
