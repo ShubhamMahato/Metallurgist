@@ -37,17 +37,6 @@ export const useDashboard = () => {
   }, [intakeSearch]);
 
   const { data: intakes = [], isLoading: isIntakesLoading } = useGetIntakesQuery(debouncedSearch);
-
-  // Sync customer details when intake is selected
-  useEffect(() => {
-    if (selectedIntakeId) {
-      const selected = intakes.find((i) => i.id === selectedIntakeId);
-      if (selected) {
-        setCustomerName(selected.name || "");
-        setWeight(selected.gold_weight?.toString() || "");
-      }
-    }
-  }, [selectedIntakeId, intakes]);
   const [completeIntakeMutation, { isLoading: isCompleting }] = useCompleteIntakeMutation();
   const [saveFinalResultsMutation, { isLoading: isSavingFinalReport }] = useSaveFinalResultsMutation();
   
@@ -79,18 +68,7 @@ export const useDashboard = () => {
         }))
     };
 
-    const result = await saveFinalResultsMutation(payload).unwrap();
-
-    // Mark intake as completed automatically after successful save
-    try {
-      await completeIntakeMutation(selectedIntakeId).unwrap();
-      // Clear the selection since the record is now finished
-      setSelectedIntakeId(null);
-    } catch (err) {
-      console.error("Auto-completion of intake failed:", err);
-    }
-
-    return result;
+    return await saveFinalResultsMutation(payload).unwrap();
   };
 
   const [metals, setMetals] = useState<MetalValue[]>(INITIAL_METALS);

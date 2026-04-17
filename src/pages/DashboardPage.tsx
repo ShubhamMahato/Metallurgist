@@ -89,16 +89,6 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
 
   const [notification, setNotification] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [lastSavedReportId, setLastSavedReportId] = React.useState<string | null>(null);
-  const [lastLinkedCustomer, setLastLinkedCustomer] = React.useState<any | null>(null);
-
-  React.useEffect(() => {
-    if (selectedIntakeId) {
-      const intake = intakes.find(i => i.id === selectedIntakeId);
-      if (intake) {
-        setLastLinkedCustomer(intake);
-      }
-    }
-  }, [selectedIntakeId, intakes]);
 
   const handleSaveFinalReport = async () => {
     try {
@@ -115,14 +105,6 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleWhatsAppShare = async () => {
-    // Check if we have a linked customer or if we had one recently
-    const selectedIntake = (selectedIntakeId ? intakes.find(i => i.id === selectedIntakeId) : null) || lastLinkedCustomer;
-    
-    if (!selectedIntake) {
-      setNotification({ type: 'error', message: 'No customer linked to share report' });
-      return;
-    }
-
     let reportId = lastSavedReportId;
     
     // If not saved yet, save it first
@@ -137,6 +119,9 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
 
     if (!reportId) return;
     
+    const selectedIntake = intakes.find(i => i.id === selectedIntakeId);
+    if (!selectedIntake) return;
+
     const domain = window.location.origin;
     const reportUrl = `${domain}/api/report/${reportId}`;
     const message = `Download your report: ${reportUrl}`;
@@ -163,7 +148,6 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
           onSaveFinalReport={handleSaveFinalReport}
           isSavingFinalReport={isSavingFinalReport}
           lastSavedReportId={lastSavedReportId}
-          lastLinkedCustomer={lastLinkedCustomer}
           onWhatsAppShare={handleWhatsAppShare}
           reloadFile={reloadFile}
           saveToOriginalFile={saveToOriginalFile}
@@ -284,52 +268,18 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                       )}
                     </h2>
                     {selectedIntakeId && (
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="flex flex-col gap-3 p-4 rounded-3xl bg-surface-container-highest/50 border border-primary/20 shadow-xl backdrop-blur-md relative overflow-hidden group"
-                      >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                        
-                        <div className="flex items-center justify-between relative z-10">
-                          <div className="flex items-center gap-2 text-primary">
-                            <Users size={16} className="text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Active Linked Case</span>
-                          </div>
-                          <button 
-                            onClick={() => setSelectedIntakeId(null)}
-                            className="p-1.5 hover:bg-error/10 rounded-xl text-outline-variant hover:text-error transition-all"
-                            title="Unlink Customer"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-
-                        <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 relative z-10">
-                          <div className="flex flex-col">
-                            <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">Customer Name</span>
-                            <p className="text-base font-black text-on-surface uppercase tracking-tight">
-                              {intakes.find(i => i.id === selectedIntakeId)?.name}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center gap-8">
-                            <div className="flex flex-col">
-                              <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">Mobile Number</span>
-                              <p className="text-xs font-mono text-primary font-black flex items-center gap-1.5">
-                                {intakes.find(i => i.id === selectedIntakeId)?.phone_number}
-                              </p>
-                            </div>
-                            
-                            <div className="flex flex-col">
-                              <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">Intake Weight</span>
-                              <p className="text-xs font-mono text-primary font-black flex items-center gap-1.5">
-                                {intakes.find(i => i.id === selectedIntakeId)?.gold_weight}g
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-secondary text-on-secondary shadow-lg shadow-secondary/20 border border-secondary/30">
+                        <Users size={14} />
+                        <span className="text-xs font-black uppercase tracking-widest">
+                          Linked: {intakes.find(i => i.id === selectedIntakeId)?.name}
+                        </span>
+                        <button 
+                          onClick={() => setSelectedIntakeId(null)}
+                          className="ml-1 p-1 hover:bg-on-secondary/10 rounded-lg"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
                     )}
                     {fileHandle && (
                       <div className="flex flex-col gap-1">

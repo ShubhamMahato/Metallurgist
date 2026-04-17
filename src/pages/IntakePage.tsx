@@ -14,10 +14,6 @@ const IntakePage: React.FC = () => {
   const [createIntake, { isLoading }] = useCreateIntakeMutation();
   const navigate = useNavigate();
 
-  // Get user_id from URL params if present
-  const queryParams = new URLSearchParams(window.location.search);
-  const externalUserId = queryParams.get('user_id');
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccessMessage(null);
@@ -33,7 +29,6 @@ const IntakePage: React.FC = () => {
         name,
         phoneNumber,
         goldWeight: parseFloat(goldWeight),
-        userId: externalUserId || undefined, // Pass external user id if present
       }).unwrap();
 
       setSuccessMessage(result.message);

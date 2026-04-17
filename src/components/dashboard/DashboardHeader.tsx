@@ -29,7 +29,6 @@ interface DashboardHeaderProps {
   onSaveFinalReport: () => void;
   isSavingFinalReport: boolean;
   lastSavedReportId: string | null;
-  lastLinkedCustomer: any | null;
   onWhatsAppShare: () => void;
   reloadFile: () => void;
   saveToOriginalFile: () => void;
@@ -58,7 +57,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onSaveFinalReport,
   isSavingFinalReport,
   lastSavedReportId,
-  lastLinkedCustomer,
   onWhatsAppShare,
   reloadFile,
   saveToOriginalFile,
@@ -182,9 +180,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
               <button
                 onClick={onWhatsAppShare}
-                disabled={!isParsed || (!selectedIntakeId && !lastLinkedCustomer) || isSavingFinalReport}
+                disabled={!isParsed || !selectedIntakeId || isSavingFinalReport}
                 className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${
-                  isParsed && (selectedIntakeId || lastLinkedCustomer) && !isSavingFinalReport
+                  isParsed && selectedIntakeId && !isSavingFinalReport
                     ? "bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/20"
                     : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
                 }`}
@@ -223,9 +221,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
               <button
                 onClick={onWhatsAppShare}
-                disabled={!isParsed || (!selectedIntakeId && !lastLinkedCustomer) || isSavingFinalReport}
+                disabled={!isParsed || !selectedIntakeId || isSavingFinalReport}
                 className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${
-                  isParsed && (selectedIntakeId || lastLinkedCustomer) && !isSavingFinalReport
+                  isParsed && selectedIntakeId && !isSavingFinalReport
                     ? "bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/20"
                     : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
                 }`}
@@ -315,7 +313,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     onWhatsAppShare();
                     setShowMobileMenu(false);
                   }}
-                  disabled={!isParsed || (!selectedIntakeId && !lastLinkedCustomer) || isSavingFinalReport}
+                  disabled={!isParsed || !selectedIntakeId || isSavingFinalReport}
                   className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-green-500 hover:bg-green-600 rounded-xl transition-colors disabled:opacity-50"
                 >
                   <MessageCircle size={16} className={isSavingFinalReport ? "animate-pulse" : ""} />
