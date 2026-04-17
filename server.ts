@@ -9,21 +9,26 @@ import crypto from "crypto";
 import { reportTemplate } from "./reportTemplate";
 
 // --- Database Setup (Repository Pattern) ---
-const dbPath = "/home/pi/data/intake.db";
+let dbPath = "/home/pi/data/intake.db";
 const dbDir = path.dirname(dbPath);
 
-// Ensure directory exists
-if (!fs.existsSync(dbDir)) {
-  try {
+// Ensure directory exists or fallback
+try {
+  if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
-  } catch (err) {
-    console.error(`Failed to create database directory: ${dbDir}. Falling back to local directory.`);
-    // Fallback if the requested path is not writable in this environment
   }
+} catch (err) {
+  console.error(`Failed to create database directory: ${dbDir}. Falling back to local.`);
+  dbPath = path.resolve("intake.db");
 }
 
-// Using SQLite for production-ready local persistence
-const db = new Database(dbPath);
+let db: Database.Database;
+try {
+  db = new Database(dbPath);
+} catch (err) {
+  console.error(`Failed to open database at ${dbPath}, falling back to local.`);
+  db = new Database(path.resolve("intake.db"));
+}
 db.pragma('foreign_keys = ON');
 
 // Refactor: Drop old table if it exists with old schema to apply new normalized structure
@@ -412,7 +417,12 @@ async function startServer() {
 
       // Generate PDF
       const browser = await puppeteer.launch({
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        args: [
+          "--no-sandbox", 
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage"
+        ],
         headless: true
       });
       const page = await browser.newPage();
