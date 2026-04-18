@@ -279,25 +279,46 @@ const FinalResultRepository = {
     `).all(reportId) as any[];
 
     // Map symbols if needed or use metal_id as name
-    const metals = breakdown.map(m => ({
-      metal: m.metal.charAt(0).toUpperCase() + m.metal.slice(1),
-      symbol: m.symbol.substring(0, 2).toUpperCase(),
-      value: parseFloat(m.value).toFixed(3)
-    }));
+    const MASTER_METALS = [
+      { id: "gold", symbol: "Au", name: "Gold" },
+      { id: "silver", symbol: "Ag", name: "Silver" },
+      { id: "copper", symbol: "Cu", name: "Copper" },
+      { id: "zinc", symbol: "Zn", name: "Zinc" },
+      { id: "cadimium", symbol: "Cd", name: "Cadimium" },
+      { id: "cromium", symbol: "Cr", name: "Cromium" },
+      { id: "iron", symbol: "Fe", name: "Iron" },
+      { id: "nickel", symbol: "Ni", name: "Nickel" },
+      { id: "platinum", symbol: "Pt", name: "Platinum" },
+      { id: "palladium", symbol: "Pd", name: "Palladium" },
+      { id: "tin", symbol: "Sn", name: "Tin" },
+      { id: "lead", symbol: "Pb", name: "Lead" },
+      { id: "manganese", symbol: "Mn", name: "Manganese" },
+      { id: "rhodium", symbol: "Rh", name: "Rhodium" },
+      { id: "cobalt", symbol: "Co", name: "Cobalt" },
+      { id: "indium", symbol: "In", name: "Indium" },
+      { id: "iredium", symbol: "Ir", name: "Iredium" },
+      { id: "ruthenium", symbol: "Ru", name: "Ruthenium" },
+      { id: "tungestan", symbol: "W", name: "Tungestan" },
+      { id: "gallium", symbol: "Ga", name: "Gallium" },
+      { id: "vanadium", symbol: "V", name: "Vanadium" },
+      { id: "osmium", symbol: "Os", name: "Osmium" },
+    ];
 
-    // Chunk into pairs for 6-column layout (2 metals per row)
-    const metalRows = [];
-    for (let i = 0; i < metals.length; i += 2) {
-      metalRows.push({
-        col1: metals[i],
-        col2: metals[i + 1] || null
-      });
-    }
+    const metalMap = new Map();
+    breakdown.forEach(m => {
+      metalMap.set(m.metal.toLowerCase(), m.value);
+    });
+
+    const metals = MASTER_METALS.map(m => ({
+      metal: m.name,
+      symbol: m.symbol,
+      value: parseFloat(metalMap.get(m.id) || 0).toFixed(3)
+    }));
 
     return {
       ...header,
       date: new Date(header.date).toLocaleDateString('en-GB'),
-      metalRows
+      metals
     };
   }
 };
