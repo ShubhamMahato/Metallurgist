@@ -36,7 +36,9 @@ export const useDashboard = () => {
     return () => clearTimeout(timer);
   }, [intakeSearch]);
 
-  const { data: intakes = [], isLoading: isIntakesLoading } = useGetIntakesQuery(debouncedSearch);
+  const { data: intakes = [], isLoading: isIntakesLoading } = useGetIntakesQuery(debouncedSearch, {
+    pollingInterval: 3000, // Poll every 3 seconds for instant updates
+  });
 
   // Sync customer details when intake is selected
   useEffect(() => {

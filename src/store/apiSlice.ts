@@ -35,6 +35,7 @@ export const apiSlice = createApi({
         method: 'POST',
         body: newIntake,
       }),
+      invalidatesTags: ['Intake'],
     }),
     getIntakes: builder.query<any[], string | void>({
       query: (search) => ({

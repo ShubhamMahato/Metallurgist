@@ -60,12 +60,14 @@ const IntakePage: React.FC = () => {
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 blur-3xl -ml-16 -mb-16 rounded-full" />
 
         <div className="bg-surface-container-highest p-8 text-on-surface relative border-b border-outline-variant/20">
-          <button 
-            onClick={() => navigate('/')}
-            className="absolute left-6 top-1/2 -translate-y-1/2 p-2.5 hover:bg-surface-container rounded-2xl transition-all border border-transparent hover:border-outline-variant/30 group"
-          >
-            <ArrowLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
-          </button>
+          {!externalUserId && (
+            <button 
+              onClick={() => navigate('/')}
+              className="absolute left-6 top-1/2 -translate-y-1/2 p-2.5 hover:bg-surface-container rounded-2xl transition-all border border-transparent hover:border-outline-variant/30 group"
+            >
+              <ArrowLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+            </button>
+          )}
           <div className="text-center">
             <h1 className="text-3xl font-black tracking-tighter uppercase italic font-headline flex items-center justify-center gap-3">
               <span className="text-primary">Customer</span> Intake
