@@ -57,19 +57,31 @@ export const reportTemplate = `<!DOCTYPE html>
     <table>
         <thead>
             <tr>
-                <th>Constituent Metal</th>
-                <th>Symbol</th>
+                <th>Metal</th>
+                <th>Sym</th>
+                <th style="text-align: right;">Value (%)</th>
+                <th>Metal</th>
+                <th>Sym</th>
                 <th style="text-align: right;">Value (%)</th>
             </tr>
         </thead>
         <tbody>
-            {{#metals}}
+            {{#metalRows}}
             <tr>
-                <td>{{metal}}</td>
-                <td>{{symbol}}</td>
-                <td class="value-cell">{{value}}</td>
+                <td>{{col1.metal}}</td>
+                <td>{{col1.symbol}}</td>
+                <td class="value-cell">{{col1.value}}</td>
+                {{#if col2}}
+                <td>{{col2.metal}}</td>
+                <td>{{col2.symbol}}</td>
+                <td class="value-cell">{{col2.value}}</td>
+                {{else}}
+                <td style="background: #fcfcfc;">-</td>
+                <td style="background: #fcfcfc;">-</td>
+                <td style="background: #fcfcfc;" class="value-cell">-</td>
+                {{/if}}
             </tr>
-            {{/metals}}
+            {{/metalRows}}
         </tbody>
     </table>
 

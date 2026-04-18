@@ -285,10 +285,19 @@ const FinalResultRepository = {
       value: parseFloat(m.value).toFixed(3)
     }));
 
+    // Chunk into pairs for 6-column layout (2 metals per row)
+    const metalRows = [];
+    for (let i = 0; i < metals.length; i += 2) {
+      metalRows.push({
+        col1: metals[i],
+        col2: metals[i + 1] || null
+      });
+    }
+
     return {
       ...header,
       date: new Date(header.date).toLocaleDateString('en-GB'),
-      metals
+      metalRows
     };
   }
 };
@@ -401,8 +410,10 @@ async function startServer() {
 
   apiRouter.use(["/intake", "/final-results"], authMiddleware);
 
-  // PUBLIC REPORT ENDPOINT
-  apiRouter.get("/report/:id", async (req, res) => {
+  app.use("/api", apiRouter);
+
+  // PUBLIC REPORT ENDPOINT (Non-API URL)
+  app.get("/report/:id", async (req, res) => {
     try {
       const { id } = req.params;
       const reportData = FinalResultRepository.getReportData(id);
@@ -421,7 +432,6 @@ async function startServer() {
       res.status(500).send("Failed to load report");
     }
   });
-
   apiRouter.post("/final-results/save", (req: any, res) => {
     try {
       const { customerId, intakeId, totalValue, purityPercentage, metals } = req.body;

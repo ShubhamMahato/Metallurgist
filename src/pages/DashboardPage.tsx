@@ -138,7 +138,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
     if (!reportId) return;
     
     const domain = window.location.origin;
-    const reportUrl = `${domain}/api/report/${reportId}`;
+    const reportUrl = `${domain}/report/${reportId}`;
     const message = `View your analysis report: ${reportUrl}`;
     const whatsappUrl = `https://wa.me/${selectedIntake.phone_number.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
     
