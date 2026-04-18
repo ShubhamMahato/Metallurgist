@@ -408,9 +408,7 @@ async function startServer() {
     next();
   };
 
-  apiRouter.use(["/intake", "/final-results"], authMiddleware);
-
-  // PUBLIC API ROUTES (Before auth middleware)
+  // RESTORED ROUTES with public access for POST /intake
   apiRouter.get("/public/report/:id", (req: any, res) => {
     try {
       const { id } = req.params;
@@ -426,6 +424,35 @@ async function startServer() {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // POST /intake is now public so that public forms can submit to it if they have a userId
+  apiRouter.post("/intake", (req: any, res) => {
+    try {
+      const { name, phoneNumber, goldWeight, userId } = req.body;
+      const finalUserId = (req.headers["x-user-id"] || userId) as string;
+
+      if (!finalUserId) {
+        return res.status(401).json({ message: "Authentication/User ID required" });
+      }
+      
+      if (!name || !phoneNumber || goldWeight === undefined) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const savedRecord = IntakeService.createIntake(finalUserId, { name, phoneNumber, goldWeight });
+      
+      res.status(201).json({
+        id: savedRecord.id,
+        message: "Intake recorded successfully"
+      });
+    } catch (error) {
+      console.error("Error in intake:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Other routes still require auth
+  apiRouter.use(["/intake", "/final-results"], authMiddleware);
 
   apiRouter.post("/final-results/save", (req: any, res) => {
     try {
@@ -455,26 +482,6 @@ async function startServer() {
     }
   });
 
-  apiRouter.post("/intake", (req: any, res) => {
-    try {
-      const { name, phoneNumber, goldWeight } = req.body;
-      
-      if (!name || !phoneNumber || goldWeight === undefined) {
-        return res.status(400).json({ message: "Missing required fields" });
-      }
-
-      const savedRecord = IntakeService.createIntake(req.userId, { name, phoneNumber, goldWeight });
-      
-      res.status(201).json({
-        id: savedRecord.id,
-        message: "Intake recorded successfully"
-      });
-    } catch (error) {
-      console.error("Error in intake:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
   apiRouter.get("/intake", (req: any, res) => {
     try {
       const { search } = req.query;
@@ -486,7 +493,7 @@ async function startServer() {
     }
   });
 
-  apiRouter.patch("/intake/:id/complete", authMiddleware, (req: any, res) => {
+  apiRouter.patch("/intake/:id/complete", (req: any, res) => {
     try {
       const { id } = req.params;
       IntakeService.completeIntake(req.userId, id);
