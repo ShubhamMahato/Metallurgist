@@ -14,14 +14,21 @@ const IntakePage: React.FC = () => {
   const [createIntake, { isLoading }] = useCreateIntakeMutation();
   const navigate = useNavigate();
 
-  // Get user_id from URL params if present
+  // Get user_id or userId from URL params if present
   const queryParams = new URLSearchParams(window.location.search);
-  const externalUserId = queryParams.get('user_id');
+  const externalUserId = queryParams.get('user_id') || queryParams.get('userId');
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const isAuthenticated = !!user;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccessMessage(null);
     setErrorMessage(null);
+
+    if (!externalUserId && !isAuthenticated) {
+      setErrorMessage('Authorization required. Use the link provided by your lab.');
+      return;
+    }
 
     if (!name || !phoneNumber || !goldWeight) {
       setErrorMessage('Please fill in all fields');
@@ -60,7 +67,7 @@ const IntakePage: React.FC = () => {
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-secondary/5 blur-3xl -ml-16 -mb-16 rounded-full" />
 
         <div className="bg-surface-container-highest p-8 text-on-surface relative border-b border-outline-variant/20">
-          {!externalUserId && (
+          {(isAuthenticated && !externalUserId) && (
             <button 
               onClick={() => navigate('/')}
               className="absolute left-6 top-1/2 -translate-y-1/2 p-2.5 hover:bg-surface-container rounded-2xl transition-all border border-transparent hover:border-outline-variant/30 group"
