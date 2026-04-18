@@ -151,7 +151,7 @@ const IntakePage: React.FC = () => {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     className="w-full bg-surface-container-high border border-outline-variant/30 focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-2xl py-4 px-5 text-sm font-medium text-on-surface transition-all outline-none placeholder:text-on-surface/20"
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="+91 98765-43210"
                     required
                   />
                 </div>

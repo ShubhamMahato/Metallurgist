@@ -172,20 +172,19 @@ const IntakeRepository = {
   },
   findAllPending: (userId: string, search?: string) => {
     let query = `
-      SELECT i.*
-      FROM intake_records i
-      JOIN customers c ON i.customer_id = c.id
-      WHERE i.user_id = ? AND i.is_completed = 0
+      SELECT *
+      FROM intake_records
+      WHERE user_id = ? AND is_completed = 0
     `;
     const params: any[] = [userId];
 
     if (search) {
-      query += ` AND (i.name LIKE ? OR i.phone_number LIKE ?)`;
+      query += ` AND (name LIKE ? OR phone_number LIKE ?)`;
       const searchParam = `%${search}%`;
       params.push(searchParam, searchParam);
     }
 
-    query += ` ORDER BY i.created_at DESC`;
+    query += ` ORDER BY created_at DESC`;
     return db.prepare(query).all(...params) as any[];
   },
   markAsCompleted: (userId: string, id: string) => {
@@ -421,8 +420,9 @@ async function startServer() {
 
   // Simple Auth Middleware
   const authMiddleware = (req: any, res: any, next: any) => {
-    const userId = (req.headers["x-user-id"] || req.body?.userId) as string;
+    const userId = (req.headers["x-user-id"] || req.body?.userId || req.query?.userId) as string;
     if (!userId) {
+      console.warn("Unauthorized access attempt: No User ID provided");
       return res.status(401).json({ message: "Authentication required" });
     }
     req.userId = userId;
@@ -503,9 +503,12 @@ async function startServer() {
     }
   });
 
-  apiRouter.get("/intake", (req: any, res) => {
+  apiRouter.get("/intake", authMiddleware, (req: any, res) => {
     try {
       const { search } = req.query;
+      if (!req.userId) {
+        return res.status(401).json({ message: "User context not identified" });
+      }
       const records = IntakeService.getPendingIntakes(req.userId, search as string);
       res.json(records);
     } catch (error) {

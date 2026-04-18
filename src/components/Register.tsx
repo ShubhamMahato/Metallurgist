@@ -87,7 +87,7 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 bg-surface-container-low border-0 border-b border-outline-variant/30 focus:ring-0 focus:border-secondary transition-all font-body text-sm"
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="+91 98765-43210"
                 />
               </div>
             </div>

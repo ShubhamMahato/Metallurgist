@@ -91,7 +91,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   value={intakeSearch}
                   onChange={(e) => setIntakeSearch(e.target.value)}
                   className="w-full bg-surface-container-low border border-outline-variant/20 focus:border-primary/40 focus:ring-4 focus:ring-primary/5 rounded-xl py-2.5 pl-10 pr-4 text-xs font-bold text-on-surface transition-all outline-none placeholder:text-outline-variant/40 font-mono"
-                  placeholder="SEARCH BY NAME/PHONE..."
+                  placeholder="SEARCH BY NAME/MOBILE..."
                 />
               </div>
             </div>

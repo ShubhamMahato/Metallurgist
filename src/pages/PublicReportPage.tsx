@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGetPublicReportQuery } from '../store/apiSlice';
-import { Printer, Hexagon, Sparkles } from 'lucide-react';
+import { Printer, Hexagon, Sparkles, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const PublicReportPage: React.FC = () => {
@@ -25,7 +25,7 @@ const PublicReportPage: React.FC = () => {
       <div className="min-h-screen bg-surface-container-lowest flex items-center justify-center p-4 text-center">
         <div className="max-w-md w-full p-12 bg-surface-container rounded-[2.5rem] border border-error/20 flex flex-col items-center">
           <div className="w-16 h-16 bg-error/10 text-error rounded-3xl flex items-center justify-center mb-6">
-            <ShieldCheck size={32} />
+            <AlertCircle size={32} />
           </div>
           <h2 className="text-xl font-black text-on-surface uppercase tracking-tight mb-2">Report Not Found</h2>
           <p className="text-sm text-outline-variant font-medium mb-8">
