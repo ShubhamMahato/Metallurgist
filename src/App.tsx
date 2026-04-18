@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import DashboardPage from './pages/DashboardPage';
 import IntakePage from './pages/IntakePage';
+import PublicReportPage from './pages/PublicReportPage';
 import Login from './components/Login';
 import Register from './components/Register';
 import NoPermission from './components/NoPermission';
@@ -46,6 +47,7 @@ export default function App() {
               path="/intake" 
               element={user || new URLSearchParams(window.location.search).has('user_id') ? <IntakePage /> : <Navigate to="/login" replace />} 
             />
+            <Route path="/report/:id" element={<PublicReportPage />} />
             <Route 
               path="/login" 
               element={!user ? <Login onLogin={handleLogin} onNavigateToRegister={() => window.location.href = '/register'} /> : <Navigate to="/" replace />} 

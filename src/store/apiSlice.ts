@@ -50,6 +50,9 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ['Intake'],
     }),
+    getPublicReport: builder.query<any, string>({
+      query: (id) => `/public/report/${id}`,
+    }),
     saveFinalResults: builder.mutation({
       query: (finalResults) => ({
         url: '/final-results/save',
@@ -66,5 +69,6 @@ export const {
   useCreateIntakeMutation, 
   useGetIntakesQuery, 
   useCompleteIntakeMutation,
+  useGetPublicReportQuery,
   useSaveFinalResultsMutation
 } = apiSlice;

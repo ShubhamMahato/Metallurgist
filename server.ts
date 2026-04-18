@@ -410,28 +410,23 @@ async function startServer() {
 
   apiRouter.use(["/intake", "/final-results"], authMiddleware);
 
-  app.use("/api", apiRouter);
-
-  // PUBLIC REPORT ENDPOINT (Non-API URL)
-  app.get("/report/:id", async (req, res) => {
+  // PUBLIC API ROUTES (Before auth middleware)
+  apiRouter.get("/public/report/:id", (req: any, res) => {
     try {
       const { id } = req.params;
       const reportData = FinalResultRepository.getReportData(id);
 
       if (!reportData) {
-        return res.status(404).send("Report not found");
+        return res.status(404).json({ message: "Report not found" });
       }
 
-      const template = Handlebars.compile(reportTemplate);
-      const html = template(reportData);
-
-      res.setHeader("Content-Type", "text/html");
-      res.send(html);
+      res.json(reportData);
     } catch (error) {
-      console.error("Error displaying report:", error);
-      res.status(500).send("Failed to load report");
+      console.error("Error fetching public report:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
+
   apiRouter.post("/final-results/save", (req: any, res) => {
     try {
       const { customerId, intakeId, totalValue, purityPercentage, metals } = req.body;
