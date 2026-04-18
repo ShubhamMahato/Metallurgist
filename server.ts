@@ -172,7 +172,7 @@ const IntakeRepository = {
   },
   findAllPending: (userId: string, search?: string) => {
     let query = `
-      SELECT i.*, c.name, c.phone_number 
+      SELECT i.*
       FROM intake_records i
       JOIN customers c ON i.customer_id = c.id
       WHERE i.user_id = ? AND i.is_completed = 0
@@ -180,7 +180,7 @@ const IntakeRepository = {
     const params: any[] = [userId];
 
     if (search) {
-      query += ` AND (c.name LIKE ? OR c.phone_number LIKE ?)`;
+      query += ` AND (i.name LIKE ? OR i.phone_number LIKE ?)`;
       const searchParam = `%${search}%`;
       params.push(searchParam, searchParam);
     }
@@ -258,8 +258,8 @@ const FinalResultRepository = {
         r.total_value as total_aggregate,
         r.purity_percentage,
         r.created_at as date,
-        c.name as customer_name,
-        c.phone_number,
+        i.name as customer_name,
+        i.phone_number,
         i.gold_weight
       FROM final_metal_results r
       JOIN customers c ON r.customer_id = c.id
@@ -305,10 +305,10 @@ const FinalResultRepository = {
 // --- Service Layer ---
 const IntakeService = {
   createIntake: (userId: string, data: { name: string; phoneNumber: string; goldWeight: number }) => {
-    // 1. Check if customer exists for THIS user
+    // 1. Check if customer profile exists for THIS user by phone number
     let customer = CustomerRepository.findByPhoneNumber(userId, data.phoneNumber);
 
-    // 2. If not, create new customer for THIS user
+    // 2. If not, create a base customer profile for THIS user
     if (!customer) {
       customer = CustomerRepository.create({
         id: crypto.randomUUID(),
@@ -400,7 +400,7 @@ async function startServer() {
 
   // Simple Auth Middleware
   const authMiddleware = (req: any, res: any, next: any) => {
-    const userId = req.headers["x-user-id"] as string;
+    const userId = (req.headers["x-user-id"] || req.body?.userId) as string;
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
