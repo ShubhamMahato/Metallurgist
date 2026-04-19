@@ -241,6 +241,20 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
         </AnimatePresence>
 
         <div className="flex flex-1 overflow-hidden relative">
+          <DashboardSidebar
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            intakeSearch={intakeSearch}
+            setIntakeSearch={setIntakeSearch}
+            isIntakesLoading={isIntakesLoading}
+            intakes={intakes}
+            selectedIntakeId={selectedIntakeId}
+            setSelectedIntakeId={setSelectedIntakeId}
+            isCompleting={isCompleting}
+            completeIntake={completeIntake}
+            onShowIntakeLink={() => setShowIntakeLink(true)}
+          />
+
           <main className="flex-1 h-full overflow-hidden bg-surface relative">
             <div className="w-full h-full flex flex-col p-3 sm:p-8 overflow-y-auto custom-scrollbar relative bg-surface">
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -565,6 +579,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                                 title={`${metal.name}: ${metal.value}%`}
                                 initial={{ width: 0 }}
                                 animate={{ width: `${metal.value}%` }}
+                                className="relative h-full"
                                 style={{
                                   backgroundColor:
                                     metal.id === "gold"
@@ -576,7 +591,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                                       : "#64748B",
                                 }}
                               >
-                                <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-50"></div>
+                                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
                               </motion.div>
                             ))}
                         </div>
@@ -609,20 +624,6 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
               </div>
             </div>
           </main>
-
-          <DashboardSidebar
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            intakeSearch={intakeSearch}
-            setIntakeSearch={setIntakeSearch}
-            isIntakesLoading={isIntakesLoading}
-            intakes={intakes}
-            selectedIntakeId={selectedIntakeId}
-            setSelectedIntakeId={setSelectedIntakeId}
-            isCompleting={isCompleting}
-            completeIntake={completeIntake}
-            onShowIntakeLink={() => setShowIntakeLink(true)}
-          />
         </div>
       </div>
       <IntakeLinkModal 

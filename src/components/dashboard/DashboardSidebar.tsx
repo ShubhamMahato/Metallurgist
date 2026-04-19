@@ -54,11 +54,11 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           />
 
           <motion.aside
-            initial={{ x: "100%", opacity: 0 }}
+            initial={{ x: "-100%", opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "100%", opacity: 0 }}
+            exit={{ x: "-100%", opacity: 0 }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 lg:relative h-full w-full sm:w-[400px] lg:w-[380px] bg-surface-container-lowest shadow-2xl lg:shadow-none z-[70] lg:z-10 border-l border-outline-variant/30 flex flex-col overflow-hidden"
+            className="fixed left-0 top-0 lg:relative h-full w-full sm:w-[400px] lg:w-[380px] bg-surface-container-lowest shadow-2xl lg:shadow-none z-[70] lg:z-10 border-r border-outline-variant/30 flex flex-col overflow-hidden"
           >
             {/* Drawer Header - Technical Style */}
             <div className="p-6 bg-surface-container-lowest border-b border-outline-variant/30 shrink-0">
@@ -226,13 +226,18 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 </motion.div>
               )}
 
-              <div className="flex items-center justify-between gap-4 py-4">
-                <p className="text-[8px] font-mono text-outline-variant uppercase tracking-widest">
-                  Select a record to link analysis results
-                </p>
+              <div className="flex items-center justify-between gap-4 py-4 pt-6 border-t border-outline-variant/10">
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="hidden lg:flex items-center gap-2 px-3 py-1.5 hover:bg-surface-container rounded-lg text-[9px] font-black text-outline-variant hover:text-on-surface uppercase tracking-widest transition-all group"
+                >
+                  <X size={12} className="group-hover:rotate-90 transition-transform" />
+                  Collapse Queue
+                </button>
+                <div className="flex-1 lg:hidden" />
                 <button
                   onClick={onShowIntakeLink}
-                  className="p-2 bg-secondary/10 text-secondary rounded-lg hover:bg-secondary hover:text-white transition-all border border-secondary/20"
+                  className="p-2 bg-secondary/10 text-secondary rounded-lg hover:bg-secondary hover:text-white transition-all border border-secondary/20 ml-auto"
                   title="Share Intake Link"
                 >
                   <Share2 size={12} />
