@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../../lib/LanguageContext";
 
 interface DashboardHeaderProps {
   navigate: ReturnType<typeof useNavigate>;
@@ -74,6 +75,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   settingsRef,
   onShowIntakeLink,
 }) => {
+  const { t } = useLanguage();
   const handleSaveWrapper = () => {
     // 1. Always attempt original save logic
     if (isPersistent) {
@@ -112,13 +114,13 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             title="New Customer Intake"
           >
             <UserPlus size={14} />
-            <span className="hidden lg:inline">Customer Intake</span>
+            <span className="hidden lg:inline">{t('customerQueue')}</span>
           </button>
 
           <button
             onClick={onShowIntakeLink}
             className="p-2.5 bg-secondary/10 text-secondary rounded-xl hover:bg-secondary hover:text-white transition-all border border-secondary/20"
-            title="Share Intake Link"
+            title={t('shareIntake')}
           >
             <Share2 size={18} />
           </button>
@@ -130,20 +132,20 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 ? "bg-secondary text-on-secondary border-secondary shadow-lg shadow-secondary/20"
                 : "bg-surface-container text-on-surface border-outline-variant/30 hover:bg-surface-container-high"
             }`}
-            title="Link Customer Record"
+            title={t('link')}
           >
             <Users size={14} />
             <span className="hidden md:inline">
               {selectedIntakeId ? (
                 <span className="flex items-center gap-2">
-                  Linked:{" "}
+                  {t('linked')}:{" "}
                   <span className="font-black uppercase truncate max-w-[120px]">
                     {intakes.find((i) => i.id === selectedIntakeId)?.name ||
                       "Customer"}
                   </span>
                 </span>
               ) : (
-                "Link Customer"
+                t('link')
               )}
             </span>
           </button>
@@ -175,7 +177,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <Save size={14} className={isSaving || isSavingFinalReport ? "animate-pulse" : ""} />
-                <span>{isSaving || isSavingFinalReport ? "Saving..." : "Save"}</span>
+                <span>{isSaving || isSavingFinalReport ? t('saving') : "Save"}</span>
               </button>
 
               <button
@@ -201,7 +203,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <MessageCircle size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
-                <span>{isSavingFinalReport ? "Saving..." : "WhatsApp"}</span>
+                <span>{isSavingFinalReport ? t('saving') : "WhatsApp"}</span>
               </button>
             </>
           ) : (
@@ -216,7 +218,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <FileText size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
-                <span>{isSavingFinalReport ? "Saving..." : "Download"}</span>
+                <span>{isSavingFinalReport ? t('saving') : "Download"}</span>
               </button>
 
               <button
@@ -242,7 +244,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <MessageCircle size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
-                <span>{isSavingFinalReport ? "Saving..." : "WhatsApp"}</span>
+                <span>{isSavingFinalReport ? t('saving') : "WhatsApp"}</span>
               </button>
             </>
           )}
@@ -291,7 +293,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-surface-container rounded-xl transition-colors"
                 >
                   <Share2 size={16} className="text-secondary" />
-                  Share Intake
+                  {t('shareIntake')}
                 </button>
 
                 {isPersistent ? (
@@ -304,7 +306,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-surface-container rounded-xl transition-colors disabled:opacity-50"
                   >
                     <Save size={16} className={isSaving || isSavingFinalReport ? "text-primary animate-pulse" : "text-primary"} />
-                    {isSaving || isSavingFinalReport ? "Saving..." : "Save"}
+                    {isSaving || isSavingFinalReport ? t('saving') : "Save"}
                   </button>
                 ) : (
                   <button
@@ -316,7 +318,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-surface-container rounded-xl transition-colors disabled:opacity-50"
                   >
                     <FileText size={16} className={isSavingFinalReport ? "text-primary animate-pulse" : "text-primary"} />
-                    {isSavingFinalReport ? "Saving..." : "Download"}
+                    {isSavingFinalReport ? t('saving') : "Download"}
                   </button>
                 )}
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store';
+import { LanguageProvider } from './lib/LanguageContext';
 import DashboardPage from './pages/DashboardPage';
 import IntakePage from './pages/IntakePage';
 import PublicReportPage from './pages/PublicReportPage';
@@ -36,31 +37,39 @@ export default function App() {
 
   return (
     <Provider store={store}>
-      <Router>
-        <div className="min-h-screen bg-background">
-          <Routes>
-            <Route 
-              path="/" 
-              element={user ? <DashboardPage onLogout={handleLogout} /> : <Navigate to="/login" replace />} 
-            />
-            <Route 
-              path="/intake" 
-              element={user || new URLSearchParams(window.location.search).has('user_id') ? <IntakePage /> : <Navigate to="/login" replace />} 
-            />
-            <Route path="/report/:id" element={<PublicReportPage />} />
-            <Route 
-              path="/login" 
-              element={!user ? <Login onLogin={handleLogin} onNavigateToRegister={() => window.location.href = '/register'} /> : <Navigate to="/" replace />} 
-            />
-            <Route 
-              path="/register" 
-              element={!user ? <Register onRegister={handleLogin} onNavigateToLogin={() => window.location.href = '/login'} /> : <Navigate to="/" replace />} 
-            />
-            <Route path="/no-permission" element={<NoPermission onBack={() => {}} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
+      <LanguageProvider>
+        <Router>
+          <div className="min-h-screen bg-background">
+            <Routes>
+              {/* Public Routes First */}
+              <Route path="/intake" element={<IntakePage />} />
+              <Route path="/report/:id" element={<PublicReportPage />} />
+              
+              {/* Protected Root */}
+              <Route 
+                path="/" 
+                element={user ? <DashboardPage onLogout={handleLogout} /> : <Navigate to="/login" replace />} 
+              />
+              
+              {/* Auth Routes */}
+              <Route 
+                path="/login" 
+                element={!user ? <Login onLogin={handleLogin} onNavigateToRegister={() => {}} /> : <Navigate to="/" replace />} 
+              />
+              <Route 
+                path="/register" 
+                element={!user ? <Register onRegister={handleLogin} onNavigateToLogin={() => {}} /> : <Navigate to="/" replace />} 
+              />
+              
+              {/* Support Routes */}
+              <Route path="/no-permission" element={<NoPermission onBack={() => {}} />} />
+              
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </Router>
+      </LanguageProvider>
     </Provider>
   );
 }

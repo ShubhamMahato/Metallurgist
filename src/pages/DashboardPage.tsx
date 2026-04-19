@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useDashboard } from "../hooks/useDashboard";
+import { useLanguage } from "../lib/LanguageContext";
 import { DashboardHeader } from "../components/dashboard/DashboardHeader";
 import { DashboardSidebar } from "../components/dashboard/DashboardSidebar";
 import { MetalCard } from "../components/dashboard/MetalCard";
@@ -26,6 +27,7 @@ import { ALL_AVAILABLE_METALS } from "../constants/metals";
 import { LogOut, Settings as SettingsIcon } from "lucide-react";
 
 export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
+  const { language, setLanguage, t } = useLanguage();
   const {
     navigate,
     lastEditedId,
@@ -194,7 +196,32 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
             >
               <div className="px-3 py-2 border-b border-outline-variant/30 mb-1">
                 <p className="text-[10px] font-black text-outline uppercase tracking-widest">
-                  File Settings
+                  {t('language')}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-1 px-2 pb-2 border-b border-outline-variant/30 mb-1">
+                {[
+                  { id: 'en', label: 'English' },
+                  { id: 'hi', label: 'हिंदी' },
+                  { id: 'mr', label: 'मराठी' }
+                ].map((lang) => (
+                  <button
+                    key={lang.id}
+                    onClick={() => setLanguage(lang.id as any)}
+                    className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      language === lang.id
+                        ? "bg-primary text-on-primary"
+                        : "bg-surface-container text-outline hover:bg-surface-container-high"
+                    }`}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="px-3 py-2 border-b border-outline-variant/30 mb-1">
+                <p className="text-[10px] font-black text-outline uppercase tracking-widest">
+                  {t('changeFile')}
                 </p>
               </div>
               <button
@@ -289,17 +316,17 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                     <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest">
                       <Activity size={10} className="animate-pulse" />
                       {fileHandle
-                        ? "Live File Connection Active"
-                        : "Live Analysis System"}
+                        ? t('connectedReport')
+                        : t('liveAnalysis')}
                     </div>
                     <h2 className="text-3xl font-black tracking-tight font-headline text-on-surface leading-tight">
                       {fileHandle ? (
                         <>
-                          Connected <span className="text-primary">Report</span>
+                          {t('connectedReport').split(' ')[0]} <span className="text-primary">{t('connectedReport').split(' ')[1]}</span>
                         </>
                       ) : (
                         <>
-                          Report <span className="text-primary">Composition</span>
+                          {t('reportComposition').split(' ')[0]} <span className="text-primary">{t('reportComposition').split(' ')[1]}</span>
                         </>
                       )}
                     </h2>
@@ -314,20 +341,20 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                         <div className="flex items-center justify-between relative z-10">
                           <div className="flex items-center gap-2 text-primary">
                             <Users size={16} className="text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Active Linked Case</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t('activeCase')}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={() => setShowIntakeLink(true)}
                               className="p-1.5 bg-secondary/10 text-secondary rounded-xl hover:bg-secondary hover:text-white transition-all border border-secondary/20"
-                              title="Share Intake Link"
+                              title={t('shareIntake')}
                             >
                               <Share2 size={12} />
                             </button>
                             <button 
                               onClick={() => setSelectedIntakeId(null)}
                               className="p-1.5 hover:bg-error/10 rounded-xl text-outline-variant hover:text-error transition-all"
-                              title="Unlink Customer"
+                              title={t('unlink')}
                             >
                               <X size={14} />
                             </button>
@@ -336,7 +363,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
 
                         <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 relative z-10">
                           <div className="flex flex-col">
-                            <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">Customer Name</span>
+                            <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">{t('customerName')}</span>
                             <p className="text-base font-black text-on-surface uppercase tracking-tight">
                               {intakes.find(i => i.id === selectedIntakeId)?.name}
                             </p>
@@ -344,14 +371,14 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                           
                           <div className="flex items-center gap-8">
                             <div className="flex flex-col">
-                              <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">Mobile Number</span>
+                              <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">{t('mobileNumber')}</span>
                               <p className="text-xs font-mono text-primary font-black flex items-center gap-1.5">
                                 {intakes.find(i => i.id === selectedIntakeId)?.phone_number}
                               </p>
                             </div>
                             
                             <div className="flex flex-col">
-                              <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">Intake Weight</span>
+                              <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">{t('intakeWeight')}</span>
                               <p className="text-xs font-mono text-primary font-black flex items-center gap-1.5">
                                 {intakes.find(i => i.id === selectedIntakeId)?.gold_weight}g
                               </p>
@@ -498,25 +525,25 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                     >
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white/40 backdrop-blur-xl p-6 rounded-3xl border border-white/40 shadow-sm relative z-50">
                         <MetadataField
-                          label="Customer Name"
+                          label={t('customerName')}
                           value={customerName}
                           onChange={setCustomerName}
                           icon={FileText}
-                          placeholder="Enter customer name"
+                          placeholder={t('customerName')}
                         />
                         <MetadataField
-                          label="Sample Type"
+                          label={t('sampleType')}
                           value={sampleType}
                           onChange={setSampleType}
                           icon={Sparkles}
-                          placeholder="Enter sample type"
+                          placeholder={t('sampleType')}
                         />
                         <MetadataField
-                          label="Weight (g)"
+                          label={t('weight')}
                           value={weight}
                           onChange={setWeight}
                           icon={Activity}
-                          placeholder="Enter weight"
+                          placeholder={t('weight')}
                         />
                       </div>
 
@@ -524,7 +551,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                         <div className="flex flex-wrap items-center justify-between gap-4 relative z-40">
                           <div className="flex items-center gap-3">
                             <h3 className="text-lg font-black font-headline text-on-surface">
-                              Constituents
+                              {t('constituents')}
                             </h3>
                             <div className="flex items-center gap-2">
                               <div
@@ -535,7 +562,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                                 }`}
                               ></div>
                               <span className="text-[9px] font-black text-outline uppercase tracking-widest">
-                                {isVerified ? "Balanced" : "Unbalanced"}
+                                {isVerified ? t('balanced') : t('unbalanced')}
                               </span>
                             </div>
                           </div>
@@ -560,7 +587,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                               className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline flex items-center gap-1 cursor-pointer p-3 -m-3 bg-white/5 rounded-lg border border-transparent hover:border-primary/20 transition-all"
                             >
                               <UploadCloud size={12} />
-                              Upload New
+                              {t('uploadNew')}
                             </button>
                           </div>
                         </div>

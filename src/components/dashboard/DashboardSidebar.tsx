@@ -12,6 +12,7 @@ import {
   Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useLanguage } from "../../lib/LanguageContext";
 
 interface DashboardSidebarProps {
   isSidebarOpen: boolean;
@@ -40,6 +41,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   completeIntake,
   onShowIntakeLink,
 }) => {
+  const { t } = useLanguage();
   return (
     <AnimatePresence>
       {isSidebarOpen && (
@@ -69,10 +71,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   </div>
                   <div>
                     <h3 className="text-sm font-black font-headline text-on-surface uppercase tracking-tighter">
-                      Customer Queue
+                      {t('customerQueue')}
                     </h3>
                     <p className="text-[9px] font-mono text-outline-variant uppercase tracking-[0.2em]">
-                      Active Intake Records
+                      {t('activeIntake')}
                     </p>
                   </div>
                 </div>
@@ -93,7 +95,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   value={intakeSearch}
                   onChange={(e) => setIntakeSearch(e.target.value)}
                   className="w-full bg-surface-container-low border border-outline-variant/20 focus:border-primary/40 focus:ring-4 focus:ring-primary/5 rounded-xl py-2.5 pl-10 pr-4 text-xs font-bold text-on-surface transition-all outline-none placeholder:text-outline-variant/40 font-mono"
-                  placeholder="SEARCH BY NAME/MOBILE..."
+                  placeholder={t('searchPlaceholder')}
                 />
               </div>
             </div>
@@ -114,10 +116,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-on-surface">
-                      No Pending Intakes
+                      {t('noPendingIntakes')}
                     </p>
                     <p className="text-[9px] font-mono text-outline-variant uppercase tracking-tight mt-1">
-                      Check search filters or add new
+                      {t('checkFilters')}
                     </p>
                   </div>
                 </div>
@@ -183,7 +185,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                           ? "bg-primary text-on-primary border-primary"
                           : "bg-surface-container text-outline-variant border-outline-variant/20 group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/30"
                       }`}>
-                        {selectedIntakeId === intake.id ? "Linked" : "Link"}
+                        {selectedIntakeId === intake.id ? t('linked') : t('link')}
                       </div>
 
                       {selectedIntakeId === intake.id && (
@@ -211,7 +213,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[8px] font-black text-secondary uppercase tracking-widest leading-none mb-1">
-                      Active Link
+                      {t('activeLink')}
                     </p>
                     <p className="text-xs font-bold text-on-surface truncate">
                       {intakes.find((i) => i.id === selectedIntakeId)?.name}
@@ -232,7 +234,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   className="hidden lg:flex items-center gap-2 px-3 py-1.5 hover:bg-surface-container rounded-lg text-[9px] font-black text-outline-variant hover:text-on-surface uppercase tracking-widest transition-all group"
                 >
                   <X size={12} className="group-hover:rotate-90 transition-transform" />
-                  Collapse Queue
+                  {t('collapseQueue')}
                 </button>
                 <div className="flex-1 lg:hidden" />
                 <button
