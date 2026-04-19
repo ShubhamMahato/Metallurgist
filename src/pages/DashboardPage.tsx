@@ -18,6 +18,7 @@ import { DashboardSidebar } from "../components/dashboard/DashboardSidebar";
 import { MetalCard } from "../components/dashboard/MetalCard";
 import { CalculationSummary } from "../components/dashboard/CalculationSummary";
 import { AddMetalModal } from "../components/dashboard/AddMetalModal";
+import { IntakeLinkModal } from "../components/dashboard/IntakeLinkModal";
 import { MetadataField } from "../components/dashboard/MetadataField";
 import { ALL_AVAILABLE_METALS } from "../constants/metals";
 
@@ -85,6 +86,8 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
     addMetal,
     saveFinalReport,
     isSavingFinalReport,
+    showIntakeLink,
+    setShowIntakeLink,
   } = useDashboard();
 
   const [notification, setNotification] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -175,6 +178,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
           showSettings={showSettings}
           setShowSettings={setShowSettings}
           settingsRef={settingsRef}
+          onShowIntakeLink={() => setShowIntakeLink(true)}
         />
 
         {/* Settings Dropdown Content (Mobile/Tablet positioning handled in Header, but logic here) */}
@@ -608,6 +612,10 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
           completeIntake={completeIntake}
         />
       </div>
+      <IntakeLinkModal 
+        isOpen={showIntakeLink}
+        onClose={() => setShowIntakeLink(false)}
+      />
     </div>
   );
 }

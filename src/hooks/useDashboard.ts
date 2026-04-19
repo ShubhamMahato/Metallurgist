@@ -113,6 +113,7 @@ export const useDashboard = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showIntakeLink, setShowIntakeLink] = useState(false);
   const [originalContent, setOriginalContent] = useState("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1003,5 +1004,7 @@ export const useDashboard = () => {
     addMetal,
     saveFinalReport,
     isSavingFinalReport,
+    showIntakeLink,
+    setShowIntakeLink,
   };
 };

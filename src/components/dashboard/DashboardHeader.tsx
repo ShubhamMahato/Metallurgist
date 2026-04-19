@@ -10,6 +10,7 @@ import {
   Plus,
   Settings,
   MessageCircle,
+  Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
@@ -41,6 +42,7 @@ interface DashboardHeaderProps {
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
   settingsRef: React.RefObject<HTMLDivElement>;
+  onShowIntakeLink: () => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -70,6 +72,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   showSettings,
   setShowSettings,
   settingsRef,
+  onShowIntakeLink,
 }) => {
   const handleSaveWrapper = () => {
     // 1. Always attempt original save logic
@@ -110,6 +113,15 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           >
             <UserPlus size={14} />
             <span className="hidden lg:inline">Customer Intake</span>
+          </button>
+
+          <button
+            onClick={onShowIntakeLink}
+            className="flex items-center gap-2 px-3 py-2 bg-surface-container text-on-surface rounded-xl hover:bg-secondary hover:text-on-secondary transition-all text-[10px] font-black uppercase tracking-widest border border-outline-variant/20"
+            title="Share Intake Link"
+          >
+            <Share2 size={14} />
+            <span className="hidden lg:inline">Share Intake</span>
           </button>
 
           <button
@@ -271,6 +283,17 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     Reload
                   </button>
                 )}
+
+                <button
+                  onClick={() => {
+                    onShowIntakeLink();
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-surface-container rounded-xl transition-colors"
+                >
+                  <Share2 size={16} className="text-secondary" />
+                  Share Intake
+                </button>
 
                 {isPersistent ? (
                   <button
