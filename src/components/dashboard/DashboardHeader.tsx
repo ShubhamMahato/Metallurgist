@@ -117,11 +117,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
           <button
             onClick={onShowIntakeLink}
-            className="flex items-center gap-2 px-3 py-2 bg-surface-container text-on-surface rounded-xl hover:bg-secondary hover:text-on-secondary transition-all text-[10px] font-black uppercase tracking-widest border border-outline-variant/20"
+            className="p-2.5 bg-secondary/10 text-secondary rounded-xl hover:bg-secondary hover:text-white transition-all border border-secondary/20"
             title="Share Intake Link"
           >
-            <Share2 size={14} />
-            <span className="hidden lg:inline">Share Intake</span>
+            <Share2 size={18} />
           </button>
 
           <button

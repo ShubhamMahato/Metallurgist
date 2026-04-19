@@ -15,6 +15,7 @@ interface MetalCardProps {
   lastEditedId: string | null;
   tempValues: Record<string, string>;
   handleValueChange: (id: string, value: string) => void;
+  handleValueBlur: (id: string) => void;
   toggleLock: (id: string) => void;
   removeMetal: (id: string) => void;
 }
@@ -24,6 +25,7 @@ export const MetalCard: React.FC<MetalCardProps> = ({
   lastEditedId,
   tempValues,
   handleValueChange,
+  handleValueBlur,
   toggleLock,
   removeMetal,
 }) => {
@@ -88,6 +90,7 @@ export const MetalCard: React.FC<MetalCardProps> = ({
               title={`Edit concentration of ${metal.name}`}
               value={tempValues[metal.id] ?? metal.value}
               onChange={(e) => handleValueChange(metal.id, e.target.value)}
+              onBlur={() => handleValueBlur(metal.id)}
               disabled={metal.locked}
             />
             <span className="text-outline-variant font-mono font-black text-sm opacity-40">

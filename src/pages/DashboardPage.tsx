@@ -10,6 +10,7 @@ import {
   FileText,
   Sparkles,
   LockOpen,
+  Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useDashboard } from "../hooks/useDashboard";
@@ -73,6 +74,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
     reloadFile,
     disconnectFile,
     handleValueChange,
+    handleValueBlur,
     toggleLock,
     removeMetal,
     resetToOriginal,
@@ -253,7 +255,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                 ></div>
               </div>
 
-              <div className="max-w-6xl mx-auto w-full space-y-6 pb-12 relative z-10">
+              <div className="max-w-7xl mx-auto w-full space-y-6 pb-12 relative z-10">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -300,13 +302,22 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                             <Users size={16} className="text-primary" />
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Active Linked Case</span>
                           </div>
-                          <button 
-                            onClick={() => setSelectedIntakeId(null)}
-                            className="p-1.5 hover:bg-error/10 rounded-xl text-outline-variant hover:text-error transition-all"
-                            title="Unlink Customer"
-                          >
-                            <X size={14} />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => setShowIntakeLink(true)}
+                              className="p-1.5 bg-secondary/10 text-secondary rounded-xl hover:bg-secondary hover:text-white transition-all border border-secondary/20"
+                              title="Share Intake Link"
+                            >
+                              <Share2 size={12} />
+                            </button>
+                            <button 
+                              onClick={() => setSelectedIntakeId(null)}
+                              className="p-1.5 hover:bg-error/10 rounded-xl text-outline-variant hover:text-error transition-all"
+                              title="Unlink Customer"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 relative z-10">
@@ -586,6 +597,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                               lastEditedId={lastEditedId}
                               tempValues={tempValues}
                               handleValueChange={handleValueChange}
+                              handleValueBlur={handleValueBlur}
                               toggleLock={toggleLock}
                               removeMetal={removeMetal}
                             />
@@ -597,20 +609,21 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
               </div>
             </div>
           </main>
-        </div>
 
-        <DashboardSidebar
-          isSidebarOpen={isSidebarOpen}
-          setIsSidebarOpen={setIsSidebarOpen}
-          intakeSearch={intakeSearch}
-          setIntakeSearch={setIntakeSearch}
-          isIntakesLoading={isIntakesLoading}
-          intakes={intakes}
-          selectedIntakeId={selectedIntakeId}
-          setSelectedIntakeId={setSelectedIntakeId}
-          isCompleting={isCompleting}
-          completeIntake={completeIntake}
-        />
+          <DashboardSidebar
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            intakeSearch={intakeSearch}
+            setIntakeSearch={setIntakeSearch}
+            isIntakesLoading={isIntakesLoading}
+            intakes={intakes}
+            selectedIntakeId={selectedIntakeId}
+            setSelectedIntakeId={setSelectedIntakeId}
+            isCompleting={isCompleting}
+            completeIntake={completeIntake}
+            onShowIntakeLink={() => setShowIntakeLink(true)}
+          />
+        </div>
       </div>
       <IntakeLinkModal 
         isOpen={showIntakeLink}

@@ -9,6 +9,7 @@ import {
   Coins,
   ShieldCheck,
   Zap,
+  Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -23,6 +24,7 @@ interface DashboardSidebarProps {
   setSelectedIntakeId: (id: string | null) => void;
   isCompleting: boolean;
   completeIntake: (id: string) => Promise<any>;
+  onShowIntakeLink: () => void;
 }
 
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
@@ -36,6 +38,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   setSelectedIntakeId,
   isCompleting,
   completeIntake,
+  onShowIntakeLink,
 }) => {
   return (
     <AnimatePresence>
@@ -50,13 +53,12 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
             className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[60] lg:hidden"
           />
 
-          {/* Sidebar / Drawer */}
           <motion.aside
-            initial={{ x: "100%", width: 0 }}
-            animate={{ x: 0, width: "auto" }}
-            exit={{ x: "100%", width: 0 }}
+            initial={{ x: "100%", opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 lg:relative h-full w-full sm:w-[400px] lg:w-[450px] bg-surface-container-lowest shadow-2xl lg:shadow-none z-[70] lg:z-10 border-l border-outline-variant/30 flex flex-col overflow-hidden"
+            className="fixed right-0 top-0 lg:relative h-full w-full sm:w-[400px] lg:w-[380px] bg-surface-container-lowest shadow-2xl lg:shadow-none z-[70] lg:z-10 border-l border-outline-variant/30 flex flex-col overflow-hidden"
           >
             {/* Drawer Header - Technical Style */}
             <div className="p-6 bg-surface-container-lowest border-b border-outline-variant/30 shrink-0">
@@ -76,7 +78,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 </div>
                 <button
                   onClick={() => setIsSidebarOpen(false)}
-                  className="p-2 hover:bg-surface-container rounded-xl transition-colors text-outline-variant hover:text-on-surface"
+                  className="p-2 hover:bg-surface-container rounded-xl transition-colors text-outline-variant hover:text-on-surface lg:hidden"
                 >
                   <X size={18} />
                 </button>
@@ -224,9 +226,18 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 </motion.div>
               )}
 
-              <p className="text-[8px] font-mono text-center text-outline-variant uppercase tracking-widest py-4">
-                Select a record to link analysis results to a customer
-              </p>
+              <div className="flex items-center justify-between gap-4 py-4">
+                <p className="text-[8px] font-mono text-outline-variant uppercase tracking-widest">
+                  Select a record to link analysis results
+                </p>
+                <button
+                  onClick={onShowIntakeLink}
+                  className="p-2 bg-secondary/10 text-secondary rounded-lg hover:bg-secondary hover:text-white transition-all border border-secondary/20"
+                  title="Share Intake Link"
+                >
+                  <Share2 size={12} />
+                </button>
+              </div>
             </div>
           </motion.aside>
         </>

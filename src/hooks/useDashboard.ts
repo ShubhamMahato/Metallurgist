@@ -22,7 +22,7 @@ export const useDashboard = () => {
   const [intakeSearch, setIntakeSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedIntakeId, setSelectedIntakeId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Debounce search
   useEffect(() => {
@@ -800,13 +800,16 @@ export const useDashboard = () => {
         }
         return rebalanceMetals(prev, id, processedValue);
       });
-
-      setTempValues((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
     }, 1000);
+  };
+
+  const handleValueBlur = (id: string) => {
+    setTempValues((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setLastEditedId(null);
   };
 
   const toggleLock = (id: string) => {
@@ -991,6 +994,7 @@ export const useDashboard = () => {
     reloadFile,
     disconnectFile,
     handleValueChange,
+    handleValueBlur,
     toggleLock,
     removeMetal,
     resetToOriginal,
