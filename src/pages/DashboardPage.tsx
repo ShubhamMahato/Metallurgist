@@ -92,6 +92,10 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
     isSavingFinalReport,
     showIntakeLink,
     setShowIntakeLink,
+    intakeStatus,
+    setIntakeStatus,
+    dateRange,
+    setDateRange,
   } = useDashboard();
 
   const [notification, setNotification] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -280,6 +284,10 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
             isCompleting={isCompleting}
             completeIntake={completeIntake}
             onShowIntakeLink={() => setShowIntakeLink(true)}
+            intakeStatus={intakeStatus}
+            setIntakeStatus={setIntakeStatus}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
           />
 
           <main className="flex-1 h-full overflow-hidden bg-surface relative">

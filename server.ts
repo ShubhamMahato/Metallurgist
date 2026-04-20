@@ -187,6 +187,34 @@ const IntakeRepository = {
     query += ` ORDER BY created_at DESC`;
     return db.prepare(query).all(...params) as any[];
   },
+  findAllHistorical: (userId: string, options: { search?: string; startDate?: string; endDate?: string }) => {
+    let query = `
+      SELECT *
+      FROM intake_records
+      WHERE user_id = ? AND is_completed = 1
+    `;
+    const params: any[] = [userId];
+
+    if (options.search) {
+      query += ` AND (name LIKE ? OR phone_number LIKE ?)`;
+      const searchParam = `%${options.search}%`;
+      params.push(searchParam, searchParam);
+    }
+
+    if (options.startDate) {
+      query += ` AND created_at >= ?`;
+      params.push(options.startDate);
+    }
+
+    if (options.endDate) {
+      // Add 23:59:59 to include the whole end date
+      query += ` AND created_at <= ?`;
+      params.push(`${options.endDate} 23:59:59`);
+    }
+
+    query += ` ORDER BY created_at DESC`;
+    return db.prepare(query).all(...params) as any[];
+  },
   markAsCompleted: (userId: string, id: string) => {
     const stmt = db.prepare("UPDATE intake_records SET is_completed = 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND id = ?");
     return stmt.run(userId, id);
@@ -358,6 +386,9 @@ const IntakeService = {
   getPendingIntakes: (userId: string, search?: string) => {
     return IntakeRepository.findAllPending(userId, search);
   },
+  getHistoricalIntakes: (userId: string, options: { search?: string; startDate?: string; endDate?: string }) => {
+    return IntakeRepository.findAllHistorical(userId, options);
+  },
   completeIntake: (userId: string, id: string) => {
     return IntakeRepository.markAsCompleted(userId, id);
   }
@@ -505,11 +536,22 @@ async function startServer() {
 
   apiRouter.get("/intake", authMiddleware, (req: any, res) => {
     try {
-      const { search } = req.query;
+      const { search, status, startDate, endDate } = req.query;
       if (!req.userId) {
         return res.status(401).json({ message: "User context not identified" });
       }
-      const records = IntakeService.getPendingIntakes(req.userId, search as string);
+      
+      let records;
+      if (status === 'completed') {
+        records = IntakeService.getHistoricalIntakes(req.userId, { 
+          search: search as string, 
+          startDate: startDate as string, 
+          endDate: endDate as string 
+        });
+      } else {
+        records = IntakeService.getPendingIntakes(req.userId, search as string);
+      }
+      
       res.json(records);
     } catch (error) {
       console.error("Error fetching intakes:", error);

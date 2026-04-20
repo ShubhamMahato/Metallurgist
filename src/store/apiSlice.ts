@@ -37,10 +37,10 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ['Intake'],
     }),
-    getIntakes: builder.query<any[], string | void>({
-      query: (search) => ({
+    getIntakes: builder.query<any[], { search?: string; status?: 'pending' | 'completed'; startDate?: string; endDate?: string } | void>({
+      query: (options) => ({
         url: '/intake',
-        params: search ? { search } : {},
+        params: options || {},
       }),
       providesTags: ['Intake'],
     }),

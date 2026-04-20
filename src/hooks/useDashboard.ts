@@ -23,6 +23,8 @@ export const useDashboard = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedIntakeId, setSelectedIntakeId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [intakeStatus, setIntakeStatus] = useState<'pending' | 'completed'>('pending');
+  const [dateRange, setDateRange] = useState<{ startDate?: string; endDate?: string }>({});
 
   // Debounce search
   useEffect(() => {
@@ -36,8 +38,12 @@ export const useDashboard = () => {
     return () => clearTimeout(timer);
   }, [intakeSearch]);
 
-  const { data: intakes = [], isLoading: isIntakesLoading } = useGetIntakesQuery(debouncedSearch, {
-    pollingInterval: 3000, // Poll every 3 seconds for instant updates
+  const { data: intakes = [], isLoading: isIntakesLoading } = useGetIntakesQuery({
+    search: debouncedSearch,
+    status: intakeStatus,
+    ...dateRange
+  }, {
+    pollingInterval: intakeStatus === 'pending' ? 3000 : 30000, // Poll less frequently for historical data
   });
 
   // Sync customer details when intake is selected
@@ -1010,5 +1016,9 @@ export const useDashboard = () => {
     isSavingFinalReport,
     showIntakeLink,
     setShowIntakeLink,
+    intakeStatus,
+    setIntakeStatus,
+    dateRange,
+    setDateRange,
   };
 };

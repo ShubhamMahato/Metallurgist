@@ -26,6 +26,10 @@ interface DashboardSidebarProps {
   isCompleting: boolean;
   completeIntake: (id: string) => Promise<any>;
   onShowIntakeLink: () => void;
+  intakeStatus: 'pending' | 'completed';
+  setIntakeStatus: (status: 'pending' | 'completed') => void;
+  dateRange: { startDate?: string; endDate?: string };
+  setDateRange: (range: { startDate?: string; endDate?: string }) => void;
 }
 
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
@@ -40,8 +44,30 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   isCompleting,
   completeIntake,
   onShowIntakeLink,
+  intakeStatus,
+  setIntakeStatus,
+  dateRange,
+  setDateRange,
 }) => {
   const { t } = useLanguage();
+  const [filterType, setFilterType] = React.useState<'all' | 'today' | '7days' | 'custom'>('all');
+
+  const handleFilterChange = (type: 'all' | 'today' | '7days' | 'custom') => {
+    setFilterType(type);
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    if (type === 'today') {
+      setDateRange({ startDate: todayStr, endDate: todayStr });
+    } else if (type === '7days') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      setDateRange({ startDate: sevenDaysAgo.toISOString().split('T')[0], endDate: todayStr });
+    } else if (type === 'all') {
+      setDateRange({});
+    }
+  };
+
   return (
     <AnimatePresence>
       {isSidebarOpen && (
@@ -98,6 +124,81 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   placeholder={t('searchPlaceholder')}
                 />
               </div>
+
+              {/* Tabs */}
+              <div className="flex gap-1 p-1 bg-surface-container-low rounded-xl mt-4">
+                <button
+                  onClick={() => {
+                    setIntakeStatus('pending');
+                    handleFilterChange('all');
+                  }}
+                  className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                    intakeStatus === 'pending'
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "text-outline-variant hover:text-on-surface hover:bg-surface-container"
+                  }`}
+                >
+                  {t('pending')}
+                </button>
+                <button
+                  onClick={() => setIntakeStatus('completed')}
+                  className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                    intakeStatus === 'completed'
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "text-outline-variant hover:text-on-surface hover:bg-surface-container"
+                  }`}
+                >
+                  {t('completed')}
+                </button>
+              </div>
+
+              {/* Historical Filters */}
+              {intakeStatus === 'completed' && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {(['all', 'today', '7days', 'custom'] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => handleFilterChange(f)}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border ${
+                          filterType === f
+                            ? "bg-secondary text-white border-secondary"
+                            : "bg-surface-container text-outline-variant border-outline-variant/20 hover:border-secondary/30"
+                        }`}
+                      >
+                        {f === 'all' ? 'All' : t(f === '7days' ? 'last7Days' : f)}
+                      </button>
+                    ))}
+                  </div>
+
+                  {filterType === 'custom' && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      className="grid grid-cols-2 gap-2"
+                    >
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-black text-outline uppercase tracking-widest pl-1">{t('startDate')}</label>
+                        <input
+                          type="date"
+                          value={dateRange.startDate || ''}
+                          onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-2 py-1.5 text-[10px] font-bold text-on-surface outline-none focus:border-secondary"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-black text-outline uppercase tracking-widest pl-1">{t('endDate')}</label>
+                        <input
+                          type="date"
+                          value={dateRange.endDate || ''}
+                          onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-2 py-1.5 text-[10px] font-bold text-on-surface outline-none focus:border-secondary"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Drawer Content - Bento List */}
@@ -116,7 +217,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-on-surface">
-                      {t('noPendingIntakes')}
+                      {intakeStatus === 'pending' ? t('noPendingIntakes') : t('noCompletedIntakes')}
                     </p>
                     <p className="text-[9px] font-mono text-outline-variant uppercase tracking-tight mt-1">
                       {t('checkFilters')}
