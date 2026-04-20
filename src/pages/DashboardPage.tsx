@@ -22,12 +22,17 @@ import { CalculationSummary } from "../components/dashboard/CalculationSummary";
 import { AddMetalModal } from "../components/dashboard/AddMetalModal";
 import { IntakeLinkModal } from "../components/dashboard/IntakeLinkModal";
 import { MetadataField } from "../components/dashboard/MetadataField";
+import { AdminPanel } from "../components/admin/AdminPanel";
 import { ALL_AVAILABLE_METALS } from "../constants/metals";
 
-import { LogOut, Settings as SettingsIcon } from "lucide-react";
+import { LogOut, Settings as SettingsIcon, Shield } from "lucide-react";
 
 export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
   const { language, setLanguage, t } = useLanguage();
+  const [activeView, setActiveView] = React.useState<'dashboard' | 'admin'>('dashboard');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = user.role === 'admin';
+
   const {
     navigate,
     lastEditedId,
@@ -187,6 +192,9 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
           setShowSettings={setShowSettings}
           settingsRef={settingsRef}
           onShowIntakeLink={() => setShowIntakeLink(true)}
+          isAdmin={isAdmin}
+          activeView={activeView}
+          onViewChange={setActiveView}
         />
 
         {/* Settings Dropdown Content (Mobile/Tablet positioning handled in Header, but logic here) */}
@@ -272,7 +280,9 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
         </AnimatePresence>
 
         <div className="flex flex-1 overflow-hidden relative">
-          <DashboardSidebar
+          {activeView === 'dashboard' ? (
+            <>
+              <DashboardSidebar
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
             intakeSearch={intakeSearch}
@@ -659,6 +669,14 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
               </div>
             </div>
           </main>
+            </>
+          ) : (
+            <main className="flex-1 h-full overflow-hidden bg-surface relative">
+               <div className="h-full overflow-y-auto custom-scrollbar p-6">
+                  <AdminPanel />
+               </div>
+            </main>
+          )}
         </div>
       </div>
       <IntakeLinkModal 

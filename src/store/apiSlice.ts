@@ -61,6 +61,18 @@ export const apiSlice = createApi({
         body: finalResults,
       }),
     }),
+    getPendingUsers: builder.query<any[], void>({
+      query: () => '/admin/pending-users',
+      providesTags: ['User' as any],
+    }),
+    approveUser: builder.mutation<any, string>({
+      query: (userId) => ({
+        url: '/admin/approve-user',
+        method: 'POST',
+        body: { userId },
+      }),
+      invalidatesTags: ['User' as any],
+    }),
   }),
 });
 
@@ -71,5 +83,7 @@ export const {
   useGetIntakesQuery, 
   useCompleteIntakeMutation,
   useGetPublicReportQuery,
-  useSaveFinalResultsMutation
+  useSaveFinalResultsMutation,
+  useGetPendingUsersQuery,
+  useApproveUserMutation
 } = apiSlice;

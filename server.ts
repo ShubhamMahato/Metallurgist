@@ -48,6 +48,8 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     phone_number TEXT,
     password_hash TEXT,
+    role TEXT DEFAULT 'user',
+    is_approved BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -121,6 +123,15 @@ try {
       db.exec(`ALTER TABLE ${table} ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
     }
   });
+
+  // User table migrations
+  const userInfo = db.prepare("PRAGMA table_info(users)").all() as any[];
+  if (!userInfo.some(col => col.name === 'role')) {
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
+  }
+  if (!userInfo.some(col => col.name === 'is_approved')) {
+    db.exec("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 0");
+  }
 
   // Specific migration for intake_records name/phone_number if requested
   const intakeInfo = db.prepare("PRAGMA table_info(intake_records)").all() as any[];
@@ -228,13 +239,28 @@ const UserRepository = {
   findByEmail: (email: string) => {
     return db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
   },
-  create: (user: { id: string; name: string; email: string; phoneNumber: string; passwordHash?: string }) => {
+  create: (user: { id: string; name: string; email: string; phoneNumber: string; passwordHash?: string; role?: string; isApproved?: boolean }) => {
     const stmt = db.prepare(`
-      INSERT INTO users (id, name, email, phone_number, password_hash)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO users (id, name, email, phone_number, password_hash, role, is_approved)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(user.id, user.name, user.email, user.phoneNumber, user.passwordHash || null);
+    stmt.run(
+      user.id, 
+      user.name, 
+      user.email, 
+      user.phoneNumber, 
+      user.passwordHash || null, 
+      user.role || 'user', 
+      user.isApproved ? 1 : 0
+    );
     return user;
+  },
+  findAllPending: () => {
+    return db.prepare("SELECT id, name, email, phone_number, role, is_approved, created_at FROM users WHERE is_approved = 0").all() as any[];
+  },
+  approve: (id: string) => {
+    const stmt = db.prepare("UPDATE users SET is_approved = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    return stmt.run(id);
   }
 };
 
@@ -394,6 +420,15 @@ const IntakeService = {
   }
 };
 
+const AdminService = {
+  getPendingUsers: () => {
+    return UserRepository.findAllPending();
+  },
+  approveUser: (id: string) => {
+    return UserRepository.approve(id);
+  }
+};
+
 // --- Controller Layer ---
 async function startServer() {
   const app = express();
@@ -417,15 +452,21 @@ async function startServer() {
         return res.status(400).json({ message: "User already exists" });
       }
 
+      // Check if this is the first user
+      const userCount = db.prepare("SELECT count(*) as count FROM users").get() as any;
+      const isFirstUser = userCount.count === 0;
+
       const newUser = UserRepository.create({
         id: crypto.randomUUID(),
         name,
         email,
         phoneNumber,
-        passwordHash: password // TODO: Hash password
+        passwordHash: password, // TODO: Hash password
+        role: isFirstUser ? 'admin' : 'user',
+        isApproved: isFirstUser
       });
 
-      res.status(201).json({ id: newUser.id, name: newUser.name, email: newUser.email });
+      res.status(201).json({ id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role, isApproved: newUser.isApproved });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -442,7 +483,14 @@ async function startServer() {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      res.json({ id: user.id, name: user.name, email: user.email });
+      if (!user.is_approved) {
+        return res.status(403).json({ 
+          message: "Approval is pending from admin side",
+          isPendingApproval: true 
+        });
+      }
+
+      res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -504,7 +552,40 @@ async function startServer() {
   });
 
   // Other routes still require auth
-  apiRouter.use(["/intake", "/final-results"], authMiddleware);
+  apiRouter.use(["/intake", "/final-results", "/admin"], authMiddleware);
+
+  // Admin Routes
+  apiRouter.get("/admin/pending-users", (req: any, res) => {
+    try {
+      const user = UserRepository.findById(req.userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+      const pending = AdminService.getPendingUsers();
+      res.json(pending);
+    } catch (error) {
+      console.error("Error fetching pending users:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  apiRouter.post("/admin/approve-user", (req: any, res) => {
+    try {
+      const user = UserRepository.findById(req.userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ message: "Target User ID is required" });
+      }
+      AdminService.approveUser(userId);
+      res.json({ message: "User approved successfully" });
+    } catch (error) {
+      console.error("Error approving user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   apiRouter.post("/final-results/save", (req: any, res) => {
     try {

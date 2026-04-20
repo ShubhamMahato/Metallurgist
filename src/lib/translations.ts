@@ -63,6 +63,12 @@ export const translations = {
     customRange: "Custom Range",
     startDate: "Start Date",
     endDate: "End Date",
+    admin: "Admin",
+    adminPanel: "Admin Panel",
+    pendingUsers: "Pending User Approvals",
+    approve: "Approve",
+    approvalPending: "Approval is pending from admin side",
+    whatsappTooltip: "Please link the customer for WhatsApp sending to work",
   },
   hi: {
     dashboard: "डैशबोर्ड",
@@ -125,6 +131,12 @@ export const translations = {
     customRange: "कस्टम रेंज",
     startDate: "शुरुआत की तारीख",
     endDate: "समाप्ति तिथि",
+    admin: "व्यवस्थापक",
+    adminPanel: "व्यवस्थापक पैनल",
+    pendingUsers: "लंबित उपयोगकर्ता अनुमोदन",
+    approve: "अनुमोदित करें",
+    approvalPending: "व्यवस्थापक की ओर से अनुमोदन लंबित है",
+    whatsappTooltip: "व्हाट्सएप भेजने के काम करने के लिए कृपया ग्राहक को लिंक करें",
   },
   mr: {
     dashboard: "डॅशबोर्ड",
@@ -187,5 +199,11 @@ export const translations = {
     customRange: "कस्टम रेंज",
     startDate: "सुरुवात तारीख",
     endDate: "शेवटची तारीख",
+    admin: "प्रशासक",
+    adminPanel: "प्रशासक पॅनेल",
+    pendingUsers: "लंबित वापरकर्ता मंजूरी",
+    approve: "मंजूर करा",
+    approvalPending: "प्रशासकाकडून मंजूरी प्रलंबित आहे",
+    whatsappTooltip: "व्हॉट्सॲप पाठवण्यासाठी कृपया ग्राहकाला लिंक करा",
   }
 };

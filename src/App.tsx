@@ -54,11 +54,11 @@ export default function App() {
               {/* Auth Routes */}
               <Route 
                 path="/login" 
-                element={!user ? <Login onLogin={handleLogin} onNavigateToRegister={() => {}} /> : <Navigate to="/" replace />} 
+                element={!user ? <Login onLogin={handleLogin} onNavigateToRegister={() => window.location.href = '/register'} /> : <Navigate to="/" replace />} 
               />
               <Route 
                 path="/register" 
-                element={!user ? <Register onRegister={handleLogin} onNavigateToLogin={() => {}} /> : <Navigate to="/" replace />} 
+                element={!user ? <Register onRegister={handleLogin} onNavigateToLogin={() => window.location.href = '/login'} /> : <Navigate to="/" replace />} 
               />
               
               {/* Support Routes */}

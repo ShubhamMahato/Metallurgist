@@ -15,16 +15,52 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
   const [password, setPassword] = useState('');
   const [register, { isLoading, error }] = useRegisterMutation();
 
+  const [isSuccess, setIsSuccess] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const user = await register({ name, email, phoneNumber, password }).unwrap();
-      localStorage.setItem('user', JSON.stringify(user));
-      onRegister(user);
+      if (user.isApproved) {
+        localStorage.setItem('user', JSON.stringify(user));
+        onRegister(user);
+      } else {
+        setIsSuccess(true);
+      }
     } catch (err) {
       console.error('Registration failed:', err);
     }
   };
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-white paper-shadow rounded-2xl p-12 text-center space-y-6"
+        >
+          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mx-auto">
+            <CheckCircle2 size={32} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold font-headline text-slate-900">Request Submitted</h2>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Your technician access request is awaiting administrative approval. 
+              Please check back later once an admin has verified your credentials.
+            </p>
+          </div>
+          <button 
+            onClick={onNavigateToLogin}
+            className="w-full py-4 bg-primary text-on-primary font-bold rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowLeft size={18} />
+            Back to Login
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">

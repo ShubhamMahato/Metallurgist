@@ -11,6 +11,7 @@ import {
   Settings,
   MessageCircle,
   Share2,
+  Shield,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
@@ -44,6 +45,9 @@ interface DashboardHeaderProps {
   setShowSettings: (show: boolean) => void;
   settingsRef: React.RefObject<HTMLDivElement>;
   onShowIntakeLink: () => void;
+  isAdmin: boolean;
+  activeView: 'dashboard' | 'admin';
+  onViewChange: (view: 'dashboard' | 'admin') => void;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -74,6 +78,9 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   setShowSettings,
   settingsRef,
   onShowIntakeLink,
+  isAdmin,
+  activeView,
+  onViewChange,
 }) => {
   const { t } = useLanguage();
   const handleSaveWrapper = () => {
@@ -108,6 +115,34 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         <div className="h-6 w-[1px] bg-outline-variant/30 hidden sm:block" />
 
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => onViewChange('dashboard')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border ${
+              activeView === 'dashboard'
+                ? "bg-primary text-on-primary border-primary shadow-lg shadow-primary/20"
+                : "bg-surface-container text-on-surface border-outline-variant/30 hover:bg-surface-container-high"
+            }`}
+          >
+            <Sparkles size={14} />
+            <span className="hidden lg:inline">{t('dashboard')}</span>
+          </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => onViewChange('admin')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border ${
+                activeView === 'admin'
+                  ? "bg-primary text-on-primary border-primary shadow-lg shadow-primary/20"
+                  : "bg-surface-container text-on-surface border-outline-variant/30 hover:bg-surface-container-high"
+              }`}
+            >
+              <Shield size={14} />
+              <span className="hidden lg:inline">{t('admin')}</span>
+            </button>
+          )}
+
+          <div className="h-4 w-[1px] bg-outline-variant/30 mx-1" />
+
           <button
             onClick={() => navigate("/intake")}
             className="flex items-center gap-2 px-3 py-2 bg-surface-container text-on-surface rounded-xl hover:bg-primary hover:text-on-primary transition-all text-[10px] font-black uppercase tracking-widest border border-outline-variant/20"
@@ -201,6 +236,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     ? "bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/20"
                     : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
                 }`}
+                title={(!selectedIntakeId && !lastLinkedCustomer) ? t('whatsappTooltip') : ""}
               >
                 <MessageCircle size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
                 <span>{isSavingFinalReport ? t('saving') : t('whatsapp')}</span>
@@ -242,6 +278,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     ? "bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/20"
                     : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
                 }`}
+                title={(!selectedIntakeId && !lastLinkedCustomer) ? t('whatsappTooltip') : ""}
               >
                 <MessageCircle size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
                 <span>{isSavingFinalReport ? t('saving') : t('whatsapp')}</span>
@@ -341,6 +378,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   }}
                   disabled={!isParsed || (!selectedIntakeId && !lastLinkedCustomer) || isSavingFinalReport}
                   className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-green-500 hover:bg-green-600 rounded-xl transition-colors disabled:opacity-50"
+                  title={(!selectedIntakeId && !lastLinkedCustomer) ? t('whatsappTooltip') : ""}
                 >
                   <MessageCircle size={16} className={isSavingFinalReport ? "animate-pulse" : ""} />
                   {isSavingFinalReport ? t('saving') : t('whatsapp')}
