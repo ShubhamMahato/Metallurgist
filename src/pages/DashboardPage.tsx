@@ -192,7 +192,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="fixed right-6 top-16 w-64 bg-surface-container-highest rounded-2xl shadow-2xl border border-outline-variant/30 p-2 z-[100] hidden md:block"
+              className="fixed right-6 top-16 w-64 bg-surface-container-highest rounded-2xl shadow-2xl border border-outline-variant/30 p-2 z-[100] md:block"
             >
               <div className="px-3 py-2 border-b border-outline-variant/30 mb-1">
                 <p className="text-[10px] font-black text-outline uppercase tracking-widest">
@@ -233,7 +233,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
               >
                 <History size={16} className="text-primary" />
                 <div className="flex flex-col">
-                  <span>Change File</span>
+                  <span>{t('changeFile')}</span>
                   <span className="text-[9px] font-medium text-outline-variant">
                     Select a different report
                   </span>
@@ -245,7 +245,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
               >
                 <X size={16} />
                 <div className="flex flex-col">
-                  <span>Disconnect File</span>
+                  <span>{t('disconnectFile')}</span>
                   <span className="text-[9px] font-medium text-error/60">
                     Stop persistent sync
                   </span>
@@ -257,7 +257,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
               >
                 <LogOut size={16} />
                 <div className="flex flex-col">
-                  <span>Sign Out</span>
+                  <span>{t('signOut')}</span>
                   <span className="text-[9px] font-medium text-error/60">
                     Exit laboratory system
                   </span>
@@ -397,7 +397,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                                 : "bg-yellow-500"
                             }`}
                           />
-                          {isPersistent ? "Connected:" : "Access Required:"}{" "}
+                          {isPersistent ? t('connected') : t('accessRequired')}{" "}
                           {fileHandle.name}
                         </p>
                         {!isPersistent && (
@@ -406,7 +406,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                             className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1"
                           >
                             <LockOpen size={10} />
-                            Grant Access to Sync
+                            {t('grantAccess')}
                           </button>
                         )}
                       </div>
@@ -474,10 +474,10 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                           />
                         </div>
                         <p className="text-sm font-bold text-on-surface">
-                          One-time Upload
+                          {t('oneTimeUpload')}
                         </p>
                         <p className="text-[10px] text-on-surface-variant mt-1">
-                          Drop report or click to upload
+                          {t('dropReport')}
                         </p>
                       </motion.div>
 
@@ -492,11 +492,11 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                         </div>
                         <p className="text-sm font-bold text-primary">
                           {isConnecting
-                            ? "Connecting..."
-                            : "Persistent Connection"}
+                            ? t('connecting')
+                            : t('persistentConnection')}
                         </p>
                         <p className="text-[10px] text-primary/70 mt-1">
-                          Auto-syncs when file changes on disk
+                          {t('autoSync')}
                         </p>
                       </motion.div>
 

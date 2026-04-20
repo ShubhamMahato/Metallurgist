@@ -22,7 +22,7 @@ export const useDashboard = () => {
   const [intakeSearch, setIntakeSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedIntakeId, setSelectedIntakeId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
 
   // Debounce search
   useEffect(() => {

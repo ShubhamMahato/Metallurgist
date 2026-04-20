@@ -177,7 +177,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <Save size={14} className={isSaving || isSavingFinalReport ? "animate-pulse" : ""} />
-                <span>{isSaving || isSavingFinalReport ? t('saving') : "Save"}</span>
+                <span>{isSaving || isSavingFinalReport ? t('saving') : t('save')}</span>
               </button>
 
               <button
@@ -190,7 +190,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <PrinterIcon size={14} />
-                <span>Print</span>
+                <span>{t('print')}</span>
               </button>
 
               <button
@@ -203,7 +203,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <MessageCircle size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
-                <span>{isSavingFinalReport ? t('saving') : "WhatsApp"}</span>
+                <span>{isSavingFinalReport ? t('saving') : t('whatsapp')}</span>
               </button>
             </>
           ) : (
@@ -218,20 +218,20 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <FileText size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
-                <span>{isSavingFinalReport ? t('saving') : "Download"}</span>
+                <span>{isSavingFinalReport ? t('saving') : t('download')}</span>
               </button>
 
               <button
                 onClick={handlePrint}
                 disabled={!isParsed}
-                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 text-[10px) font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${
                   isParsed
                     ? "bg-surface-container-high text-on-surface hover:bg-surface-container-highest border border-outline-variant/20"
                     : "bg-surface-container text-outline-variant cursor-not-allowed opacity-50"
                 }`}
               >
                 <PrinterIcon size={14} />
-                <span>Print</span>
+                <span>{t('print')}</span>
               </button>
 
               <button
@@ -244,7 +244,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 }`}
               >
                 <MessageCircle size={14} className={isSavingFinalReport ? "animate-pulse" : ""} />
-                <span>{isSavingFinalReport ? t('saving') : "WhatsApp"}</span>
+                <span>{isSavingFinalReport ? t('saving') : t('whatsapp')}</span>
               </button>
             </>
           )}
@@ -318,7 +318,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-surface-container rounded-xl transition-colors disabled:opacity-50"
                   >
                     <FileText size={16} className={isSavingFinalReport ? "text-primary animate-pulse" : "text-primary"} />
-                    {isSavingFinalReport ? t('saving') : "Download"}
+                    {isSavingFinalReport ? t('saving') : t('download')}
                   </button>
                 )}
 
@@ -331,7 +331,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-on-surface hover:bg-surface-container rounded-xl transition-colors disabled:opacity-50"
                 >
                   <PrinterIcon size={16} className="text-primary" />
-                  Print Report
+                  {t('print')}
                 </button>
 
                 <button
@@ -343,7 +343,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-green-500 hover:bg-green-600 rounded-xl transition-colors disabled:opacity-50"
                 >
                   <MessageCircle size={16} className={isSavingFinalReport ? "animate-pulse" : ""} />
-                  {isSavingFinalReport ? "Saving..." : "WhatsApp"}
+                  {isSavingFinalReport ? t('saving') : t('whatsapp')}
                 </button>
               </motion.div>
             )}
