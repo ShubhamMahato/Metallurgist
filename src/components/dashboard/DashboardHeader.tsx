@@ -116,20 +116,21 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
         <div className="flex items-center gap-1.5">
           {isAdmin && (
-            <button
-              onClick={() => onViewChange(activeView === 'admin' ? 'dashboard' : 'admin')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border ${
-                activeView === 'admin'
-                  ? "bg-primary text-on-primary border-primary shadow-lg shadow-primary/20"
-                  : "bg-surface-container text-on-surface border-outline-variant/30 hover:bg-surface-container-high hover:border-primary/30 hover:text-primary"
-              }`}
-            >
-              {activeView === 'admin' ? <Sparkles size={14} /> : <Shield size={14} />}
-              <span className="hidden lg:inline">{activeView === 'admin' ? t('dashboard') : t('admin')}</span>
-            </button>
+            <>
+              <button
+                onClick={() => onViewChange(activeView === 'admin' ? 'dashboard' : 'admin')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest border ${
+                  activeView === 'admin'
+                    ? "bg-primary text-on-primary border-primary shadow-lg shadow-primary/20"
+                    : "bg-surface-container text-on-surface border-outline-variant/30 hover:bg-surface-container-high hover:border-primary/30 hover:text-primary"
+                }`}
+              >
+                {activeView === 'admin' ? <Sparkles size={14} /> : <Shield size={14} />}
+                <span className="hidden lg:inline">{activeView === 'admin' ? t('dashboard') : t('admin')}</span>
+              </button>
+              <div className="h-4 w-[1px] bg-outline-variant/30 mx-1" />
+            </>
           )}
-
-          <div className="h-4 w-[1px] bg-outline-variant/30 mx-1" />
 
           <button
             onClick={() => navigate("/intake")}
@@ -145,7 +146,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             className="p-2.5 bg-secondary/10 text-secondary rounded-xl hover:bg-secondary hover:text-white transition-all border border-secondary/20"
             title={t('shareIntake')}
           >
-            <Share2 size={18} />
+            <Share2 size={14} />
           </button>
 
           <button
