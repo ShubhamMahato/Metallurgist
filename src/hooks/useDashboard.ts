@@ -112,6 +112,7 @@ export const useDashboard = () => {
   const [weight, setWeight] = useState<string>("1.510");
   const [sampleType, setSampleType] = useState<string>("RAWA");
   const [isAddingMetal, setIsAddingMetal] = useState(false);
+  const [karatDisplay, setKaratDisplay] = useState<string>("18K");
   const [fileHandle, setFileHandle] = useState<any | null>(null);
   const [isPersistent, setIsPersistent] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -184,8 +185,31 @@ export const useDashboard = () => {
       .trim();
   };
 
+  const getKaratInfo = useCallback((purity: number) => {
+    const exact = (purity * 24) / 100;
+    const standards = [24, 23, 22, 21, 18, 14, 10, 9];
+
+    let closest = standards[0];
+    let minDiff = Math.abs(exact - closest);
+
+    for (let k of standards) {
+      const diff = Math.abs(exact - k);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = k;
+      }
+    }
+
+    return {
+      purity,
+      karat_exact: Number(exact.toFixed(2)),
+      karat_display: `${closest}K`
+    };
+  }, []);
+
   const calculateKarat = (goldPercent: number) => {
-    return ((goldPercent * 24) / 100).toFixed(2);
+    const info = getKaratInfo(goldPercent);
+    return info.karat_exact.toFixed(2);
   };
 
   const rebalanceMetals = (
@@ -453,6 +477,8 @@ export const useDashboard = () => {
     if (karatMatch) {
       setKarat(karatMatch[1]);
       setBaselineKarat(karatMatch[1]);
+      const info = getKaratInfo(parseFloat(karatMatch[1]) * 100 / 24); // Reverse to get purity for display calculation
+      setKaratDisplay(info.karat_display);
     }
 
     if (goldMatch) {
@@ -462,6 +488,7 @@ export const useDashboard = () => {
         const calculated = calculateKarat(goldValue);
         setKarat(calculated);
         setBaselineKarat(calculated);
+        setKaratDisplay(getKaratInfo(goldValue).karat_display);
       }
 
       const rest = newMetals.filter((m) => m.id !== "gold");
@@ -483,9 +510,11 @@ export const useDashboard = () => {
       if (!karatMatch) {
         const goldInLoop = newMetals.find((m) => m.id === "gold");
         if (goldInLoop) {
-          const calculated = calculateKarat(parseFloat(goldInLoop.value));
+          const purity = parseFloat(goldInLoop.value);
+          const calculated = calculateKarat(purity);
           setKarat(calculated);
           setBaselineKarat(calculated);
+          setKaratDisplay(getKaratInfo(purity).karat_display);
         }
       }
       setMetals(balanceInitialMetals(newMetals));
@@ -802,7 +831,9 @@ export const useDashboard = () => {
 
       setMetals((prev) => {
         if (id === "gold") {
-          setKarat(calculateKarat(parseFloat(processedValue)));
+          const purity = parseFloat(processedValue);
+          setKarat(calculateKarat(purity));
+          setKaratDisplay(getKaratInfo(purity).karat_display);
         }
         return rebalanceMetals(prev, id, processedValue);
       });
@@ -862,6 +893,7 @@ export const useDashboard = () => {
     });
 
     setKarat(baselineKarat);
+    setKaratDisplay(getKaratInfo(parseFloat(baselineKarat) * 100 / 24).karat_display);
     setTempValues({});
     setLastEditedId(null);
   };
@@ -979,6 +1011,7 @@ export const useDashboard = () => {
     setWeight,
     sampleType,
     setSampleType,
+    karatDisplay,
     isAddingMetal,
     setIsAddingMetal,
     fileHandle,

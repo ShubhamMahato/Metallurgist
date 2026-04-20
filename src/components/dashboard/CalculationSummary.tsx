@@ -6,13 +6,18 @@ interface CalculationSummaryProps {
   totalAggregate: string;
   isVerified: boolean;
   karat: string;
+  karatDisplay?: string;
   isParsed: boolean;
+  resetToOriginal?: () => void;
+  onSaveFinalReport?: () => void;
+  isSavingFinalReport?: boolean;
 }
 
 export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
   totalAggregate,
   isVerified,
   karat,
+  karatDisplay,
   isParsed,
 }) => {
   return (
@@ -50,7 +55,7 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
       </div>
 
       <div
-        title={`Current Karat value: ${karat}K`}
+        title={`Exact Karat value: ${karat}K`}
         className="flex items-center gap-1.5 sm:gap-3 bg-white/40 backdrop-blur-xl px-2 sm:px-4 py-2 rounded-2xl border border-white/40 shadow-sm"
       >
         <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary shrink-0">
@@ -62,14 +67,16 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
           </p>
           <div className="flex items-baseline gap-0.5">
             <motion.span
-              key={karat}
+              key={karatDisplay || karat}
               className="text-lg sm:text-xl font-black font-headline text-primary"
             >
-              {karat}
+              {karatDisplay || karat}
             </motion.span>
-            <span className="text-[7px] sm:text-[8px] font-black text-outline uppercase tracking-widest ml-0.5">
-              K
-            </span>
+            {!karatDisplay && (
+              <span className="text-[7px] sm:text-[8px] font-black text-outline uppercase tracking-widest ml-0.5">
+                K
+              </span>
+            )}
           </div>
         </div>
       </div>

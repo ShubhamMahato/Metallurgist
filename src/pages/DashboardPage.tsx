@@ -54,6 +54,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
     uploadError,
     setUploadError,
     karat,
+    karatDisplay,
     customerName,
     setCustomerName,
     weight,
@@ -435,6 +436,7 @@ export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
                     totalAggregate={totalAggregate}
                     isVerified={isVerified}
                     karat={karat}
+                    karatDisplay={karatDisplay}
                     resetToOriginal={resetToOriginal}
                     isParsed={isParsed}
                     onSaveFinalReport={handleSaveFinalReport}
