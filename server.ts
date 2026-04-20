@@ -258,8 +258,15 @@ const UserRepository = {
   findAllPending: () => {
     return db.prepare("SELECT id, name, email, phone_number, role, is_approved, created_at FROM users WHERE is_approved = 0").all() as any[];
   },
+  findAllApproved: () => {
+    return db.prepare("SELECT id, name, email, phone_number, role, is_approved, created_at FROM users WHERE is_approved = 1").all() as any[];
+  },
   approve: (id: string) => {
     const stmt = db.prepare("UPDATE users SET is_approved = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    return stmt.run(id);
+  },
+  revoke: (id: string) => {
+    const stmt = db.prepare("UPDATE users SET is_approved = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
     return stmt.run(id);
   }
 };
@@ -426,6 +433,12 @@ const AdminService = {
   },
   approveUser: (id: string) => {
     return UserRepository.approve(id);
+  },
+  revokeUser: (id: string) => {
+    return UserRepository.revoke(id);
+  },
+  getApprovedUsers: () => {
+    return UserRepository.findAllApproved();
   }
 };
 
@@ -490,21 +503,47 @@ async function startServer() {
         });
       }
 
-      res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
+      res.json({ id: user.id, name: user.name, email: user.email, role: user.role, isApproved: !!user.is_approved });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
-  // Simple Auth Middleware
+  apiRouter.get("/auth/me", (req: any, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = UserRepository.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ id: user.id, name: user.name, email: user.email, role: user.role, isApproved: !!user.is_approved });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Strict Auth Middleware
   const authMiddleware = (req: any, res: any, next: any) => {
     const userId = (req.headers["x-user-id"] || req.body?.userId || req.query?.userId) as string;
     if (!userId) {
-      console.warn("Unauthorized access attempt: No User ID provided");
       return res.status(401).json({ message: "Authentication required" });
     }
+    
+    const user = UserRepository.findById(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User session invalid" });
+    }
+
+    if (!user.is_approved) {
+      return res.status(403).json({ message: "Your access has been revoked or is pending approval" });
+    }
+
     req.userId = userId;
+    req.user = user;
     next();
   };
 
@@ -569,6 +608,20 @@ async function startServer() {
     }
   });
 
+  apiRouter.get("/admin/approved-users", (req: any, res) => {
+    try {
+      const user = UserRepository.findById(req.userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+      const approved = AdminService.getApprovedUsers();
+      res.json(approved);
+    } catch (error) {
+      console.error("Error fetching approved users:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   apiRouter.post("/admin/approve-user", (req: any, res) => {
     try {
       const user = UserRepository.findById(req.userId);
@@ -583,6 +636,28 @@ async function startServer() {
       res.json({ message: "User approved successfully" });
     } catch (error) {
       console.error("Error approving user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  apiRouter.post("/admin/revoke-user", (req: any, res) => {
+    try {
+      const user = UserRepository.findById(req.userId);
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ message: "Target User ID is required" });
+      }
+      // Prevent self-revocation
+      if (userId === req.userId) {
+        return res.status(400).json({ message: "You cannot revoke your own access" });
+      }
+      AdminService.revokeUser(userId);
+      res.json({ message: "User access revoked successfully" });
+    } catch (error) {
+      console.error("Error revoking user access:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
