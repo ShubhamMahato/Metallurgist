@@ -72,6 +72,7 @@ export const translations = {
     staff: "Staff",
     approvalPending: "Approval is pending from admin side",
     whatsappTooltip: "Please link the customer for WhatsApp sending to work",
+    priceBreakup: "Jewelry Price Breakup",
   },
   hi: {
     dashboard: "डैशबोर्ड",
@@ -143,6 +144,7 @@ export const translations = {
     staff: "कर्मचारी",
     approvalPending: "व्यवस्थापक की ओर से अनुमोदन लंबित है",
     whatsappTooltip: "व्हाट्सएप भेजने के काम करने के लिए कृपया ग्राहक को लिंक करें",
+    priceBreakup: "आभूषण मूल्य विवरण",
   },
   mr: {
     dashboard: "डॅशबोर्ड",
@@ -214,5 +216,6 @@ export const translations = {
     staff: "कर्मचारी",
     approvalPending: "प्रशासकाकडून मंजूरी प्रलंबित आहे",
     whatsappTooltip: "व्हॉट्सॲप पाठवण्यासाठी कृपया ग्राहकाला लिंक करा",
+    priceBreakup: "दागिने किंमत ब्रेकअप",
   }
 };

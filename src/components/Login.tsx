@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { UserCircle, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { UserCircle, Lock, ArrowRight, AlertCircle, Calculator } from 'lucide-react';
 import { useLoginMutation } from '../store/apiSlice';
+import { Link } from 'react-router-dom';
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -25,7 +26,18 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative">
+      <Link 
+        to="/calculator"
+        className="fixed top-6 right-6 w-12 h-12 bg-white paper-shadow rounded-full flex items-center justify-center text-primary hover:scale-110 transition-all z-50 group"
+        title="Jewelry Price Calculator"
+      >
+        <Calculator size={24} />
+        <span className="absolute right-full mr-3 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+          Price Calculator
+        </span>
+      </Link>
+
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}

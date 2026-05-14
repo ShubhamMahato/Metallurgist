@@ -7,6 +7,7 @@ import { useGetCurrentUserQuery } from './store/apiSlice';
 import DashboardPage from './pages/DashboardPage';
 import IntakePage from './pages/IntakePage';
 import PublicReportPage from './pages/PublicReportPage';
+import PriceCalculator from './pages/calculator/PriceCalculator';
 import Login from './components/Login';
 import Register from './components/Register';
 import NoPermission from './components/NoPermission';
@@ -75,6 +76,7 @@ export default function App() {
                 {/* Public Routes First - NO VALIDATION HERE as per user request */}
                 <Route path="/intake" element={<IntakePage />} />
                 <Route path="/report/:id" element={<PublicReportPage />} />
+                <Route path="/calculator" element={<PriceCalculator />} />
                 
                 {/* Protected Root */}
                 <Route 
