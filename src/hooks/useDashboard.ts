@@ -697,7 +697,7 @@ export const useDashboard = () => {
         customerName,
         weight,
         sampleType,
-        karat,
+        karat: karatDisplay,
         metals,
       }));
       documentForPrint.close();
