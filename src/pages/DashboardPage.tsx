@@ -1,690 +1,114 @@
 import React from "react";
 import {
-  UploadCloud,
   Activity,
-  Zap,
   AlertCircle,
-  History,
-  X,
-  Users,
+  Download,
   FileText,
+  Printer,
+  RefreshCw,
   Sparkles,
-  LockOpen,
-  Share2,
+  UploadCloud,
+  Zap,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useDashboard } from "../hooks/useDashboard";
-import { useLanguage } from "../lib/LanguageContext";
-import { DashboardHeader } from "../components/dashboard/DashboardHeader";
-import { DashboardSidebar } from "../components/dashboard/DashboardSidebar";
-import { MetalCard } from "../components/dashboard/MetalCard";
-import { CalculationSummary } from "../components/dashboard/CalculationSummary";
-import { AddMetalModal } from "../components/dashboard/AddMetalModal";
-import { IntakeLinkModal } from "../components/dashboard/IntakeLinkModal";
-import { MetadataField } from "../components/dashboard/MetadataField";
-import { AdminPanel } from "../components/admin/AdminPanel";
 import { ALL_AVAILABLE_METALS } from "../constants/metals";
+import { AddMetalModal } from "../components/dashboard/AddMetalModal";
+import { CalculationSummary } from "../components/dashboard/CalculationSummary";
+import { MetalCard } from "../components/dashboard/MetalCard";
+import { MetadataField } from "../components/dashboard/MetadataField";
 
-import { LogOut, Settings as SettingsIcon, Shield } from "lucide-react";
-
-export default function DashboardPage({ onLogout }: { onLogout: () => void }) {
-  const { language, setLanguage, t } = useLanguage();
-  const [activeView, setActiveView] = React.useState<'dashboard' | 'admin'>('dashboard');
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const isAdmin = user.role === 'admin';
-
+export default function DashboardPage() {
+  const dashboard = useDashboard();
   const {
-    navigate,
-    lastEditedId,
-    intakeSearch,
-    setIntakeSearch,
-    selectedIntakeId,
-    setSelectedIntakeId,
-    isSidebarOpen,
-    setIsSidebarOpen,
-    intakes,
-    isIntakesLoading,
-    completeIntake,
-    isCompleting,
-    metals,
-    tempValues,
-    isParsed,
-    setIsParsed,
-    isDragging,
-    uploadError,
-    setUploadError,
-    karat,
-    karatDisplay,
-    customerName,
-    setCustomerName,
-    weight,
-    setWeight,
-    sampleType,
-    setSampleType,
-    isAddingMetal,
-    setIsAddingMetal,
-    fileHandle,
-    isPersistent,
-    showSettings,
-    setShowSettings,
-    isConnecting,
-    isSaving,
-    showMobileMenu,
-    setShowMobileMenu,
-    fileInputRef,
-    addMetalRef,
-    settingsRef,
-    mobileMenuRef,
-    requestFilePermission,
-    connectFile,
-    handlePrint,
-    saveToOriginalFile,
-    reloadFile,
-    disconnectFile,
-    handleValueChange,
-    handleValueBlur,
-    toggleLock,
-    removeMetal,
-    resetToOriginal,
-    downloadDOC,
-    handleFile,
-    onDragOver,
-    onDragLeave,
-    onDrop,
-    totalAggregate,
-    isVerified,
+    lastEditedId, metals, tempValues, isParsed, setIsParsed, isDragging,
+    uploadError, setUploadError, karat, karatDisplay, customerName,
+    setCustomerName, weight, setWeight, sampleType, setSampleType,
+    isAddingMetal, setIsAddingMetal, fileHandle, isPersistent, isConnecting,
+    isSaving, fileInputRef, addMetalRef, requestFilePermission, connectFile,
+    handlePrint, saveToOriginalFile, reloadFile, handleValueChange,
+    handleValueBlur, toggleLock, removeMetal, resetToOriginal, downloadDOC,
+    handleFile, onDragOver, onDragLeave, onDrop, totalAggregate, isVerified,
     addMetal,
-    saveFinalReport,
-    isSavingFinalReport,
-    showIntakeLink,
-    setShowIntakeLink,
-    intakeStatus,
-    setIntakeStatus,
-    dateRange,
-    setDateRange,
-  } = useDashboard();
+  } = dashboard;
 
-  const [notification, setNotification] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
-  const [lastSavedReportId, setLastSavedReportId] = React.useState<string | null>(null);
-  const [lastLinkedCustomer, setLastLinkedCustomer] = React.useState<any | null>(null);
-
-  React.useEffect(() => {
-    if (selectedIntakeId) {
-      const intake = intakes.find(i => i.id === selectedIntakeId);
-      if (intake) {
-        setLastLinkedCustomer(intake);
-      }
-    }
-  }, [selectedIntakeId, intakes]);
-
-  const handleSaveFinalReport = async () => {
-    try {
-      const result = await saveFinalReport();
-      setLastSavedReportId(result.id);
-      setNotification({ type: 'success', message: 'Final report saved successfully!' });
-      setTimeout(() => setNotification(null), 5000);
-      return result.id;
-    } catch (err: any) {
-      setNotification({ type: 'error', message: err.message || 'Failed to save final report' });
-      setTimeout(() => setNotification(null), 5000);
-      throw err;
-    }
-  };
-
-  const handleWhatsAppShare = async () => {
-    // Check if we have a linked customer or if we had one recently
-    const selectedIntake = (selectedIntakeId ? intakes.find(i => i.id === selectedIntakeId) : null) || lastLinkedCustomer;
-    
-    if (!selectedIntake) {
-      setNotification({ type: 'error', message: 'No customer linked to share report' });
-      return;
-    }
-
-    let reportId = lastSavedReportId;
-    
-    // If not saved yet, save it first
-    if (!reportId) {
-      try {
-        reportId = await handleSaveFinalReport();
-      } catch (e) {
-        // Error already handled in handleSaveFinalReport
-        return;
-      }
-    }
-
-    if (!reportId) return;
-    
-    const domain = window.location.origin;
-    const reportUrl = `${domain}/report/${reportId}`;
-    const message = `View your analysis report: ${reportUrl}`;
-    const whatsappUrl = `https://wa.me/${selectedIntake.phone_number.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-    
-    window.open(whatsappUrl, '_blank');
+  const saveOrDownload = () => {
+    if (isPersistent) saveToOriginalFile();
+    else downloadDOC();
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-x-hidden overflow-y-hidden bg-background text-on-background font-body">
-      <div className="flex flex-col h-full">
-        <DashboardHeader
-          navigate={navigate}
-          onLogout={onLogout}
-          isSidebarOpen={isSidebarOpen}
-          setIsSidebarOpen={setIsSidebarOpen}
-          selectedIntakeId={selectedIntakeId}
-          intakes={intakes}
-          fileHandle={fileHandle}
-          isParsed={isParsed}
-          isPersistent={isPersistent}
-          isSaving={isSaving}
-          isVerified={isVerified}
-          onSaveFinalReport={handleSaveFinalReport}
-          isSavingFinalReport={isSavingFinalReport}
-          lastSavedReportId={lastSavedReportId}
-          lastLinkedCustomer={lastLinkedCustomer}
-          onWhatsAppShare={handleWhatsAppShare}
-          reloadFile={reloadFile}
-          saveToOriginalFile={saveToOriginalFile}
-          downloadDOC={downloadDOC}
-          handlePrint={handlePrint}
-          showMobileMenu={showMobileMenu}
-          setShowMobileMenu={setShowMobileMenu}
-          mobileMenuRef={mobileMenuRef}
-          showSettings={showSettings}
-          setShowSettings={setShowSettings}
-          settingsRef={settingsRef}
-          onShowIntakeLink={() => setShowIntakeLink(true)}
-          isAdmin={isAdmin}
-          activeView={activeView}
-          onViewChange={setActiveView}
-        />
+    <div className="min-h-screen bg-surface text-on-surface font-body">
+      <header className="sticky top-0 z-50 border-b border-outline-variant/30 bg-surface-container-lowest/95 backdrop-blur px-4 sm:px-8 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-on-primary shadow-lg shadow-primary/20"><Sparkles size={18} /></div>
+            <div>
+              <h1 className="text-base font-black uppercase italic tracking-tight">Metallurgist <span className="text-primary">Pro</span></h1>
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-outline">Local composition calculator</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {fileHandle && isParsed && <button onClick={reloadFile} className="rounded-xl p-2 text-outline hover:bg-primary/10 hover:text-primary" title="Reload report"><RefreshCw size={18} /></button>}
+            <button onClick={saveOrDownload} disabled={!isParsed || isSaving} className="hidden sm:flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest text-on-primary disabled:opacity-50">
+              {isPersistent ? <FileText size={14} /> : <Download size={14} />}{isSaving ? "Saving" : isPersistent ? "Save" : "Download"}
+            </button>
+            <button onClick={handlePrint} disabled={!isParsed} className="hidden sm:flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-50"><Printer size={14} />Print</button>
+          </div>
+        </div>
+      </header>
 
-        {/* Settings Dropdown Content (Mobile/Tablet positioning handled in Header, but logic here) */}
+      <main className="relative mx-auto max-w-7xl overflow-hidden px-4 py-8 sm:px-8">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_0%_0%,rgba(var(--color-primary-rgb),0.10),transparent_35%),radial-gradient(circle_at_100%_100%,rgba(var(--color-secondary-rgb),0.10),transparent_35%)]" />
+        <input ref={fileInputRef} type="file" className="hidden" accept=".txt,.doc" onChange={(event) => { const file = event.target.files?.[0]; if (file) { handleFile(file); event.target.value = ""; } }} />
+
+        <section className="mb-7 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary"><Activity size={11} /> Browser-only analysis</div>
+            <h2 className="text-3xl font-black tracking-tight">Metal <span className="text-primary">composition</span></h2>
+            <p className="mt-1 max-w-xl text-sm text-outline">Upload a report or adjust the sample values directly. Your data stays in this browser; no account or server is used.</p>
+            {fileHandle && <div className="mt-3 flex items-center gap-2 text-[10px] font-mono text-outline"><span className={`h-2 w-2 rounded-full ${isPersistent ? "bg-green-500" : "bg-yellow-500"}`} />{isPersistent ? "Connected local report" : "File access needs permission"}{!isPersistent && <button onClick={requestFilePermission} className="font-bold text-primary underline">Grant access</button>}</div>}
+          </div>
+          <CalculationSummary totalAggregate={totalAggregate} isVerified={isVerified} karat={karat} karatDisplay={karatDisplay} isParsed={isParsed} />
+        </section>
+
         <AnimatePresence>
-          {showSettings && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="fixed right-6 top-16 w-64 bg-surface-container-highest rounded-2xl shadow-2xl border border-outline-variant/30 p-2 z-[100] md:block"
-            >
-              <div className="px-3 py-2 border-b border-outline-variant/30 mb-1">
-                <p className="text-[10px] font-black text-outline uppercase tracking-widest">
-                  {t('language')}
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-1 px-2 pb-2 border-b border-outline-variant/30 mb-1">
-                {[
-                  { id: 'en', label: 'English' },
-                  { id: 'hi', label: 'हिंदी' },
-                  { id: 'mr', label: 'मराठी' }
-                ].map((lang) => (
-                  <button
-                    key={lang.id}
-                    onClick={() => setLanguage(lang.id as any)}
-                    className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                      language === lang.id
-                        ? "bg-primary text-on-primary"
-                        : "bg-surface-container text-outline hover:bg-surface-container-high"
-                    }`}
-                  >
-                    {lang.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="px-3 py-2 border-b border-outline-variant/30 mb-1">
-                <p className="text-[10px] font-black text-outline uppercase tracking-widest">
-                  {t('changeFile')}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  connectFile();
-                  setShowSettings(false);
-                }}
-                className="w-full text-left px-3 py-2.5 hover:bg-surface-container rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-on-surface"
-              >
-                <History size={16} className="text-primary" />
-                <div className="flex flex-col">
-                  <span>{t('changeFile')}</span>
-                  <span className="text-[9px] font-medium text-outline-variant">
-                    Select a different report
-                  </span>
-                </div>
+          {!isParsed && (
+            <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-5 md:grid-cols-2">
+              <button onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onClick={() => fileInputRef.current?.click()} className={`flex min-h-64 flex-col items-center justify-center rounded-3xl border-2 border-dashed p-8 text-center transition ${isDragging ? "border-secondary bg-secondary/10" : "border-outline-variant/30 bg-surface-container-low hover:border-secondary/60"}`}>
+                <UploadCloud size={30} className="mb-4 text-secondary" /><strong>Upload a report</strong><span className="mt-1 text-xs text-outline">Drop a .txt or .doc report here, or choose a file.</span>
               </button>
-              <button
-                onClick={disconnectFile}
-                className="w-full text-left px-3 py-2.5 hover:bg-error/10 rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-error"
-              >
-                <X size={16} />
-                <div className="flex flex-col">
-                  <span>{t('disconnectFile')}</span>
-                  <span className="text-[9px] font-medium text-error/60">
-                    Stop persistent sync
-                  </span>
-                </div>
+              <button onClick={connectFile} disabled={isConnecting} className="flex min-h-64 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-primary/30 bg-primary/5 p-8 text-center transition hover:border-primary hover:bg-primary/10 disabled:opacity-50">
+                <Zap size={30} className="mb-4 text-primary" /><strong className="text-primary">Connect a local report</strong><span className="mt-1 text-xs text-primary/70">Keep a browser-approved file connected for local saving.</span>
               </button>
-              <button
-                onClick={onLogout}
-                className="w-full text-left px-3 py-2.5 hover:bg-error/10 rounded-xl transition-colors flex items-center gap-3 text-xs font-bold text-error mt-1 border-t border-outline-variant/10"
-              >
-                <LogOut size={16} />
-                <div className="flex flex-col">
-                  <span>{t('signOut')}</span>
-                  <span className="text-[9px] font-medium text-error/60">
-                    Exit laboratory system
-                  </span>
-                </div>
-              </button>
-            </motion.div>
+              {uploadError && <div className="md:col-span-2 flex items-center justify-center gap-2 rounded-xl bg-error-container px-4 py-3 text-sm font-bold text-error"><AlertCircle size={16} />{uploadError}</div>}
+            </motion.section>
           )}
         </AnimatePresence>
 
-        <div className="flex flex-1 overflow-hidden relative">
-          {activeView === 'dashboard' ? (
-            <>
-              <DashboardSidebar
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            intakeSearch={intakeSearch}
-            setIntakeSearch={setIntakeSearch}
-            isIntakesLoading={isIntakesLoading}
-            intakes={intakes}
-            selectedIntakeId={selectedIntakeId}
-            setSelectedIntakeId={setSelectedIntakeId}
-            isCompleting={isCompleting}
-            completeIntake={completeIntake}
-            onShowIntakeLink={() => setShowIntakeLink(true)}
-            intakeStatus={intakeStatus}
-            setIntakeStatus={setIntakeStatus}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-          />
-
-          <main className="flex-1 h-full overflow-hidden bg-surface relative">
-            <div className="w-full h-full flex flex-col p-3 sm:p-8 overflow-y-auto custom-scrollbar relative bg-surface">
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(var(--color-primary-rgb),0.12),transparent_40%),radial-gradient(circle_at_100%_100%,rgba(var(--color-secondary-rgb),0.12),transparent_40%)]"></div>
-                <div
-                  className="absolute inset-0 opacity-[0.03] [mask-image:radial-gradient(ellipse_at_center,black,transparent)]"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(#000 1px, transparent 1px)",
-                    backgroundSize: "24px 24px",
-                  }}
-                ></div>
+        <AnimatePresence>
+          {isParsed && (
+            <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="grid gap-4 rounded-3xl border border-outline-variant/20 bg-white/45 p-5 backdrop-blur sm:grid-cols-3">
+                <MetadataField label="Customer name" value={customerName} onChange={setCustomerName} icon={FileText} placeholder="Customer name" />
+                <MetadataField label="Sample type" value={sampleType} onChange={setSampleType} icon={Sparkles} placeholder="Sample type" />
+                <MetadataField label="Weight" value={weight} onChange={setWeight} icon={Activity} placeholder="Weight" />
               </div>
-
-              <div className="max-w-7xl mx-auto w-full space-y-6 pb-12 relative z-10">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept=".txt,.doc"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleFile(file);
-                      e.target.value = "";
-                    }
-                  }}
-                />
-
-                <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest">
-                      <Activity size={10} className="animate-pulse" />
-                      {fileHandle
-                        ? t('connectedReport')
-                        : t('liveAnalysis')}
-                    </div>
-                    <h2 className="text-3xl font-black tracking-tight font-headline text-on-surface leading-tight">
-                      {fileHandle ? (
-                        <>
-                          {t('connectedReport').split(' ')[0]} <span className="text-primary">{t('connectedReport').split(' ')[1]}</span>
-                        </>
-                      ) : (
-                        <>
-                          {t('reportComposition').split(' ')[0]} <span className="text-primary">{t('reportComposition').split(' ')[1]}</span>
-                        </>
-                      )}
-                    </h2>
-                    {selectedIntakeId && (
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="flex flex-col gap-3 p-4 rounded-3xl bg-surface-container-highest/50 border border-primary/20 shadow-xl backdrop-blur-md relative overflow-hidden group"
-                      >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                        
-                        <div className="flex items-center justify-between relative z-10">
-                          <div className="flex items-center gap-2 text-primary">
-                            <Users size={16} className="text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t('activeCase')}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => setShowIntakeLink(true)}
-                              className="p-1.5 bg-secondary/10 text-secondary rounded-xl hover:bg-secondary hover:text-white transition-all border border-secondary/20"
-                              title={t('shareIntake')}
-                            >
-                              <Share2 size={12} />
-                            </button>
-                            <button 
-                              onClick={() => setSelectedIntakeId(null)}
-                              className="p-1.5 hover:bg-error/10 rounded-xl text-outline-variant hover:text-error transition-all"
-                              title={t('unlink')}
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8 relative z-10">
-                          <div className="flex flex-col">
-                            <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">{t('customerName')}</span>
-                            <p className="text-base font-black text-on-surface uppercase tracking-tight">
-                              {intakes.find(i => i.id === selectedIntakeId)?.name}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center gap-8">
-                            <div className="flex flex-col">
-                              <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">{t('mobileNumber')}</span>
-                              <p className="text-xs font-mono text-primary font-black flex items-center gap-1.5">
-                                {intakes.find(i => i.id === selectedIntakeId)?.phone_number}
-                              </p>
-                            </div>
-                            
-                            <div className="flex flex-col">
-                              <span className="text-[9px] font-black text-outline uppercase tracking-widest mb-0.5">{t('intakeWeight')}</span>
-                              <p className="text-xs font-mono text-primary font-black flex items-center gap-1.5">
-                                {intakes.find(i => i.id === selectedIntakeId)?.gold_weight}g
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                    {fileHandle && (
-                      <div className="flex flex-col gap-1">
-                        <p className="text-[10px] text-outline-variant font-mono flex items-center gap-2">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isPersistent
-                                ? "bg-green-500 animate-pulse"
-                                : "bg-yellow-500"
-                            }`}
-                          />
-                          {isPersistent ? t('connected') : t('accessRequired')}{" "}
-                          {fileHandle.name}
-                        </p>
-                        {!isPersistent && (
-                          <button
-                            onClick={requestFilePermission}
-                            className="text-[10px] text-primary font-bold hover:underline flex items-center gap-1"
-                          >
-                            <LockOpen size={10} />
-                            {t('grantAccess')}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <CalculationSummary
-                    totalAggregate={totalAggregate}
-                    isVerified={isVerified}
-                    karat={karat}
-                    karatDisplay={karatDisplay}
-                    resetToOriginal={resetToOriginal}
-                    isParsed={isParsed}
-                    onSaveFinalReport={handleSaveFinalReport}
-                    isSavingFinalReport={isSavingFinalReport}
-                  />
-                </header>
-
-                <AnimatePresence>
-                  {notification && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      className={`fixed top-20 right-6 z-[200] px-6 py-3 rounded-2xl shadow-lg font-bold text-sm flex items-center gap-3 ${
-                        notification.type === 'success' 
-                          ? 'bg-green-500 text-white' 
-                          : 'bg-red-500 text-white'
-                      }`}
-                    >
-                      {notification.type === 'success' ? <Zap size={18} /> : <AlertCircle size={18} />}
-                      {notification.message}
-                      <button onClick={() => setNotification(null)} className="ml-4 opacity-70 hover:opacity-100">
-                        <X size={16} />
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                  {!isParsed && (
-                    <motion.div
-                      initial={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                      className="grid grid-cols-1 md:grid-cols-2 gap-6"
-                    >
-                      <motion.div
-                        onDragOver={onDragOver}
-                        onDragLeave={onDragLeave}
-                        onDrop={onDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`group relative border-2 border-dashed rounded-3xl p-10 transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
-                          isDragging
-                            ? "bg-secondary-container/20 border-secondary scale-[1.01]"
-                            : "bg-surface-container-low border-outline-variant/30 hover:border-secondary/50 hover:bg-surface-container-lowest"
-                        }`}
-                      >
-                        <div className="w-12 h-12 bg-surface-container-lowest rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-outline-variant/20">
-                          <UploadCloud
-                            className={
-                              isDragging
-                                ? "text-secondary animate-bounce"
-                                : "text-secondary"
-                            }
-                            size={24}
-                          />
-                        </div>
-                        <p className="text-sm font-bold text-on-surface">
-                          {t('oneTimeUpload')}
-                        </p>
-                        <p className="text-[10px] text-on-surface-variant mt-1">
-                          {t('dropReport')}
-                        </p>
-                      </motion.div>
-
-                      <motion.div
-                        onClick={connectFile}
-                        className={`group relative border-2 border-dashed rounded-3xl p-10 transition-all flex flex-col items-center justify-center text-center cursor-pointer bg-primary/5 border-primary/30 hover:border-primary hover:bg-primary/10 ${
-                          isConnecting ? "opacity-50 pointer-events-none" : ""
-                        }`}
-                      >
-                        <div className="w-12 h-12 bg-surface-container-lowest rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-primary/20">
-                          <Zap className="text-primary" size={24} />
-                        </div>
-                        <p className="text-sm font-bold text-primary">
-                          {isConnecting
-                            ? t('connecting')
-                            : t('persistentConnection')}
-                        </p>
-                        <p className="text-[10px] text-primary/70 mt-1">
-                          {t('autoSync')}
-                        </p>
-                      </motion.div>
-
-                      {uploadError && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="md:col-span-2 flex items-center justify-center gap-2 text-error text-xs font-bold bg-error-container/50 px-3 py-1.5 rounded-full"
-                        >
-                          <AlertCircle size={14} />
-                          {uploadError}
-                        </motion.div>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                  {isParsed && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 20 }}
-                      className="space-y-6 relative z-30"
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white/40 backdrop-blur-xl p-6 rounded-3xl border border-white/40 shadow-sm relative z-50">
-                        <MetadataField
-                          label={t('customerName')}
-                          value={customerName}
-                          onChange={setCustomerName}
-                          icon={FileText}
-                          placeholder={t('customerName')}
-                        />
-                        <MetadataField
-                          label={t('sampleType')}
-                          value={sampleType}
-                          onChange={setSampleType}
-                          icon={Sparkles}
-                          placeholder={t('sampleType')}
-                        />
-                        <MetadataField
-                          label={t('weight')}
-                          value={weight}
-                          onChange={setWeight}
-                          icon={Activity}
-                          placeholder={t('weight')}
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-wrap items-center justify-between gap-4 relative z-40">
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-black font-headline text-on-surface">
-                              {t('constituents')}
-                            </h3>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  isVerified
-                                    ? "bg-green-500 animate-pulse"
-                                    : "bg-red-500"
-                                }`}
-                              ></div>
-                              <span className="text-[9px] font-black text-outline uppercase tracking-widest">
-                                {isVerified ? t('balanced') : t('unbalanced')}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 relative z-50">
-                            <AddMetalModal
-                              isAddingMetal={isAddingMetal}
-                              setIsAddingMetal={setIsAddingMetal}
-                              addMetalRef={addMetalRef}
-                              availableMetals={ALL_AVAILABLE_METALS}
-                              metals={metals}
-                              addMetal={addMetal}
-                            />
-
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setIsParsed(false);
-                                setUploadError(null);
-                              }}
-                              className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline flex items-center gap-1 cursor-pointer p-3 -m-3 bg-white/5 rounded-lg border border-transparent hover:border-primary/20 transition-all"
-                            >
-                              <UploadCloud size={12} />
-                              {t('uploadNew')}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="w-full h-2.5 bg-surface-container-high rounded-full overflow-hidden flex shadow-inner border border-white/20">
-                          {metals
-                            .filter(
-                              (m) =>
-                                (m.baseline ?? 0) > 0 ||
-                                parseFloat(m.value) > 0 ||
-                                m.isManual
-                            )
-                            .map((metal) => (
-                              <motion.div
-                                key={`bar-${metal.id}`}
-                                title={`${metal.name}: ${metal.value}%`}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${metal.value}%` }}
-                                className="relative h-full"
-                                style={{
-                                  backgroundColor:
-                                    metal.id === "gold"
-                                      ? "#EAB308"
-                                      : metal.id === "silver"
-                                      ? "#94A3B8"
-                                      : metal.id === "copper"
-                                      ? "#EA580C"
-                                      : "#64748B",
-                                }}
-                              >
-                                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
-                              </motion.div>
-                            ))}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-                        {metals
-                          .filter(
-                            (m) =>
-                              (m.baseline ?? 0) > 0 ||
-                              parseFloat(m.value) > 0 ||
-                              m.isManual
-                          )
-                          .map((metal) => (
-                            <MetalCard
-                              key={metal.id}
-                              metal={metal}
-                              lastEditedId={lastEditedId}
-                              tempValues={tempValues}
-                              handleValueChange={handleValueChange}
-                              handleValueBlur={handleValueBlur}
-                              toggleLock={toggleLock}
-                              removeMetal={removeMetal}
-                            />
-                          ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div><h3 className="text-lg font-black">Constituents</h3><p className={`text-[10px] font-black uppercase tracking-widest ${isVerified ? "text-green-600" : "text-red-600"}`}>{isVerified ? "Balanced at 100%" : "Needs balancing"}</p></div>
+                <div className="flex items-center gap-4"><AddMetalModal isAddingMetal={isAddingMetal} setIsAddingMetal={setIsAddingMetal} addMetalRef={addMetalRef} availableMetals={ALL_AVAILABLE_METALS} metals={metals} addMetal={addMetal} /><button onClick={resetToOriginal} className="text-[10px] font-black uppercase tracking-widest text-outline hover:text-primary">Reset values</button><button onClick={() => { setIsParsed(false); setUploadError(null); }} className="text-[10px] font-black uppercase tracking-widest text-primary">New report</button></div>
               </div>
-            </div>
-          </main>
-            </>
-          ) : (
-            <main className="flex-1 h-full overflow-hidden bg-surface relative">
-               <div className="h-full overflow-y-auto custom-scrollbar p-6">
-                  <AdminPanel />
-               </div>
-            </main>
+              <div className="flex h-3 overflow-hidden rounded-full border border-white/20 bg-surface-container-high">
+                {metals.filter((metal) => (metal.baseline ?? 0) > 0 || parseFloat(metal.value) > 0 || metal.isManual).map((metal) => <div key={metal.id} style={{ width: `${metal.value}%`, backgroundColor: metal.id === "gold" ? "#EAB308" : metal.id === "silver" ? "#94A3B8" : metal.id === "copper" ? "#EA580C" : "#64748B" }} />)}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {metals.filter((metal) => (metal.baseline ?? 0) > 0 || parseFloat(metal.value) > 0 || metal.isManual).map((metal) => <MetalCard key={metal.id} metal={metal} lastEditedId={lastEditedId} tempValues={tempValues} handleValueChange={handleValueChange} handleValueBlur={handleValueBlur} toggleLock={toggleLock} removeMetal={removeMetal} />)}
+              </div>
+              <div className="flex gap-3 sm:hidden"><button onClick={saveOrDownload} className="flex-1 rounded-xl bg-primary py-3 text-[10px] font-black uppercase tracking-widest text-on-primary">{isPersistent ? "Save" : "Download"}</button><button onClick={handlePrint} className="rounded-xl border border-outline-variant/30 px-4"><Printer size={18} /></button></div>
+            </motion.section>
           )}
-        </div>
-      </div>
-      <IntakeLinkModal 
-        isOpen={showIntakeLink}
-        onClose={() => setShowIntakeLink(false)}
-      />
+        </AnimatePresence>
+      </main>
     </div>
   );
 }

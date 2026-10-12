@@ -1,10 +1,4 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  useGetIntakesQuery,
-  useCompleteIntakeMutation,
-  useSaveFinalResultsMutation,
-} from "../store/apiSlice";
 import {
   getFileHandle,
   saveFileHandle,
@@ -12,94 +6,76 @@ import {
   readFileContent,
   clearFileHandle,
 } from "../lib/fileSystem";
-import { reportTemplate } from "../lib/reportTemplate";
 import { MetalValue } from "../types/dashboard";
 import { INITIAL_METALS, METAL_MAP, ALL_AVAILABLE_METALS } from "../constants/metals";
 
+const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, (character) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;",
+}[character] || character));
+
+const rtfToPlainText = (rtf: string) => rtf
+  .replace(/\\par/g, "\n")
+  .replace(/\\tab/g, " ")
+  .replace(/\\'[0-9a-f]{2}/gi, "")
+  .replace(/\\[a-z]+\d* ?/gi, "")
+  .replace(/[{}]/g, "")
+  .trim();
+
+const generateFischerPrintPreview = ({
+  sourceContent,
+  customerName,
+  weight,
+  sampleType,
+  karat,
+  metals,
+}: {
+  sourceContent: string;
+  customerName: string;
+  weight: string;
+  sampleType: string;
+  karat: string;
+  metals: MetalValue[];
+}) => {
+  const now = new Date();
+  const timestamp = `${now.toLocaleDateString("en-GB").replace(/\//g, "-")}    ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}`;
+  const rows: string[][] = [
+    ["silver", "copper", "zinc"], ["cadimium", "nickel", "palladium"],
+    ["indium", "tin", "iredium"], ["ruthenium", "tungestan", "platinum"],
+    ["lead", "cromium", "manganese"], ["rhodium", "iron", "cobalt"],
+    ["gallium", "vanadium", "osmium"],
+  ];
+  const displayNames: Record<string, string> = {
+    cadimium: "CADIMIUM", cromium: "CROMIUM", iredium: "IREDIUM", tungestan: "TUNGESTAN", vanadium: "VANADIUM",
+  };
+  const metalValue = (metalId: string) => {
+    const metal = metals.find((item) => item.id === metalId);
+    if (metal && ((metal.baseline ?? 0) > 0 || parseFloat(metal.value) > 0 || metal.isManual)) return parseFloat(metal.value).toFixed(3);
+    return new RegExp(`${metalId.toUpperCase()}\\s+[-]{2,}`, "i").test(sourceContent) ? "--------" : "0.000";
+  };
+
+  let tableRows = "";
+  for (const row of rows) {
+    let cells = "";
+    for (const id of row) cells += `<td class="label">${displayNames[id] || id.toUpperCase()}</td><td class="value">${metalValue(id)}</td>`;
+    tableRows += `<tr>${cells}</tr>`;
+  }
+  const goldPurity = parseFloat(metals.find((metal) => metal.id === "gold")?.value || "0").toFixed(2);
+
+  return `<!doctype html><html><head><title>Adjusted Fischer Report</title><style>
+    @page { size: A4 portrait; margin: 18mm 14mm; } * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; }
+    .report { width: 100%; max-width: 182mm; margin: 0 auto; font-size: 12pt; }
+    .timestamp { text-align: right; min-height: 18px; margin-bottom: 18px; }
+    .customer { margin-bottom: 22px; white-space: pre-wrap; }.metadata { display: flex; margin-bottom: 8px; }
+    .metaInfo { margin-right: 50px; }
+    .rule { border: 0; border-top: 1px dashed #777; margin: 7px 0; }.purity { display: grid; grid-template-columns: 1fr 1fr; padding: 4px 18px; font-size: 14pt; font-weight: 700; }.purity span:last-child { text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 12pt; } td { border: 1px solid #aaa; height: 26px; padding: 3px 7px; } tbody tr:nth-child(even) td { background-color: #eeeeee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } td.label { width: 16.66%; } td.value { width: 16.66%; text-align: right; }
+    @media print { body, table, tr, td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .report { max-width: none; } }
+  </style></head><body><main class="report"><div class="timestamp">${escapeHtml(timestamp)}</div><div class="customer">Customer Name     :${escapeHtml(customerName)}</div><div class="metadata"><span class="metaInfo">Weight</span><span class="metaInfo">:${escapeHtml(weight)}</span><span class="metaInfo">Sample Type</span><span>:${escapeHtml(sampleType)}</span></div><hr class="rule"><div class="purity"><span>Gold Purity : ${goldPurity}</span><span>Karat : ${escapeHtml(karat)}</span></div><hr class="rule"><table><tbody>${tableRows}</tbody></table></main></body></html>`;
+};
+
 export const useDashboard = () => {
-  const navigate = useNavigate();
   const [lastEditedId, setLastEditedId] = useState<string | null>(null);
-  const [intakeSearch, setIntakeSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedIntakeId, setSelectedIntakeId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
-  const [intakeStatus, setIntakeStatus] = useState<'pending' | 'completed'>('pending');
-  const [dateRange, setDateRange] = useState<{ startDate?: string; endDate?: string }>({});
-
-  // Debounce search
-  useEffect(() => {
-    if (intakeSearch === "") {
-      setDebouncedSearch("");
-      return;
-    }
-    const timer = setTimeout(() => {
-      setDebouncedSearch(intakeSearch);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [intakeSearch]);
-
-  const { data: intakes = [], isLoading: isIntakesLoading } = useGetIntakesQuery({
-    search: debouncedSearch,
-    status: intakeStatus,
-    ...dateRange
-  }, {
-    pollingInterval: intakeStatus === 'pending' ? 3000 : 30000, // Poll less frequently for historical data
-  });
-
-  // Sync customer details when intake is selected
-  useEffect(() => {
-    if (selectedIntakeId) {
-      const selected = intakes.find((i) => i.id === selectedIntakeId);
-      if (selected) {
-        setCustomerName(selected.name || "");
-        setWeight(selected.gold_weight?.toString() || "");
-      }
-    }
-  }, [selectedIntakeId, intakes]);
-  const [completeIntakeMutation, { isLoading: isCompleting }] = useCompleteIntakeMutation();
-  const [saveFinalResultsMutation, { isLoading: isSavingFinalReport }] = useSaveFinalResultsMutation();
-  
-  const completeIntake = async (id: string) => {
-    return await completeIntakeMutation(id).unwrap();
-  };
-
-  const saveFinalReport = async () => {
-    if (!selectedIntakeId) {
-      throw new Error("Please select a customer intake record first.");
-    }
-
-    const selectedIntake = intakes.find(i => i.id === selectedIntakeId);
-    if (!selectedIntake) {
-      throw new Error("Selected intake record not found.");
-    }
-
-    const payload = {
-      customerId: selectedIntake.customer_id,
-      intakeId: selectedIntake.id,
-      totalValue: parseFloat(totalAggregate),
-      purityPercentage: parseFloat(metals.find(m => m.id === "gold")?.value || "0"),
-      metals: metals
-        .filter(m => parseFloat(m.value) > 0)
-        .map(m => ({
-          metal_id: m.id,
-          value: parseFloat(m.value),
-          percentage: parseFloat(m.value) // In this case value is percentage
-        }))
-    };
-
-    const result = await saveFinalResultsMutation(payload).unwrap();
-
-    // Mark intake as completed automatically after successful save
-    try {
-      await completeIntakeMutation(selectedIntakeId).unwrap();
-      // Clear the selection since the record is now finished
-      setSelectedIntakeId(null);
-    } catch (err) {
-      console.error("Auto-completion of intake failed:", err);
-    }
-
-    return result;
-  };
 
   const [metals, setMetals] = useState<MetalValue[]>(INITIAL_METALS);
   const [tempValues, setTempValues] = useState<Record<string, string>>({});
@@ -696,65 +672,44 @@ export const useDashboard = () => {
     return content;
   };
 
-  const generateTemplateHtml = () => {
-    let html = reportTemplate;
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-GB').replace(/\//g, '-');
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-
-    const replacements: Record<string, string> = {
-      '{{DATE}}': dateStr,
-      '{{TIME}}': timeStr,
-      '{{CUSTOMER_NAME}}': customerName,
-      '{{WEIGHT}}': weight,
-      '{{SAMPLE_TYPE}}': sampleType,
-      '{{GOLD_PURITY}}': parseFloat(metals.find(m => m.id === 'gold')?.value || '0').toFixed(2),
-      '{{KARAT}}': karat,
-    };
-
-    metals.forEach(m => {
-      const id = m.id.toUpperCase();
-      replacements[`{{${id}}}`] = parseFloat(m.value).toFixed(3);
-      
-      if (id === 'CADIMIUM') replacements['{{CADMIUM}}'] = parseFloat(m.value).toFixed(3);
-      if (id === 'TUNGESTAN') replacements['{{TUNGESTAN}}'] = parseFloat(m.value).toFixed(3);
-      if (id === 'IREDIUM') replacements['{{IREDIUM}}'] = parseFloat(m.value).toFixed(3);
-      if (id === 'CROMIUM') replacements['{{CROMIUM}}'] = parseFloat(m.value).toFixed(3);
-    });
-
-    const placeholders = html.match(/{{[A-Z_]+}}/g) || [];
-    placeholders.forEach(p => {
-      if (!replacements[p]) {
-        replacements[p] = '0.000';
-      }
-    });
-
-    Object.entries(replacements).forEach(([key, value]) => {
-      html = html.replace(new RegExp(key, 'g'), value);
-    });
-
-    return html;
-  };
-
   const handlePrint = () => {
-    const html = generateTemplateHtml();
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-      
+    const content = generateUpdatedContent();
+    if (!content) {
+      setUploadError("Upload a report before printing.");
+      return;
+    }
+
+    // Opening the preview synchronously keeps it from being blocked as a pop-up.
+    const printWindow = window.open("", "_blank", "popup");
+    if (!printWindow) {
+      setUploadError("Your browser blocked the print preview. Allow pop-ups and try again.");
+      return;
+    }
+
+    printWindow.document.write("<title>Preparing print preview…</title><p style='font-family:system-ui;padding:2rem'>Preparing print preview…</p>");
+    printWindow.document.close();
+
+    try {
+      const documentForPrint = printWindow.document;
+      documentForPrint.open();
+      documentForPrint.write(generateFischerPrintPreview({
+        sourceContent: originalContent,
+        customerName,
+        weight,
+        sampleType,
+        karat,
+        metals,
+      }));
+      documentForPrint.close();
+
       setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 1000);
-      }, 500);
+        printWindow.focus();
+        printWindow.print();
+      }, 100);
+    } catch (error) {
+      console.error("Print preview failed:", error);
+      printWindow.close();
+      setUploadError("Could not render this report for printing. Try uploading an RTF or text report.");
     }
   };
 
@@ -985,18 +940,7 @@ export const useDashboard = () => {
   };
 
   return {
-    navigate,
     lastEditedId,
-    intakeSearch,
-    setIntakeSearch,
-    selectedIntakeId,
-    setSelectedIntakeId,
-    isSidebarOpen,
-    setIsSidebarOpen,
-    intakes,
-    isIntakesLoading,
-    completeIntake,
-    isCompleting,
     metals,
     tempValues,
     isParsed,
@@ -1045,13 +989,5 @@ export const useDashboard = () => {
     totalAggregate,
     isVerified,
     addMetal,
-    saveFinalReport,
-    isSavingFinalReport,
-    showIntakeLink,
-    setShowIntakeLink,
-    intakeStatus,
-    setIntakeStatus,
-    dateRange,
-    setDateRange,
   };
 };
