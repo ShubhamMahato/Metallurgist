@@ -103,7 +103,7 @@ export const useDashboard = () => {
   const addMetalRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const rebalanceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rebalanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
