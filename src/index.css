@@ -54,8 +54,12 @@
 }
 
 @layer base {
+  html,
   body {
-    @apply bg-background text-on-background font-body antialiased overflow-x-hidden;
+    @apply bg-background text-on-background font-body antialiased;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
   }
 }
 

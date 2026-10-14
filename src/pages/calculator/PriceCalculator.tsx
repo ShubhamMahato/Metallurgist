@@ -222,7 +222,7 @@ export default function PriceCalculator() {
   }, [weight, rate, rateType, makingType, makingValue, gstType]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col selection:bg-amber-200">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col selection:bg-amber-200 w-full max-w-full overflow-x-hidden">
       <TopNav />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">

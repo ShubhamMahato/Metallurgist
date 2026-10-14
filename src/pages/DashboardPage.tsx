@@ -80,7 +80,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col selection:bg-amber-200">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col selection:bg-amber-200 w-full max-w-full overflow-x-hidden">
       {/* Navigation */}
       <TopNav
         isParsed={isParsed}
