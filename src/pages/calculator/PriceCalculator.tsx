@@ -8,6 +8,9 @@ import {
   ArrowRightLeft,
   RefreshCw,
   Award,
+  Tag,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { useLanguage } from "../../lib/LanguageContext";
 import { TopNav } from "../../components/common/TopNav";
@@ -34,14 +37,19 @@ export default function PriceCalculator() {
   // Selected Karat: 22K by default
   const [selectedKarat, setSelectedKarat] = useState<KaratOption>("22K");
 
-  // Inputs
+  // Core Inputs
   const [weight, setWeight] = useState<string>("10.000");
   const [rateType, setRateType] = useState<"gram" | "10gram">("10gram");
   const [rate, setRate] = useState<string>("136850"); // default 22K 10g rate
   const [makingType, setMakingType] = useState<"percent" | "amount">("percent");
   const [makingValue, setMakingValue] = useState<string>("12");
 
-  // Taxes: default to "unified" (3%) as requested
+  // Discount on Making Charges (hidden by default, revealed on toggle)
+  const [showDiscount, setShowDiscount] = useState<boolean>(false);
+  const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
+  const [discountValue, setDiscountValue] = useState<string>("10");
+
+  // Taxes: default to "unified" (3%)
   const [gstType, setGstType] = useState<"unified" | "split">("unified");
 
   // Live Rates from SnapData / IBJA
@@ -53,6 +61,7 @@ export default function PriceCalculator() {
   const weightId = useId();
   const rateId = useId();
   const makingId = useId();
+  const discountId = useId();
 
   // Fetch official retail gold rates from snapdata.dev
   const fetchLiveRates = async () => {
@@ -148,27 +157,53 @@ export default function PriceCalculator() {
     }
   };
 
+  // Reset calculator to standard initial defaults
+  const handleResetCalculator = () => {
+    setSelectedKarat("22K");
+    setWeight("10.000");
+    setRateType("10gram");
+    const k22 = liveKaratRates["22K"] || DEFAULT_RATES["22K"];
+    setRate(String(k22.per10Gram));
+    setMakingType("percent");
+    setMakingValue("12");
+    setShowDiscount(false);
+    setDiscountType("percent");
+    setDiscountValue("10");
+    setGstType("unified");
+  };
+
   // Calculations
   const calculations = useMemo(() => {
     const w = parseFloat(weight) || 0;
     const r = parseFloat(rate) || 0;
     const mv = parseFloat(makingValue) || 0;
+    const dv = showDiscount ? (parseFloat(discountValue) || 0) : 0;
 
     const actualRatePerGram = rateType === "10gram" ? r / 10 : r;
     const goldValue = w * actualRatePerGram;
 
-    let makingAmount = 0;
+    let originalMakingAmount = 0;
     let makingPercent = 0;
 
     if (makingType === "percent") {
       makingPercent = mv;
-      makingAmount = goldValue * (mv / 100);
+      originalMakingAmount = goldValue * (mv / 100);
     } else {
-      makingAmount = mv;
+      originalMakingAmount = mv;
       makingPercent = goldValue > 0 ? (mv / goldValue) * 100 : 0;
     }
 
-    const subtotal = goldValue + makingAmount;
+    let discountAmount = 0;
+    if (showDiscount && dv > 0) {
+      if (discountType === "percent") {
+        discountAmount = (originalMakingAmount * Math.min(100, dv)) / 100;
+      } else {
+        discountAmount = Math.min(originalMakingAmount, dv);
+      }
+    }
+
+    const netMakingAmount = Math.max(0, originalMakingAmount - discountAmount);
+    const subtotal = goldValue + netMakingAmount;
 
     let goldGst = 0;
     let makingGst = 0;
@@ -176,7 +211,7 @@ export default function PriceCalculator() {
 
     if (gstType === "split") {
       goldGst = goldValue * 0.03;
-      makingGst = makingAmount * 0.05;
+      makingGst = netMakingAmount * 0.05;
       totalGst = goldGst + makingGst;
     } else {
       totalGst = subtotal * 0.03;
@@ -193,10 +228,19 @@ export default function PriceCalculator() {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }),
-      makingAmount: makingAmount.toLocaleString("en-IN", {
+      originalMakingAmount: originalMakingAmount.toLocaleString("en-IN", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }),
+      discountAmount: discountAmount.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+      netMakingAmount: netMakingAmount.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+      hasDiscount: showDiscount && discountAmount > 0,
       makingPercent: makingPercent.toFixed(2),
       subtotal: subtotal.toLocaleString("en-IN", {
         minimumFractionDigits: 2,
@@ -219,209 +263,191 @@ export default function PriceCalculator() {
         maximumFractionDigits: 2,
       }),
     };
-  }, [weight, rate, rateType, makingType, makingValue, gstType]);
+  }, [
+    weight,
+    rate,
+    rateType,
+    makingType,
+    makingValue,
+    gstType,
+    showDiscount,
+    discountType,
+    discountValue,
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col selection:bg-amber-200 w-full max-w-full overflow-x-hidden">
       <TopNav />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        {/* Minimal Clean Header */}
-        <section className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-          <div className="space-y-0.5">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              {t("priceBreakup")}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 max-w-xl">
-              {t("priceSubtitle")}
-            </p>
-          </div>
-        </section>
-
-        {/* 2-Column Split Workspace */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
-          {/* Inputs Column */}
-          <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 pb-2 border-b border-slate-100">
-              {t("sampleDetails")}
-            </h2>
-
-            {/* Weight Input */}
-            <div className="space-y-1">
-              <label
-                htmlFor={weightId}
-                className="text-xs font-semibold text-slate-700 uppercase tracking-wider block"
-              >
-                {t("weight")}
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <Scale size={15} />
-                </div>
-                <input
-                  id={weightId}
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  placeholder="0.000"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg py-2 pl-9 pr-14 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-slate-900 focus:outline-none"
-                />
-                <span className="absolute right-3 text-xs font-mono font-bold text-slate-400">
-                  g
+      {/* Main Workspace - Top banner removed to keep calculator compact and scroll-free on desktop */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-start">
+          {/* Inputs Column (Sample Details) */}
+          <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-3.5 sm:p-4 shadow-xs space-y-3">
+            {/* Header with Title and Reset Button */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  {t("sampleDetails")}
+                </h2>
+                <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                  {selectedKarat}
                 </span>
               </div>
+
+              <button
+                type="button"
+                onClick={handleResetCalculator}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                title={t("resetBaseline")}
+              >
+                <RotateCcw size={11} />
+                <span>{t("resetBaseline")}</span>
+              </button>
             </div>
 
-            {/* Gold Karat Selector (Clean 3-button selector, top dropdown removed as requested) */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Award size={14} className="text-amber-600" />
+            {/* Row 1: Weight & Karat Selector in clean compact layout */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+              {/* Weight Input (4 cols on tablet/desktop) */}
+              <div className="sm:col-span-5 space-y-1">
+                <label
+                  htmlFor={weightId}
+                  className="text-xs font-semibold text-slate-700 uppercase tracking-wider block"
+                >
+                  {t("weight")}
+                </label>
+                <div className="relative flex items-center">
+                  <div className="absolute left-2.5 text-slate-400 pointer-events-none">
+                    <Scale size={14} />
+                  </div>
+                  <input
+                    id={weightId}
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    placeholder="0.000"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 pl-8 pr-7 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-slate-900 focus:outline-none"
+                  />
+                  <span className="absolute right-2 text-xs font-mono font-bold text-slate-400">
+                    g
+                  </span>
+                </div>
+              </div>
+
+              {/* Karat Button Selector: 22K (default), 24K, 18K (7 cols on tablet/desktop) */}
+              <div className="sm:col-span-7 space-y-1">
+                <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block">
                     {t("selectKarat")}
                   </label>
+                  <button
+                    type="button"
+                    onClick={fetchLiveRates}
+                    disabled={isLoadingLive}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 hover:text-amber-900 cursor-pointer disabled:opacity-60"
+                    title="Refresh live retail IBJA rates"
+                  >
+                    <RefreshCw
+                      size={10}
+                      className={isLoadingLive ? "animate-spin" : ""}
+                    />
+                    <span>{isLoadingLive ? "..." : "IBJA"}</span>
+                  </button>
                 </div>
 
-                {/* Refresh Live Rates from IBJA */}
-                <button
-                  type="button"
-                  onClick={fetchLiveRates}
-                  disabled={isLoadingLive}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded cursor-pointer transition-colors disabled:opacity-60"
-                  title="Fetch official IBJA retail benchmark rates in INR"
+                <div className="grid grid-cols-3 gap-1">
+                  {(["22K", "24K", "18K"] as KaratOption[]).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => handleKaratChange(k)}
+                      className={`py-1 px-1.5 rounded-md border text-center transition-all cursor-pointer ${
+                        selectedKarat === k
+                          ? "bg-amber-100 border-amber-400 text-amber-950 font-bold shadow-xs ring-1 ring-amber-300"
+                          : "bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700"
+                      }`}
+                    >
+                      <div className="text-[11px] font-bold leading-none">
+                        {k}
+                      </div>
+                      <div className="text-[9px] font-mono text-slate-600 mt-0.5 truncate">
+                        ₹{liveKaratRates[k]?.perGram ?? DEFAULT_RATES[k].perGram}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: Gold Rate with integrated 10g / 1g toggle */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor={rateId}
+                  className="text-xs font-semibold text-slate-700 uppercase tracking-wider block"
                 >
-                  <RefreshCw
-                    size={11}
-                    className={isLoadingLive ? "animate-spin" : ""}
-                  />
-                  <span>
-                    {isLoadingLive ? t("fetchingRate") : t("fetchLiveRate")}
+                  {t("goldRate")} ({selectedKarat})
+                </label>
+                {lastUpdated && (
+                  <span className="text-[10px] text-slate-400">
+                    Live · {lastUpdated}
                   </span>
-                </button>
+                )}
               </div>
 
-              {/* Karat Button Selector: 22K (default), 24K, 18K */}
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleKaratChange("22K")}
-                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                    selectedKarat === "22K"
-                      ? "bg-amber-100 border-amber-400 text-amber-950 font-bold shadow-xs ring-1 ring-amber-300"
-                      : "bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700"
-                  }`}
-                >
-                  <div className="text-xs font-bold leading-tight">22K (916)</div>
-                  <div className="text-[11px] font-mono text-slate-600 mt-0.5">
-                    ₹{liveKaratRates["22K"].perGram}/g
+              <div className="flex items-center gap-1.5">
+                <div className="relative flex-1 flex items-center">
+                  <div className="absolute left-2.5 text-slate-400 pointer-events-none">
+                    <IndianRupee size={14} />
                   </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleKaratChange("24K")}
-                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                    selectedKarat === "24K"
-                      ? "bg-amber-100 border-amber-400 text-amber-950 font-bold shadow-xs ring-1 ring-amber-300"
-                      : "bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700"
-                  }`}
-                >
-                  <div className="text-xs font-bold leading-tight">24K (999)</div>
-                  <div className="text-[11px] font-mono text-slate-600 mt-0.5">
-                    ₹{liveKaratRates["24K"].perGram}/g
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleKaratChange("18K")}
-                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                    selectedKarat === "18K"
-                      ? "bg-amber-100 border-amber-400 text-amber-950 font-bold shadow-xs ring-1 ring-amber-300"
-                      : "bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700"
-                  }`}
-                >
-                  <div className="text-xs font-bold leading-tight">18K (750)</div>
-                  <div className="text-[11px] font-mono text-slate-600 mt-0.5">
-                    ₹{liveKaratRates["18K"].perGram}/g
-                  </div>
-                </button>
-              </div>
-
-              {lastUpdated && (
-                <div className="text-[10px] text-slate-400 text-right pr-0.5">
-                  IBJA live benchmark · {lastUpdated}
+                  <input
+                    id={rateId}
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={rate}
+                    onChange={(e) => setRate(e.target.value)}
+                    placeholder="e.g. 136850"
+                    aria-label={t("goldRate")}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 pl-8 pr-16 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-slate-900 focus:outline-none"
+                  />
+                  <span className="absolute right-2.5 text-xs font-mono font-medium text-slate-500">
+                    / {rateType === "10gram" ? "10g" : "1g"}
+                  </span>
                 </div>
-              )}
-            </div>
 
-            {/* Rate Quotation Units (Per 10g / Per 1g) */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block">
-                {t("goldRate")} ({selectedKarat})
-              </label>
-
-              <div
-                role="radiogroup"
-                aria-label={t("goldRate")}
-                className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={rateType === "10gram"}
-                  onClick={() => handleRateTypeChange("10gram")}
-                  className={`py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
-                    rateType === "10gram"
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "text-slate-700 hover:text-slate-900 hover:bg-slate-200"
-                  }`}
-                >
-                  {t("per10Gram")}
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={rateType === "gram"}
-                  onClick={() => handleRateTypeChange("gram")}
-                  className={`py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
-                    rateType === "gram"
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "text-slate-700 hover:text-slate-900 hover:bg-slate-200"
-                  }`}
-                >
-                  {t("perGram")}
-                </button>
-              </div>
-            </div>
-
-            {/* Gold Rate Text Field (Holds the value directly) */}
-            <div className="space-y-1">
-              <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                  <IndianRupee size={15} />
+                {/* Compact Segmented Switch for 10g vs 1g */}
+                <div className="flex items-center bg-slate-100 border border-slate-300 rounded-lg p-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleRateTypeChange("10gram")}
+                    className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                      rateType === "10gram"
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    10g
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRateTypeChange("gram")}
+                    className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                      rateType === "gram"
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    1g
+                  </button>
                 </div>
-                <input
-                  id={rateId}
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={rate}
-                  onChange={(e) => setRate(e.target.value)}
-                  placeholder="e.g. 136850"
-                  aria-label={t("goldRate")}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg py-2 pl-9 pr-24 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-slate-900 focus:outline-none"
-                />
-                <span className="absolute right-3 text-xs font-mono font-medium text-slate-500">
-                  / {rateType === "10gram" ? "10g" : "1g"}
-                </span>
               </div>
             </div>
 
-            {/* Making Charges */}
-            <div className="space-y-1">
+            {/* Row 3: Making Charges + Discount Toggle */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label
                   htmlFor={makingId}
@@ -429,28 +455,41 @@ export default function PriceCalculator() {
                 >
                   {t("makingCharges")}
                 </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMakingType(makingType === "percent" ? "amount" : "percent")
-                  }
-                  className="text-xs font-semibold text-amber-700 hover:text-amber-900 flex items-center gap-1 cursor-pointer"
-                >
-                  <ArrowRightLeft size={11} />
-                  <span>
-                    {makingType === "percent"
-                      ? t("switchToAmount")
-                      : t("switchToPercent")}
-                  </span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMakingType(makingType === "percent" ? "amount" : "percent")
+                    }
+                    className="text-xs font-semibold text-amber-700 hover:text-amber-900 flex items-center gap-1 cursor-pointer"
+                  >
+                    <ArrowRightLeft size={10} />
+                    <span>
+                      {makingType === "percent"
+                        ? t("switchToAmount")
+                        : t("switchToPercent")}
+                    </span>
+                  </button>
+
+                  {!showDiscount && (
+                    <button
+                      type="button"
+                      onClick={() => setShowDiscount(true)}
+                      className="text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-0.5"
+                    >
+                      <Tag size={10} />
+                      <span>{t("addDiscount")}</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="relative flex items-center">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                <div className="absolute left-2.5 text-slate-400 pointer-events-none">
                   {makingType === "percent" ? (
-                    <Percent size={15} />
+                    <Percent size={14} />
                   ) : (
-                    <IndianRupee size={15} />
+                    <IndianRupee size={14} />
                   )}
                 </div>
                 <input
@@ -462,31 +501,101 @@ export default function PriceCalculator() {
                   onChange={(e) => setMakingValue(e.target.value)}
                   placeholder="0"
                   aria-label={t("makingCharges")}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg py-2 pl-9 pr-24 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-slate-900 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 pl-8 pr-24 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-slate-900 focus:outline-none"
                 />
-                <span className="absolute right-3 text-xs font-mono font-bold text-slate-600">
+                <span className="absolute right-2.5 text-xs font-mono font-bold text-slate-600">
                   {makingType === "percent"
-                    ? `≈ ₹${calculations.makingAmount}`
+                    ? `≈ ₹${calculations.originalMakingAmount}`
                     : `≈ ${calculations.makingPercent}%`}
                 </span>
               </div>
             </div>
 
-            {/* GST Tax Options: Unified 3% first & default, with clear explanation below */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center gap-1">
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block">
-                  {t("taxes")}
-                </label>
-                <Tooltip content={t("unifiedTaxExplanation")}>
-                  <button
-                    type="button"
-                    className="text-slate-400 hover:text-slate-600 p-0.5"
-                    aria-label="Tax schedule info"
-                  >
-                    <HelpCircle size={11} />
-                  </button>
-                </Tooltip>
+            {/* Discount on Making Charges (Hidden until toggled on) */}
+            {showDiscount && (
+              <div className="p-2.5 bg-emerald-50/70 border border-emerald-300 rounded-lg space-y-1.5 transition-all animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Tag size={12} className="text-emerald-700" />
+                    <label
+                      htmlFor={discountId}
+                      className="text-xs font-bold text-emerald-900 uppercase tracking-wider block"
+                    >
+                      {t("discountOnMaking")}
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDiscountType(
+                          discountType === "percent" ? "amount" : "percent"
+                        )
+                      }
+                      className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 underline cursor-pointer"
+                    >
+                      {discountType === "percent"
+                        ? t("switchToAmount")
+                        : t("switchToPercent")}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowDiscount(false)}
+                      className="text-slate-400 hover:text-rose-700 p-0.5 rounded cursor-pointer"
+                      title={t("removeDiscount")}
+                      aria-label={t("removeDiscount")}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative flex items-center">
+                  <div className="absolute left-2.5 text-emerald-600 pointer-events-none">
+                    {discountType === "percent" ? (
+                      <Percent size={13} />
+                    ) : (
+                      <IndianRupee size={13} />
+                    )}
+                  </div>
+                  <input
+                    id={discountId}
+                    type="number"
+                    step={discountType === "percent" ? "1" : "10"}
+                    min="0"
+                    max={discountType === "percent" ? "100" : undefined}
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    placeholder="0"
+                    aria-label={t("discountOnMaking")}
+                    className="w-full bg-white border border-emerald-300 rounded-md py-1 pl-7 pr-24 font-mono text-sm font-bold text-emerald-950 focus:border-emerald-700 focus:outline-none"
+                  />
+                  <span className="absolute right-2.5 text-xs font-mono font-bold text-emerald-800">
+                    -₹{calculations.discountAmount}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Row 4: Taxes (GST) - Unified 3% first & default */}
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block">
+                    {t("taxes")}
+                  </label>
+                  <Tooltip content={t("unifiedTaxExplanation")}>
+                    <button
+                      type="button"
+                      className="text-slate-400 hover:text-slate-600 p-0.5"
+                      aria-label="Tax schedule info"
+                    >
+                      <HelpCircle size={11} />
+                    </button>
+                  </Tooltip>
+                </div>
               </div>
 
               {/* Reordered: Unified 3% first, Split 3% + 5% second */}
@@ -500,7 +609,7 @@ export default function PriceCalculator() {
                   role="radio"
                   aria-checked={gstType === "unified"}
                   onClick={() => setGstType("unified")}
-                  className={`py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                     gstType === "unified"
                       ? "bg-slate-900 text-white shadow-xs"
                       : "text-slate-700 hover:text-slate-900 hover:bg-slate-200"
@@ -513,7 +622,7 @@ export default function PriceCalculator() {
                   role="radio"
                   aria-checked={gstType === "split"}
                   onClick={() => setGstType("split")}
-                  className={`py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
                     gstType === "split"
                       ? "bg-slate-900 text-white shadow-xs"
                       : "text-slate-700 hover:text-slate-900 hover:bg-slate-200"
@@ -523,108 +632,127 @@ export default function PriceCalculator() {
                 </button>
               </div>
 
-              {/* Informative text below taxes explaining what Split and Unified mean */}
-              <div className="text-[11px] leading-relaxed text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-1.5 mt-2">
-                <div
-                  className={`p-1 rounded ${
-                    gstType === "unified"
-                      ? "bg-slate-200/70 text-slate-900 font-medium"
-                      : "text-slate-600"
-                  }`}
-                >
-                  <span className="font-bold text-slate-900 mr-1">
-                    {t("unifiedTax")}:
+              {/* Concise single-line tax note to avoid vertical bulk */}
+              <div className="text-[10px] text-slate-500 pt-0.5">
+                {gstType === "unified" ? (
+                  <span>
+                    <strong className="text-slate-700">Unified 3%:</strong> 3% GST on Subtotal (Gold + Making)
                   </span>
-                  <span>{t("unifiedTaxExplanation")}</span>
-                </div>
-                <div
-                  className={`p-1 rounded border-t border-slate-200 pt-1.5 ${
-                    gstType === "split"
-                      ? "bg-slate-200/70 text-slate-900 font-medium"
-                      : "text-slate-600"
-                  }`}
-                >
-                  <span className="font-bold text-slate-900 mr-1">
-                    {t("splitTax")}:
+                ) : (
+                  <span>
+                    <strong className="text-slate-700">Split:</strong> 3% GST on Gold + 5% GST on Making
                   </span>
-                  <span>{t("splitTaxExplanation")}</span>
-                </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Breakdown Column */}
-          <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
+          {/* Breakdown Column (Price Breakup) */}
+          <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Receipt size={18} className="text-amber-600" />
-                <h2 className="text-sm font-bold text-slate-900">
+            <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Receipt size={16} className="text-amber-600" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                   {t("priceBreakup")} ({selectedKarat})
                 </h2>
               </div>
-              <span className="text-xs font-mono font-semibold text-slate-500">
+              <span className="text-xs font-mono font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded">
                 ₹{calculations.actualRatePerGram}/g
               </span>
             </div>
 
             {/* Step Rows */}
-            <div className="p-4 sm:p-5 space-y-3.5 flex-1">
+            <div className="p-3.5 sm:p-4 space-y-2.5 flex-1">
               {/* Step 1: Base Gold */}
-              <div className="flex items-start justify-between p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+              <div className="flex items-start justify-between p-2.5 rounded-lg border border-slate-200 bg-slate-50/50">
                 <div className="space-y-0.5">
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
                     {t("baseGoldValue")} ({selectedKarat})
                   </span>
-                  <p className="text-xs text-slate-500 font-mono">
+                  <p className="text-[11px] text-slate-500 font-mono">
                     {weight || "0"}g × ₹{calculations.actualRatePerGram}/g
                   </p>
                 </div>
-                <span className="text-base font-bold font-mono text-slate-900">
+                <span className="text-sm sm:text-base font-bold font-mono text-slate-900">
                   ₹{calculations.goldValue}
                 </span>
               </div>
 
-              {/* Step 2: Making Charges */}
-              <div className="flex items-start justify-between p-3 rounded-lg border border-slate-200 bg-slate-50/50">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      {t("makingCharges")}
+              {/* Step 2: Making Charges (with discount deduction if applied) */}
+              <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/50 space-y-1.5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        {t("makingCharges")}
+                      </span>
+                      <span className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">
+                        {calculations.makingPercent}%
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-mono">
+                      {makingType === "percent"
+                        ? `${calculations.makingPercent}% of Gold Value`
+                        : `Fixed Charge`}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-sm sm:text-base font-bold font-mono ${
+                      calculations.hasDiscount
+                        ? "line-through text-slate-400 text-xs"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    ₹{calculations.originalMakingAmount}
+                  </span>
+                </div>
+
+                {/* If Discount is Active, show discount deduction row */}
+                {calculations.hasDiscount && (
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-200 text-xs">
+                    <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+                      <Tag size={10} />
+                      {t("discountOnMaking")} ({discountValue}
+                      {discountType === "percent" ? "%" : "₹"})
                     </span>
-                    <span className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">
-                      {calculations.makingPercent}%
+                    <span className="font-mono font-bold text-emerald-700">
+                      -₹{calculations.discountAmount}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 font-mono">
-                    {makingType === "percent"
-                      ? `${calculations.makingPercent}%`
-                      : `Fixed`}
-                  </p>
-                </div>
-                <span className="text-base font-bold font-mono text-slate-900">
-                  ₹{calculations.makingAmount}
-                </span>
+                )}
+
+                {/* Net Making Charge if discounted */}
+                {calculations.hasDiscount && (
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <span className="text-[11px] font-semibold text-slate-600">
+                      {t("netMakingCharges")}
+                    </span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ₹{calculations.netMakingAmount}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Subtotal */}
-              <div className="flex items-center justify-between px-3 py-2 bg-slate-100 rounded-md border border-slate-200">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-slate-100 rounded-md border border-slate-200">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
                   {t("subtotal")}
                 </span>
-                <span className="text-base font-bold font-mono text-slate-900">
+                <span className="text-sm sm:text-base font-bold font-mono text-slate-900">
                   ₹{calculations.subtotal}
                 </span>
               </div>
 
               {/* Step 3: Taxes (Unified is default) */}
-              <div className="space-y-1.5 pt-1">
+              <div className="space-y-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
                   {t("taxes")} ({gstType === "unified" ? "Unified 3%" : "Split 3%+5%"})
                 </span>
 
                 {gstType === "unified" ? (
-                  <div className="p-2.5 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between">
+                  <div className="p-2 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between">
                     <div>
                       <span className="block text-[11px] font-semibold text-slate-700">
                         Unified GST @ 3% (Subtotal)
@@ -639,19 +767,19 @@ export default function PriceCalculator() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="p-2.5 bg-slate-50 rounded-md border border-slate-200">
+                    <div className="p-2 bg-slate-50 rounded-md border border-slate-200">
                       <span className="block text-[10px] font-semibold text-slate-500">
                         GST 3% (Gold)
                       </span>
-                      <span className="text-sm font-bold font-mono text-slate-900">
+                      <span className="text-xs font-bold font-mono text-slate-900">
                         ₹{calculations.goldGst}
                       </span>
                     </div>
-                    <div className="p-2.5 bg-slate-50 rounded-md border border-slate-200">
+                    <div className="p-2 bg-slate-50 rounded-md border border-slate-200">
                       <span className="block text-[10px] font-semibold text-slate-500">
                         GST 5% (Making)
                       </span>
-                      <span className="text-sm font-bold font-mono text-slate-900">
+                      <span className="text-xs font-bold font-mono text-slate-900">
                         ₹{calculations.makingGst}
                       </span>
                     </div>
@@ -661,19 +789,19 @@ export default function PriceCalculator() {
             </div>
 
             {/* Total Footer Banner */}
-            <div className="p-4 sm:p-5 bg-slate-900 text-white border-t border-slate-800">
+            <div className="p-3.5 sm:p-4 bg-slate-900 text-white border-t border-slate-800">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block">
                     {t("finalTotal")}
                   </span>
-                  <span className="text-[11px] text-slate-300">
+                  <span className="text-[10px] text-slate-300">
                     Net payable ({selectedKarat})
                   </span>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl sm:text-3xl font-bold font-mono text-white tracking-tight">
+                  <span className="text-xl sm:text-2xl font-bold font-mono text-white tracking-tight">
                     ₹{calculations.finalTotal}
                   </span>
                 </div>

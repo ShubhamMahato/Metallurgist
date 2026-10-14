@@ -831,10 +831,19 @@ export const useDashboard = () => {
   };
 
   const resetToOriginal = () => {
+    if (rebalanceTimeoutRef.current) {
+      clearTimeout(rebalanceTimeoutRef.current);
+      rebalanceTimeoutRef.current = null;
+    }
+
+    setTempValues({});
+    setLastEditedId(null);
+
+    let resetBalanced: MetalValue[] = [];
     setMetals((prev) => {
       const originalMetals = prev.filter((m) => m.baseline !== undefined);
 
-      return originalMetals.map((m) => {
+      const baseList = originalMetals.map((m) => {
         const base = m.baseline ?? 0;
 
         return {
@@ -843,14 +852,29 @@ export const useDashboard = () => {
           locked: m.id === "gold" ? true : false,
           isManual: false,
           history: [],
+          changed: false,
         };
       });
+
+      const balanced = balanceInitialMetals(baseList);
+      resetBalanced = balanced.map((m) => ({
+        ...m,
+        history: [],
+        changed: false,
+        locked: m.id === "gold" ? true : false,
+      }));
+      return resetBalanced;
     });
 
-    setKarat(baselineKarat);
-    setKaratDisplay(getKaratInfo(parseFloat(baselineKarat) * 100 / 24).karat_display);
-    setTempValues({});
-    setLastEditedId(null);
+    const goldMetal = resetBalanced.find((m) => m.id === "gold");
+    if (goldMetal) {
+      const purity = parseFloat(goldMetal.value);
+      setKarat(calculateKarat(purity));
+      setKaratDisplay(getKaratInfo(purity).karat_display);
+    } else {
+      setKarat(baselineKarat);
+      setKaratDisplay(getKaratInfo(parseFloat(baselineKarat) * 100 / 24).karat_display);
+    }
   };
 
   const downloadDOC = () => {
@@ -900,7 +924,10 @@ export const useDashboard = () => {
   }, []);
 
   const totalAggregate = metals
-    .reduce((acc, m) => acc + parseFloat(m.value || "0"), 0)
+    .reduce(
+      (acc, m) => acc + (parseFloat(tempValues[m.id] ?? m.value) || 0),
+      0
+    )
     .toFixed(2);
   const isVerified = Math.abs(parseFloat(totalAggregate) - 100) < 0.01;
 
