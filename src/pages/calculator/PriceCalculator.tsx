@@ -13,7 +13,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useLanguage } from "../../lib/LanguageContext";
-import { TopNav } from "../../components/common/TopNav";
+import { AppLayout } from "../../components/layout/AppLayout";
 import { Tooltip } from "../../components/common/Tooltip";
 
 type KaratOption = "22K" | "24K" | "18K";
@@ -276,11 +276,8 @@ export default function PriceCalculator() {
   ]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col selection:bg-amber-200 w-full max-w-full overflow-x-hidden">
-      <TopNav />
-
-      {/* Main Workspace - Top banner removed to keep calculator compact and scroll-free on desktop */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5">
+    <AppLayout>
+      <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-start">
           {/* Inputs Column (Sample Details) */}
           <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-3.5 sm:p-4 shadow-xs space-y-3">
@@ -809,7 +806,7 @@ export default function PriceCalculator() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

@@ -49,7 +49,7 @@ const generateFischerPrintPreview = ({
   };
   const metalValue = (metalId: string) => {
     const metal = metals.find((item) => item.id === metalId);
-    if (metal && ((metal.baseline ?? 0) > 0 || parseFloat(metal.value) > 0 || metal.isManual)) return parseFloat(metal.value).toFixed(3);
+    if (metal && ((metal.baseline ?? 0) > 0 || parseFloat(metal.value) > 0 || metal.isManual)) return metal.value;
     return new RegExp(`${metalId.toUpperCase()}\\s+[-]{2,}`, "i").test(sourceContent) ? "--------" : "0.000";
   };
 
@@ -59,7 +59,7 @@ const generateFischerPrintPreview = ({
     for (const id of row) cells += `<td class="label">${displayNames[id] || id.toUpperCase()}</td><td class="value">${metalValue(id)}</td>`;
     tableRows += `<tr>${cells}</tr>`;
   }
-  const goldPurity = parseFloat(metals.find((metal) => metal.id === "gold")?.value || "0").toFixed(2);
+  const goldPurity = metals.find((metal) => metal.id === "gold")?.value || "0";
 
   return `<!doctype html><html><head><title>Adjusted Fischer Report</title><style>
     @page { size: A4 portrait; margin: 18mm 14mm; } * { box-sizing: border-box; }
@@ -178,107 +178,317 @@ export const useDashboard = () => {
 
     return {
       purity,
-      karat_exact: Number(exact.toFixed(2)),
-      karat_display: `${closest}K`
+      karat_exact: exact.toFixed(2),
+      karat_display: `${closest}K`,
     };
   }, []);
 
-  const calculateKarat = (goldPercent: number) => {
-    const info = getKaratInfo(goldPercent);
-    return info.karat_exact.toFixed(2);
+  const calculateKarat = (goldPercent: number): string => {
+    const exact = (goldPercent * 24) / 100;
+    return exact.toFixed(2);
   };
 
   const rebalanceMetals = (
     prevMetals: MetalValue[],
     editedId: string,
     newValueStr: string,
-  ) => {
-    const newValueNum = parseFloat(newValueStr);
+  ): MetalValue[] => {
+    const rawNum = parseFloat(newValueStr);
+    let newValueNum = isNaN(rawNum) ? 0 : rawNum;
 
+    // Never let gold % go above 100
+    if (editedId === "gold") {
+      newValueNum = Math.min(100, Math.max(0, newValueNum));
+    } else {
+      newValueNum = Math.max(0, newValueNum);
+    }
+
+    // Working copies with numeric values and preserved locked flags
     let parsedMetals = prevMetals.map((m) => ({
       ...m,
       numValue: m.id === editedId ? newValueNum : parseFloat(m.value || "0"),
     }));
 
     const editedMetal = parsedMetals.find((m) => m.id === editedId);
-    const sourceName = editedMetal ? editedMetal.name : "Removal";
-
-    const isAdjustable = (m: any) =>
-      !m.locked &&
-      m.id !== editedId &&
-      ((m.baseline ?? 0) > 0 || m.numValue > 0 || m.isManual);
+    const sourceName = editedMetal ? editedMetal.name : "Adjustment";
 
     let delta = 100 - parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
 
-    let attempts = 0;
-    while (Math.abs(delta) > 0.0001 && attempts < 15) {
-      attempts++;
-      const adjustable = parsedMetals.filter((m) => {
-        if (!isAdjustable(m)) return false;
-        if (delta < 0 && m.numValue <= 0.0001) return false;
-        if (delta > 0 && m.numValue >= 99.9999) return false;
-        return true;
-      });
+    // Only balance if there is a delta to distribute
+    if (Math.abs(delta) > 0.00001) {
+      if (editedId === "gold") {
+        if (delta < 0) {
+          // Gold was increased, so total sum > 100. We must reduce other metals by needToReduce.
+          let needToReduce = Math.abs(delta);
 
-      if (adjustable.length === 0) break;
+          // 1. First metal is Silver: should get reduced and unlocked
+          const silver = parsedMetals.find((m) => m.id === "silver");
+          if (silver) {
+            silver.locked = false; // unlock silver
+            if (silver.numValue >= needToReduce) {
+              silver.numValue -= needToReduce;
+              needToReduce = 0;
+            } else {
+              needToReduce -= silver.numValue;
+              silver.numValue = 0;
+            }
+          }
 
-      const weights = adjustable.map((m) => {
-        if (m.isManual && m.numValue < 0.001) return 10.0;
-        return Math.max(m.numValue, (m.baseline ?? 0) > 0 ? m.baseline! : 1.0);
-      });
-      
-      const totalWeight = weights.reduce((a, b) => a + b, 0);
-      if (totalWeight === 0) break;
+          // 2. If reduced value is more than the silver, then unlock copper and reduce from copper as well
+          const copper = parsedMetals.find((m) => m.id === "copper");
+          if (needToReduce > 0.00001 && copper) {
+            copper.locked = false; // unlock copper
+            if (copper.numValue >= needToReduce) {
+              copper.numValue -= needToReduce;
+              needToReduce = 0;
+            } else {
+              needToReduce -= copper.numValue;
+              copper.numValue = 0;
+            }
+          }
 
-      let remainingDelta = delta;
-      parsedMetals = parsedMetals.map((m) => {
-        const adjIndex = adjustable.findIndex((a) => a.id === m.id);
-        if (adjIndex === -1) return m;
+          // 3. If more than silver + copper, then reduce from zinc
+          const zinc = parsedMetals.find((m) => m.id === "zinc");
+          if (needToReduce > 0.00001 && zinc) {
+            zinc.locked = false; // unlock zinc
+            if (zinc.numValue >= needToReduce) {
+              zinc.numValue -= needToReduce;
+              needToReduce = 0;
+            } else {
+              needToReduce -= zinc.numValue;
+              zinc.numValue = 0;
+            }
+          }
 
-        const share = (weights[adjIndex] / totalWeight) * delta;
-        let newValue = m.numValue + share;
+          // 4. And then rest of the non-zero metals
+          if (needToReduce > 0.00001) {
+            for (const metal of parsedMetals) {
+              if (
+                metal.id !== "gold" &&
+                metal.id !== "silver" &&
+                metal.id !== "copper" &&
+                metal.id !== "zinc" &&
+                metal.numValue > 0.00001
+              ) {
+                metal.locked = false; // unlock metal
+                if (metal.numValue >= needToReduce) {
+                  metal.numValue -= needToReduce;
+                  needToReduce = 0;
+                  break;
+                } else {
+                  needToReduce -= metal.numValue;
+                  metal.numValue = 0;
+                }
+              }
+            }
+          }
+        } else {
+          // Gold was decreased (delta > 0). Total sum < 100.
+          // First replenish all other constituents as per original (baseline), then replenish silver.
+          let surplus = delta;
 
-        if (newValue < 0) newValue = 0;
-        if (newValue > 100) newValue = 100;
+          // 1. Replenish other non-zero metals that were depleted below baseline
+          for (const metal of parsedMetals) {
+            if (
+              metal.id !== "gold" &&
+              metal.id !== "silver" &&
+              metal.id !== "copper" &&
+              metal.id !== "zinc"
+            ) {
+              const base = metal.baseline !== undefined ? metal.baseline : metal.numValue;
+              const deficit = Math.max(0, base - metal.numValue);
+              if (deficit > 0.00001 && surplus > 0.00001) {
+                const add = Math.min(surplus, deficit);
+                metal.numValue += add;
+                surplus -= add;
+              }
+            }
+          }
 
-        remainingDelta -= (newValue - m.numValue);
-        return { ...m, numValue: newValue };
-      });
+          // 2. Replenish Zinc if below baseline
+          const zinc = parsedMetals.find((m) => m.id === "zinc");
+          if (zinc && surplus > 0.00001) {
+            const base = zinc.baseline !== undefined ? zinc.baseline : zinc.numValue;
+            const deficit = Math.max(0, base - zinc.numValue);
+            if (deficit > 0.00001) {
+              const add = Math.min(surplus, deficit);
+              zinc.numValue += add;
+              surplus -= add;
+            }
+          }
 
-      delta = remainingDelta;
+          // 3. Replenish Copper if below baseline
+          const copper = parsedMetals.find((m) => m.id === "copper");
+          if (copper && surplus > 0.00001) {
+            const base = copper.baseline !== undefined ? copper.baseline : copper.numValue;
+            const deficit = Math.max(0, base - copper.numValue);
+            if (deficit > 0.00001) {
+              const add = Math.min(surplus, deficit);
+              copper.numValue += add;
+              surplus -= add;
+            }
+          }
+
+          // 4. And then update / replenish Silver with any remaining surplus
+          const silver = parsedMetals.find((m) => m.id === "silver");
+          if (silver && surplus > 0.00001) {
+            silver.locked = false;
+            silver.numValue += surplus;
+            surplus = 0;
+          } else if (surplus > 0.00001) {
+            if (copper) {
+              copper.locked = false;
+              copper.numValue += surplus;
+              surplus = 0;
+            } else {
+              const firstOther = parsedMetals.find((m) => m.id !== "gold");
+              if (firstOther) {
+                firstOther.locked = false;
+                firstOther.numValue += surplus;
+                surplus = 0;
+              }
+            }
+          }
+        }
+      } else {
+        // User edited a metal other than Gold
+        if (delta < 0) {
+          let needToReduce = Math.abs(delta);
+          const reductionOrder = ["silver", "copper", "zinc"].filter((id) => id !== editedId);
+          for (const redId of reductionOrder) {
+            const m = parsedMetals.find((p) => p.id === redId);
+            if (m && needToReduce > 0.00001 && m.numValue > 0.00001) {
+              m.locked = false;
+              if (m.numValue >= needToReduce) {
+                m.numValue -= needToReduce;
+                needToReduce = 0;
+                break;
+              } else {
+                needToReduce -= m.numValue;
+                m.numValue = 0;
+              }
+            }
+          }
+
+          if (needToReduce > 0.00001) {
+            for (const m of parsedMetals) {
+              if (m.id !== "gold" && m.id !== editedId && m.numValue > 0.00001) {
+                m.locked = false;
+                if (m.numValue >= needToReduce) {
+                  m.numValue -= needToReduce;
+                  needToReduce = 0;
+                  break;
+                } else {
+                  needToReduce -= m.numValue;
+                  m.numValue = 0;
+                }
+              }
+            }
+          }
+        } else {
+          let surplus = delta;
+          // First replenish any metals below baseline (excluding editedId and gold and silver)
+          for (const m of parsedMetals) {
+            if (
+              m.id !== "gold" &&
+              m.id !== "silver" &&
+              m.id !== editedId
+            ) {
+              const base = m.baseline !== undefined ? m.baseline : m.numValue;
+              const deficit = Math.max(0, base - m.numValue);
+              if (deficit > 0.00001 && surplus > 0.00001) {
+                const add = Math.min(surplus, deficit);
+                m.numValue += add;
+                surplus -= add;
+              }
+            }
+          }
+
+          if (surplus > 0.00001) {
+            const target =
+              editedId !== "silver"
+                ? parsedMetals.find((m) => m.id === "silver")
+                : parsedMetals.find((m) => m.id === "copper");
+            if (target) {
+              target.locked = false;
+              target.numValue += surplus;
+            } else {
+              const firstNonEdited = parsedMetals.find((m) => m.id !== editedId && m.id !== "gold");
+              if (firstNonEdited) {
+                firstNonEdited.locked = false;
+                firstNonEdited.numValue += surplus;
+              }
+            }
+          }
+        }
+      }
     }
 
-    parsedMetals = parsedMetals.map(m => 
-      m.id === editedId ? { ...m, numValue: newValueNum } : m
-    );
+    // Round values to 3 decimal places
+    parsedMetals.forEach((m) => {
+      m.numValue = Math.round(m.numValue * 1000) / 1000;
+    });
 
+    // The edited metal MUST always retain the exact typed value (rounded to 3 decimals, gold capped at 100)
+    const editedEntry = parsedMetals.find((m) => m.id === editedId);
+    if (editedEntry) {
+      editedEntry.numValue = Math.round(newValueNum * 1000) / 1000;
+    }
+
+    // Micro-rounding adjustment to guarantee total constituent sum is precisely 100.000
+    const currentSum = parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
+    const microDiff = Math.round((100 - currentSum) * 1000) / 1000;
+
+    if (Math.abs(microDiff) >= 0.001) {
+      const silver = parsedMetals.find((m) => m.id === "silver");
+      const copper = parsedMetals.find((m) => m.id === "copper");
+      if (silver && editedId !== "silver" && silver.numValue + microDiff >= 0) {
+        silver.numValue = Math.round((silver.numValue + microDiff) * 1000) / 1000;
+      } else if (copper && editedId !== "copper" && copper.numValue + microDiff >= 0) {
+        copper.numValue = Math.round((copper.numValue + microDiff) * 1000) / 1000;
+      } else {
+        const anyUnlocked = parsedMetals.find(
+          (m) => !m.locked && m.id !== editedId && m.numValue + microDiff >= 0
+        );
+        if (anyUnlocked) {
+          anyUnlocked.numValue = Math.round((anyUnlocked.numValue + microDiff) * 1000) / 1000;
+        }
+      }
+    }
+
+    // Map to final MetalValue array with history tracking and .toFixed(3)
     return parsedMetals.map((m) => {
-      const prev = prevMetals.find((x) => x.id === m.id)!;
-      const prevValue = parseFloat(prev.value || "0");
-      const adjustment = m.numValue - prevValue;
-      const percentChange =
-        prevValue === 0 ? 0 : (adjustment / prevValue) * 100;
+      const prev = prevMetals.find((x) => x.id === m.id);
+      const prevValue = prev ? parseFloat(prev.value || "0") : 0;
+      const adjustment = Math.round((m.numValue - prevValue) * 1000) / 1000;
+      const percentChange = prevValue === 0 ? 0 : (adjustment / prevValue) * 100;
 
       const lastHistory =
         m.history && m.history.length > 0
           ? m.history[m.history.length - 1]
           : null;
-      let newHistory = m.history || [];
+      let newHistory = m.history ? [...m.history] : [];
 
       if (Math.abs(adjustment) > 0.0001) {
         const historySource = m.id === editedId ? "User Edit" : sourceName;
 
         if (lastHistory && lastHistory.source === historySource) {
-          const totalDelta = m.numValue - lastHistory.from;
-          const totalPercent =
-            lastHistory.from === 0 ? 0 : (totalDelta / lastHistory.from) * 100;
-          const updatedEntry = {
-            ...lastHistory,
-            to: m.numValue,
-            delta: totalDelta,
-            percent: totalPercent,
-          };
-          newHistory = [...newHistory.slice(0, -1), updatedEntry];
+          const totalDelta = Math.round((m.numValue - lastHistory.from) * 1000) / 1000;
+          if (Math.abs(totalDelta) < 0.001) {
+            // Net difference is 0.000 - the change has been completely undone/replenished!
+            // Remove the history record instead of displaying 0.000 diff.
+            newHistory = newHistory.slice(0, -1);
+          } else {
+            const totalPercent =
+              lastHistory.from === 0 ? 0 : (totalDelta / lastHistory.from) * 100;
+            const updatedEntry = {
+              ...lastHistory,
+              to: m.numValue,
+              delta: totalDelta,
+              percent: totalPercent,
+            };
+            newHistory = [...newHistory.slice(0, -1), updatedEntry];
+          }
         } else {
           newHistory = [
             ...newHistory,
@@ -293,6 +503,28 @@ export const useDashboard = () => {
         }
       }
 
+      // Filter out any zero-delta entries so no 0.000 difference ever lingers
+      newHistory = newHistory.filter(
+        (h) => Math.abs(h.delta) >= 0.001 && Math.abs(h.from - h.to) >= 0.001
+      );
+
+      const hasHistory = newHistory.length > 0;
+      const latestSource = hasHistory ? newHistory[newHistory.length - 1].source : undefined;
+      const baselineDiff =
+        m.baseline !== undefined
+          ? Math.round((m.numValue - m.baseline) * 1000) / 1000
+          : 0;
+      const isChangedFromBaseline =
+        m.baseline !== undefined && Math.abs(baselineDiff) >= 0.001;
+
+      let lastAdjustedBy: string | undefined = undefined;
+      if (m.id === editedId) {
+        lastAdjustedBy = "User";
+      } else if (isChangedFromBaseline || hasHistory) {
+        lastAdjustedBy =
+          latestSource && latestSource !== "User Edit" ? latestSource : sourceName;
+      }
+
       return {
         ...m,
         value: m.numValue.toFixed(3),
@@ -300,92 +532,31 @@ export const useDashboard = () => {
         delta: adjustment,
         percentChange,
         history: newHistory,
-        lastAdjustedBy: m.id === editedId ? "User" : sourceName,
-        changed: Math.abs(adjustment) > 0.0001,
+        lastAdjustedBy,
+        changed: isChangedFromBaseline || Math.abs(adjustment) > 0.0001,
       };
     });
   };
 
   const balanceInitialMetals = (initialMetals: MetalValue[]) => {
-    const originalMetals = initialMetals.map((m) => ({ ...m }));
-
-    let parsedMetals = initialMetals.map((m) => ({
-      ...m,
-      numValue: parseFloat(m.value || "0"),
-    }));
-
-    let delta = 100 - parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
-
-    if (Math.abs(delta) < 0.0001) return initialMetals;
-
-    const isAdjustable = (m: any) => !m.locked && m.numValue > 0;
-
-    let attempts = 0;
-    while (Math.abs(delta) > 0.0001 && attempts < 15) {
-      attempts++;
-      const adjustable = parsedMetals.filter((m) => {
-        if (!isAdjustable(m)) return false;
-        if (delta < 0 && m.numValue <= 0.0001) return false;
-        if (delta > 0 && m.numValue >= 99.9999) return false;
-        return true;
-      });
-
-      if (adjustable.length === 0) break;
-
-      const weights = adjustable.map((m) =>
-        Math.max(m.numValue, (m.baseline ?? 0) > 0 ? m.baseline! : 1.0),
-      );
-      const totalWeight = weights.reduce((a, b) => a + b, 0);
-      if (totalWeight === 0) break;
-
-      let remainingDelta = delta;
-      parsedMetals = parsedMetals.map((m) => {
-        const adjIndex = adjustable.findIndex((a) => a.id === m.id);
-        if (adjIndex === -1) return m;
-
-        const share = (weights[adjIndex] / totalWeight) * delta;
-        let newValue = m.numValue + share;
-        if (newValue < 0) newValue = 0;
-        if (newValue > 100) newValue = 100;
-
-        remainingDelta -= newValue - m.numValue;
-        return { ...m, numValue: newValue };
-      });
-      delta = remainingDelta;
+    const currentSum = initialMetals.reduce((acc, m) => acc + parseFloat(m.value || "0"), 0);
+    if (Math.abs(currentSum - 100) < 0.001) {
+      return initialMetals.map((m) => ({
+        ...m,
+        value: parseFloat(m.value || "0").toFixed(3),
+        locked: m.id !== "gold",
+      }));
     }
 
-    return parsedMetals.map((m) => {
-      const original = originalMetals.find((o) => o.id === m.id)!;
-      const originalVal = parseFloat(original.value);
-      const diff = m.numValue - originalVal;
-
-      if (Math.abs(diff) > 0.0001) {
-        const percent = originalVal === 0 ? 0 : (diff / originalVal) * 100;
-        return {
-          ...m,
-          value: m.numValue.toFixed(3),
-          previous: originalVal,
-          delta: diff,
-          percentChange: percent,
-          changed: true,
-          history: [
-            {
-              from: originalVal,
-              to: m.numValue,
-              delta: diff,
-              percent: percent,
-              source: "Auto-Balance",
-            },
-          ],
-        };
-      }
-
-      return {
-        ...m,
-        value: m.numValue.toFixed(3),
-        history: [],
-      };
-    });
+    const gold = initialMetals.find((m) => m.id === "gold");
+    const goldVal = gold ? gold.value : "0";
+    const balanced = rebalanceMetals(initialMetals, "gold", goldVal);
+    return balanced.map((m) => ({
+      ...m,
+      locked: m.id !== "gold",
+      changed: false,
+      history: [],
+    }));
   };
 
   const parseFileContent = (content: string) => {
@@ -431,7 +602,7 @@ export const useDashboard = () => {
           name: info.name,
           symbol: metalInfo?.symbol || metal.slice(0, 2).toUpperCase(),
           value: value.toFixed(3),
-          locked: metal.toLowerCase() === "gold",
+          locked: metal.toLowerCase() !== "gold",
           color: info.color,
           textColor: info.textColor,
           baseline: value,
@@ -474,7 +645,7 @@ export const useDashboard = () => {
         name: "Gold",
         symbol: "AU",
         value: goldValue.toFixed(3),
-        locked: true,
+        locked: false,
         color: "bg-yellow-50",
         textColor: "text-yellow-600",
         baseline: goldValue,
@@ -626,7 +797,7 @@ export const useDashboard = () => {
 
     metals.forEach((m) => {
       const name = m.id.toUpperCase();
-      const value = parseFloat(m.value || "0").toFixed(3);
+      const value = m.value;
 
       const regex = new RegExp(
         `(${name})(?:\\s|\\\\[a-z0-9]+ ?|{[^{}]*})*?(\\d+\\.?\\d*)`,
@@ -644,7 +815,7 @@ export const useDashboard = () => {
       const goldValue = parseFloat(gold.value || "0");
       content = content.replace(
         /(GOLD\s+PURITY\s*:\s*)((?:\\\\[a-z0-9]+ ?|{[^{}]*}|\s)*?)(\d+\.?\d*)/i,
-        `$1$2${goldValue.toFixed(2)}`,
+        `$1$2${gold.value}`,
       );
 
       const newKarat = calculateKarat(goldValue);
@@ -697,7 +868,7 @@ export const useDashboard = () => {
         customerName,
         weight,
         sampleType,
-        karat: karatDisplay,
+        karat: karat,
         metals,
       }));
       documentForPrint.close();
@@ -768,8 +939,41 @@ export const useDashboard = () => {
     setShowSettings(false);
   };
 
+  const commitValue = (id: string, rawVal: string) => {
+    if (rawVal === "" || rawVal === ".") return;
+    const numValue = parseFloat(rawVal);
+    if (isNaN(numValue)) return;
+    let processedValue: string;
+    if (id === "gold") {
+      const clamped = Math.min(100, Math.max(0, numValue));
+      processedValue = clamped.toFixed(3);
+    } else {
+      processedValue = numValue >= 100 ? "100.000" : numValue.toFixed(3);
+    }
+
+    setMetals((prev) => {
+      if (id === "gold") {
+        const purity = parseFloat(processedValue);
+        setKarat(calculateKarat(purity));
+        setKaratDisplay(getKaratInfo(purity).karat_display);
+      }
+      return rebalanceMetals(prev, id, processedValue);
+    });
+  };
+
   const handleValueChange = (id: string, newValue: string) => {
     if (newValue !== "" && !/^\d*\.?\d*$/.test(newValue)) return;
+
+    if (id === "gold") {
+      const num = parseFloat(newValue);
+      if (!isNaN(num) && num > 100) {
+        newValue = "100";
+      }
+      if (!isNaN(num) && num >= 0 && num <= 100) {
+        setKarat(((num * 24) / 100).toFixed(2));
+        setKaratDisplay(getKaratInfo(num).karat_display);
+      }
+    }
 
     setLastEditedId(id);
     setTempValues((prev) => ({ ...prev, [id]: newValue }));
@@ -781,26 +985,17 @@ export const useDashboard = () => {
     rebalanceTimeoutRef.current = setTimeout(() => {
       if (newValue === "" || newValue === "." || newValue.endsWith(".")) return;
 
-      const numValue = parseFloat(newValue);
-      const processedValue = numValue >= 100 ? "100.000" : newValue;
-
-      setMetals((prev) => {
-        if (id === "gold") {
-          const purity = parseFloat(processedValue);
-          setKarat(calculateKarat(purity));
-          setKaratDisplay(getKaratInfo(purity).karat_display);
-        }
-        return rebalanceMetals(prev, id, processedValue);
+      commitValue(id, newValue);
+      setTempValues((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
       });
+      rebalanceTimeoutRef.current = null;
     }, 1000);
   };
 
-  const handleValueBlur = (id: string) => {
-    setTempValues((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+  const handleValueBlur = (_id?: string) => {
     setLastEditedId(null);
   };
 
@@ -849,7 +1044,7 @@ export const useDashboard = () => {
         return {
           ...m,
           value: base.toFixed(3),
-          locked: m.id === "gold" ? true : false,
+          locked: m.id !== "gold",
           isManual: false,
           history: [],
           changed: false,
@@ -861,7 +1056,7 @@ export const useDashboard = () => {
         ...m,
         history: [],
         changed: false,
-        locked: m.id === "gold" ? true : false,
+        locked: m.id !== "gold",
       }));
       return resetBalanced;
     });
@@ -959,6 +1154,7 @@ export const useDashboard = () => {
           color: info.color,
           textColor: info.textColor,
           isManual: true,
+          baseline: 0,
           history: [],
         },
       ];

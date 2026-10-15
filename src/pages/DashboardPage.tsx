@@ -7,12 +7,14 @@ import {
   FileText,
   Sparkles,
   Scale,
+  Share2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useDashboard } from "../hooks/useDashboard";
 import { ALL_AVAILABLE_METALS } from "../constants/metals";
-import { TopNav } from "../components/common/TopNav";
+import { AppLayout } from "../components/layout/AppLayout";
 import { AddMetalModal } from "../components/dashboard/AddMetalModal";
+import { WhatsAppShareModal } from "../components/dashboard/WhatsAppShareModal";
 import { CalculationSummary } from "../components/dashboard/CalculationSummary";
 import { MetalCard } from "../components/dashboard/MetalCard";
 import { MetadataField } from "../components/dashboard/MetadataField";
@@ -21,6 +23,7 @@ import { useLanguage } from "../lib/LanguageContext";
 
 export default function DashboardPage() {
   const { t } = useLanguage();
+  const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
   const dashboard = useDashboard();
   const {
     lastEditedId,
@@ -80,19 +83,17 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col selection:bg-amber-200 w-full max-w-full overflow-x-hidden">
-      {/* Navigation */}
-      <TopNav
-        isParsed={isParsed}
-        isPersistent={isPersistent}
-        isSaving={isSaving}
-        fileHandle={fileHandle}
-        onSaveOrDownload={saveOrDownload}
-        onPrint={handlePrint}
-        onReload={reloadFile}
-      />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
+    <AppLayout
+      isParsed={isParsed}
+      isPersistent={isPersistent}
+      isSaving={isSaving}
+      fileHandle={fileHandle}
+      onSaveOrDownload={saveOrDownload}
+      onPrint={handlePrint}
+      onReload={reloadFile}
+      onShareWhatsApp={() => setIsShareModalOpen(true)}
+    >
+      <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
         <input
           ref={fileInputRef}
           type="file"
@@ -394,6 +395,17 @@ export default function DashboardPage() {
                     </button>
                   </Tooltip>
 
+                  <Tooltip content="Share verified report via WhatsApp">
+                    <button
+                      type="button"
+                      onClick={() => setIsShareModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Share2 size={12} className="text-emerald-600" />
+                      <span>WhatsApp Share</span>
+                    </button>
+                  </Tooltip>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -425,7 +437,20 @@ export default function DashboardPage() {
             </motion.section>
           )}
         </AnimatePresence>
-      </main>
-    </div>
+      </div>
+
+      {/* WhatsApp Tamper-Proof Share Modal */}
+      <WhatsAppShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        customerName={customerName}
+        sampleType={sampleType}
+        weight={weight}
+        goldPurity={metals.find((m) => m.id === "gold")?.value || "0.000"}
+        karatExact={karat}
+        karatDisplay={karatDisplay}
+        metals={metals}
+      />
+    </AppLayout>
   );
 }

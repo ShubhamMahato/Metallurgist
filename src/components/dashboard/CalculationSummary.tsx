@@ -112,11 +112,11 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
 
           <div className="flex items-baseline gap-1 flex-wrap">
             <span className="text-base sm:text-lg font-bold font-mono tabular-nums text-slate-900 leading-none">
-              {karatDisplay || `${karat}K`}
+              {karatDisplay || (karat.endsWith("K") ? karat : `${karat}K`)}
             </span>
             {karatDisplay && (
               <span className="text-[10px] font-mono text-slate-500">
-                ({karat}K {t("exactKarat")})
+                ({karat.endsWith("K") ? karat : `${karat}K`} {t("exactKarat")})
               </span>
             )}
           </div>

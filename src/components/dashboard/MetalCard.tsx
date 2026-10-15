@@ -45,10 +45,14 @@ export const MetalCard: React.FC<MetalCardProps> = ({
   const badgeTheme = ELEMENT_BADGES[metal.id] || DEFAULT_BADGE;
   const numericValue = parseFloat(tempValues[metal.id] ?? metal.value) || 0;
   const baseline = metal.baseline ?? 0;
+  const deltaNum = Math.round((numericValue - baseline) * 1000) / 1000;
   const hasChangedFromBaseline =
-    baseline > 0 && Math.abs(numericValue - baseline) > 0.001;
-  const delta = (numericValue - baseline).toFixed(3);
-  const deltaNum = parseFloat(delta);
+    baseline > 0 && Math.abs(deltaNum) >= 0.001;
+  const delta = deltaNum > 0 ? `+${deltaNum.toFixed(3)}` : deltaNum.toFixed(3);
+
+  const visibleHistory = (metal.history || []).filter(
+    (h) => Math.abs(h.delta) >= 0.001 && Math.abs(h.from - h.to) >= 0.001
+  );
 
   const translatedName = t(metal.id as any) || metal.name;
 
@@ -70,9 +74,16 @@ export const MetalCard: React.FC<MetalCardProps> = ({
             {metal.symbol}
           </div>
 
-          <span className="text-sm font-bold text-slate-900 truncate">
-            {translatedName}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+            <span className="text-sm font-bold text-slate-900 truncate">
+              {translatedName}
+            </span>
+            {metal.lastAdjustedBy && metal.lastAdjustedBy !== "User" && (hasChangedFromBaseline || visibleHistory.length > 0) && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
+                via {metal.lastAdjustedBy}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Lock and Remove Actions */}
@@ -153,14 +164,21 @@ export const MetalCard: React.FC<MetalCardProps> = ({
           {/* Baseline Comparison Delta */}
           {hasChangedFromBaseline && (
             <div className="mt-2.5 flex items-center justify-between text-xs bg-slate-100 border border-slate-200 rounded-md p-1.5">
-              <span className="text-slate-600 font-medium text-[11px]">
-                Original:{" "}
-                <span className="font-mono font-semibold text-slate-800">
-                  {baseline.toFixed(3)}%
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-slate-600 font-medium text-[11px] shrink-0">
+                  Original:{" "}
+                  <span className="font-mono font-semibold text-slate-800">
+                    {baseline.toFixed(3)}%
+                  </span>
                 </span>
-              </span>
+                {metal.lastAdjustedBy && metal.lastAdjustedBy !== "User" && (
+                  <span className="text-[10px] text-slate-500 font-medium truncate">
+                    (via {metal.lastAdjustedBy})
+                  </span>
+                )}
+              </div>
               <span
-                className={`font-mono font-bold text-[11px] flex items-center gap-0.5 ${
+                className={`font-mono font-bold text-[11px] flex items-center gap-0.5 shrink-0 ${
                   deltaNum > 0 ? "text-emerald-700" : "text-amber-800"
                 }`}
               >
@@ -169,29 +187,51 @@ export const MetalCard: React.FC<MetalCardProps> = ({
                 ) : (
                   <TrendingDown size={12} aria-hidden="true" />
                 )}
-                {deltaNum > 0 ? `+${delta}` : delta}%
+                {delta}%
               </span>
             </div>
           )}
         </div>
 
         {/* Audit Log */}
-        {metal.history && metal.history.length > 0 && (
+        {visibleHistory.length > 0 && (
           <div className="pt-2 border-t border-slate-200">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-              {t("audit")}
-            </span>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                {t("audit")}
+              </span>
+              {metal.lastAdjustedBy && metal.lastAdjustedBy !== "User" && (
+                <span className="text-[10px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                  via {metal.lastAdjustedBy}
+                </span>
+              )}
+            </div>
             <div className="space-y-1 text-[11px] font-mono text-slate-600">
-              {metal.history.slice(-2).map((h, idx) => (
+              {visibleHistory.slice(-2).map((h, idx) => (
                 <div
                   key={idx}
                   className="flex items-center justify-between bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded text-[10px]"
                 >
-                  <span className="text-slate-700">
-                    {h.from.toFixed(3)}% → {h.to.toFixed(3)}%
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-slate-700">
+                      {h.from.toFixed(3)}% → {h.to.toFixed(3)}%
+                    </span>
+                    {h.source && (
+                      <span
+                        className={`text-[9px] font-sans font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                          h.source === "User Edit" || h.source === "User"
+                            ? "bg-slate-200 text-slate-700"
+                            : "bg-blue-100 text-blue-800 border border-blue-200"
+                        }`}
+                      >
+                        {h.source === "User Edit" || h.source === "User"
+                          ? "Direct"
+                          : `via ${h.source}`}
+                      </span>
+                    )}
+                  </div>
                   <span
-                    className={`font-bold ${
+                    className={`font-bold shrink-0 ${
                       h.delta > 0 ? "text-emerald-700" : "text-amber-800"
                     }`}
                   >
