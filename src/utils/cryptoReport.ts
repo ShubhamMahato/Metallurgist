@@ -244,14 +244,20 @@ export function buildWhatsAppLink(message: string, phone?: string): string {
   return `https://web.whatsapp.com/send?text=${encodedMsg}`;
 }
 
+declare global {
+  interface Window {
+    __metallurgist_wa_popup?: Window | null;
+  }
+}
+
 // Window reference tracker to control and reuse the same popup window on web
-let waPopupRef: Window | null = null;
+const WA_POPUP_WINDOW_NAME = "metallurgist_whatsapp_popup_window";
 
 /**
  * Opens WhatsApp:
- * - On mobile/tablet: launches native WhatsApp app via wa.me link
- * - On web: opens in a new standalone window (not a new tab) and keeps control of that window,
- *   re-using the same window on subsequent clicks so multiple clicks update the existing window.
+ * - On mobile/tablet: launches native WhatsApp app via wa.me link directly
+ * - On web: opens in a new standalone window (popup, not a tab) and controls it so
+ *   subsequent clicks reuse that SAME window and update its URL instead of opening a new window or tab.
  */
 export function openWhatsAppChat(url: string): void {
   if (typeof window === "undefined") return;
@@ -272,22 +278,40 @@ export function openWhatsAppChat(url: string): void {
   const left = Math.max(0, Math.floor((screenW - width) / 2));
   const top = Math.max(0, Math.floor((screenH - height) / 2));
   const windowFeatures = `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes,toolbar=no,menubar=no,location=yes`;
-  const windowName = "metallurgist_whatsapp_popup_window";
 
-  // If the popup window is already open, reuse the SAME window and update its URL
-  if (waPopupRef && !waPopupRef.closed) {
+  const existingPopup = window.__metallurgist_wa_popup;
+
+  // 1. If we have a reference to an already opened window, reuse it and change its URL
+  if (existingPopup) {
     try {
-      waPopupRef.location.href = url;
-      waPopupRef.focus();
+      // First attempt: direct write-only navigation and focus
+      existingPopup.location.href = url;
+      existingPopup.focus();
       return;
     } catch {
-      // If cross-origin restrictions apply after WhatsApp loads, window.open with the same target name navigates it
+      // If direct location write is restricted, try navigating the existing named window without features
+      try {
+        const reused = window.open(url, WA_POPUP_WINDOW_NAME);
+        if (reused) {
+          window.__metallurgist_wa_popup = reused;
+          reused.focus();
+          return;
+        }
+      } catch {
+        // Fall through to open a new popup
+      }
     }
   }
 
-  // Open in a new standalone window (not a tab) and keep reference to control it
-  waPopupRef = window.open(url, windowName, windowFeatures);
-  if (waPopupRef) {
-    waPopupRef.focus();
+  // 2. Open in a new standalone window (not a tab) and save reference to control it
+  try {
+    const newPopup = window.open(url, WA_POPUP_WINDOW_NAME, windowFeatures);
+    window.__metallurgist_wa_popup = newPopup;
+    if (newPopup) {
+      newPopup.focus();
+    }
+  } catch (err) {
+    console.error("Could not open WhatsApp window:", err);
+    window.open(url, WA_POPUP_WINDOW_NAME);
   }
 }
