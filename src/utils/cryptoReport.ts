@@ -244,22 +244,10 @@ export function buildWhatsAppLink(message: string, phone?: string): string {
   return `https://web.whatsapp.com/send?text=${encodedMsg}`;
 }
 
-declare global {
-  interface Window {
-    __metallurgist_wa_popup?: Window | null;
-  }
-}
-
-// Module-level and window reference to the WhatsApp popup window
-let activeWaPopup: Window | null = null;
-const WA_POPUP_WINDOW_NAME = "metallurgist_whatsapp_popup_window";
-
 /**
  * Opens WhatsApp:
- * - On mobile/tablet: launches native WhatsApp app via wa.me link directly
- * - On web: opens in a new standalone window (popup, not a tab) and controls it so
- *   subsequent clicks close any previous WhatsApp window and open the updated chat,
- *   preventing multiple windows or tabs from accumulating.
+ * - On tablet or mobile: navigates directly using wa.me link to open the WhatsApp app
+ * - On web / desktop: opens web.whatsapp.com in a new tab/window
  */
 export function openWhatsAppChat(url: string): void {
   if (typeof window === "undefined") return;
@@ -270,47 +258,8 @@ export function openWhatsAppChat(url: string): void {
     return;
   }
 
-  // On Web / desktop:
-  const screenW = window.screen.availWidth || 1280;
-  const screenH = window.screen.availHeight || 800;
-  const width = Math.min(1050, Math.max(800, Math.floor(screenW * 0.75)));
-  const height = Math.min(850, Math.max(650, Math.floor(screenH * 0.85)));
-  const left = Math.max(0, Math.floor((screenW - width) / 2));
-  const top = Math.max(0, Math.floor((screenH - height) / 2));
-  const windowFeatures = `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes,toolbar=no,menubar=no,location=yes`;
-
-  // Close previous popup window if open, ensuring no duplicate or stale windows remain
-  const prev = activeWaPopup || window.__metallurgist_wa_popup;
-  if (prev) {
-    try {
-      if (!prev.closed) {
-        prev.close();
-      }
-    } catch (e) {
-      console.warn("Could not close previous WhatsApp window:", e);
-    }
-    activeWaPopup = null;
-    window.__metallurgist_wa_popup = null;
-  }
-
-  // Open the fresh WhatsApp popup window with the updated URL
-  try {
-    const newPopup = window.open(url, WA_POPUP_WINDOW_NAME, windowFeatures);
-    activeWaPopup = newPopup;
-    window.__metallurgist_wa_popup = newPopup;
-    if (newPopup) {
-      newPopup.focus();
-    }
-  } catch (err) {
-    console.error("Could not open WhatsApp window:", err);
-    try {
-      const fallbackPopup = window.open(url, WA_POPUP_WINDOW_NAME, windowFeatures);
-      activeWaPopup = fallbackPopup;
-      window.__metallurgist_wa_popup = fallbackPopup;
-    } catch {
-      // Last resort fallback
-      window.location.href = url;
-    }
-  }
+  // On Web / desktop: open standard web URL in new tab
+  window.open(url, "_blank");
 }
+
 
