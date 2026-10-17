@@ -156,6 +156,8 @@ export default function DashboardPage() {
                 karat={karat}
                 karatDisplay={karatDisplay}
                 isParsed={isParsed}
+                goldValue={metals.find((m) => m.id === "gold")?.value}
+                weight={weight}
               />
             </div>
           </div>
