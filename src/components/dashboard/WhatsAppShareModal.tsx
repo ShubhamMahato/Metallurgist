@@ -219,7 +219,9 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           shopName: shopName.trim() || undefined,
           customerName: customerName || "Jeweller",
           weight: weight || "0.000",
+          goldPurity: goldPurity || metals.find((m) => m.id === "gold")?.value || "0.000",
           metals: metals.map((m) => ({
+            id: m.id,
             symbol: m.symbol,
             value: m.value,
           })),

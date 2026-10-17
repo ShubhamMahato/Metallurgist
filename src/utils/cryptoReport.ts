@@ -1,4 +1,5 @@
 import { SharedReportPayload, SharedReportMetal, SharedReportMarketRate, ReportTemplateId } from "../types/report";
+import { ALL_AVAILABLE_METALS } from "../constants/metals";
 
 /**
  * Symbol to Metal definitions for lightweight URL serialization.
@@ -59,7 +60,8 @@ export interface CompactReportParams {
   shopName?: string;
   customerName: string;
   weight: string;
-  metals: { symbol: string; value: string }[];
+  goldPurity?: string;
+  metals: { id?: string; symbol: string; value: string }[];
 }
 
 /**
@@ -102,9 +104,13 @@ export function fromUrlSafeBase64(base64Url: string): string {
 export async function calculateSha256(str: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(str);
-  const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
+  const cryptoObj =
+    typeof window !== "undefined" && window.crypto
+      ? window.crypto
+      : (globalThis as any).crypto;
+  const hashBuffer = await cryptoObj.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return hashArray.map((b: number) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -131,12 +137,30 @@ export async function createCompactReportPackage(params: CompactReportParams): P
     searchParams.set("wt", params.weight.trim());
   }
 
-  // Non-zero metals only: Au=75.240&Ag=15.100...
+  // Determine gold purity
+  let goldVal = params.goldPurity ? parseFloat(params.goldPurity) : 0;
+
+  // Add non-zero metals (normalizing symbols case-insensitively)
   for (const metal of params.metals) {
+    const symUpper = (metal.symbol || "").toUpperCase();
+    const isGold = symUpper === "AU" || metal.id === "gold";
     const val = parseFloat(metal.value);
-    if (!isNaN(val) && val > 0) {
-      searchParams.set(metal.symbol, val.toFixed(3));
+
+    if (isGold && !isNaN(val) && val > 0) {
+      goldVal = val;
+    } else if (!isGold && !isNaN(val) && val > 0) {
+      // Normalize to title case (e.g. AG -> Ag, CU -> Cu, ZN -> Zn)
+      const normalizedSym =
+        metal.symbol.length > 1
+          ? metal.symbol.charAt(0).toUpperCase() + metal.symbol.slice(1).toLowerCase()
+          : metal.symbol.toUpperCase();
+      searchParams.set(normalizedSym, val.toFixed(3));
     }
+  }
+
+  // Always set Au
+  if (!isNaN(goldVal) && goldVal > 0) {
+    searchParams.set("Au", goldVal.toFixed(3));
   }
 
   const rawPayloadString = searchParams.toString();
@@ -197,40 +221,60 @@ export async function verifyAndDecodeReport(
       };
     }
 
-    // 2. Compact query string format
+    // 2. Compact query string format with case-insensitive lookup
     const searchParams = new URLSearchParams(rawString);
-    const shopName = searchParams.get("shop") || undefined;
-    const customerName = searchParams.get("cust") || "Jeweller";
-    const weight = searchParams.get("wt") || "0.000";
-
-    let goldPurity = searchParams.get("Au") || searchParams.get("gold") || searchParams.get("purity") || "";
-    const metalsList: SharedReportMetal[] = [];
-
-    for (const [symbol, info] of Object.entries(SYMBOL_TO_METAL)) {
-      if (searchParams.has(symbol)) {
-        const val = parseFloat(searchParams.get(symbol) || "0");
-        if (!isNaN(val) && val > 0) {
-          metalsList.push({
-            id: info.id,
-            name: info.name,
-            symbol,
-            value: val.toFixed(3),
-          });
-          if (symbol === "Au" && !goldPurity) {
-            goldPurity = val.toFixed(3);
-          }
-        }
-      }
+    const paramMap = new Map<string, string>();
+    for (const [key, val] of searchParams.entries()) {
+      paramMap.set(key.toLowerCase(), val);
     }
 
-    const goldPurityNum = parseFloat(goldPurity) || 0;
-    if (!metalsList.some((m) => m.symbol === "Au") && goldPurityNum > 0) {
-      metalsList.unshift({
-        id: "gold",
-        name: "Gold",
-        symbol: "Au",
-        value: goldPurityNum.toFixed(3),
-      });
+    const shopName = paramMap.get("shop") || undefined;
+    const customerName = paramMap.get("cust") || "Jeweller";
+    const weight = paramMap.get("wt") || "0.000";
+
+    const goldPurityStr =
+      paramMap.get("au") || paramMap.get("gold") || paramMap.get("purity") || "0.000";
+    const goldPurityNum = parseFloat(goldPurityStr) || 0;
+
+    // Build complete elemental spectrometry list including all zero-value trace metals
+    const metalsList: SharedReportMetal[] = ALL_AVAILABLE_METALS.map((metal) => {
+      const isGold = metal.id === "gold" || metal.symbol.toLowerCase() === "au";
+      if (isGold) {
+        return {
+          id: "gold",
+          name: "Gold",
+          symbol: "Au",
+          value: goldPurityNum.toFixed(3),
+        };
+      }
+      const valStr =
+        paramMap.get(metal.symbol.toLowerCase()) || paramMap.get(metal.id.toLowerCase());
+      const val = parseFloat(valStr || "0");
+      return {
+        id: metal.id,
+        name: metal.name,
+        symbol: metal.symbol,
+        value: !isNaN(val) && val > 0 ? val.toFixed(3) : "0.000",
+      };
+    });
+
+    // Also include any custom/extra metals in the URL that weren't in ALL_AVAILABLE_METALS
+    for (const [key, valStr] of paramMap.entries()) {
+      if (["shop", "cust", "wt", "au", "gold", "purity"].includes(key)) continue;
+      const alreadyIncluded = metalsList.some(
+        (m) => m.symbol.toLowerCase() === key || m.id.toLowerCase() === key
+      );
+      if (!alreadyIncluded) {
+        const val = parseFloat(valStr || "0");
+        if (!isNaN(val) && val > 0) {
+          metalsList.push({
+            id: key,
+            name: key.toUpperCase(),
+            symbol: key.toUpperCase(),
+            value: val.toFixed(3),
+          });
+        }
+      }
     }
 
     const { karatExact, karatDisplay } = calculateKaratFromPurity(goldPurityNum);
