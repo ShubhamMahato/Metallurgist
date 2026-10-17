@@ -112,16 +112,15 @@ export async function verifyAndDecodeReport(
 
 /**
  * Builds the full report URL for sharing.
+ * Hosted on GitHub Pages: https://shubhammahato.github.io/Metallurgist/#/report
  */
 export function buildReportShareUrl(
   encodedData: string,
   checksum: string,
   templateId: ReportTemplateId
 ): string {
-  const origin = window.location.origin;
-  const pathname = window.location.pathname;
-  // HashRouter uses /#/report
-  return `${origin}${pathname}#/report?d=${encodeURIComponent(
+  const baseUrl = "https://shubhammahato.github.io/Metallurgist/#/report";
+  return `${baseUrl}?d=${encodeURIComponent(
     encodedData
   )}&c=${encodeURIComponent(checksum)}&t=${encodeURIComponent(templateId)}`;
 }
@@ -157,10 +156,14 @@ export function generateWhatsAppMessage(
         )}`
       : "";
 
+  const headerTitle = payload.shopName
+    ? `🔬 *${payload.shopName.toUpperCase()} REPORT*`
+    : `🔬 *METALLURGIST REPORT*`;
+
   return (
-    `🔬 *METALLURGIST ASSAY REPORT*\n` +
+    `${headerTitle}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `👤 *Customer:* ${payload.customerName || "N/A"}\n` +
+    `👤 *Jeweller:* ${payload.customerName || "N/A"}\n` +
     `🏷️ *Sample:* ${payload.sampleType || "Sample"} | ⚖️ *Weight:* ${payload.weight}g\n` +
     `📅 *Date:* ${payload.timestamp}\n\n` +
     `🥇 *GOLD PURITY:* ${parseFloat(payload.goldPurity).toFixed(3)}%\n` +
@@ -170,22 +173,107 @@ export function generateWhatsAppMessage(
     `🧪 *Constituent Breakdown:*\n` +
     metalsList +
     `\n\n` +
-    `🔐 *Verified Tamper-Proof Certificate:*\n` +
+    `📄 *Report Link:*\n` +
     `${shareUrl}\n` +
-    `━━━━━━━━━━━━━━━━━━━━\n` +
-    `_Digitally verified via SHA-256 cryptographic checksum._`
+    `━━━━━━━━━━━━━━━━━━━━`
   );
 }
 
 /**
- * Builds the WhatsApp web / mobile send URL.
+ * Detects whether the current device is a mobile phone or tablet.
+ */
+export function isMobileOrTablet(): boolean {
+  if (typeof window === "undefined" || !window.navigator) return false;
+  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
+  const isMobileUA = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
+  const isTouchTablet = Boolean(
+    navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && window.innerWidth <= 1024
+  );
+  return isMobileUA || isTouchTablet;
+}
+
+/**
+ * Normalizes input to 10-digit format (stripping any prepended 91, 0, or symbols).
+ */
+export function extractTenDigitNumber(phone?: string): string {
+  if (!phone) return "";
+  let digits = phone.replace(/[^0-9]/g, "");
+  if (digits.length > 10 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  } else if (digits.length > 10 && digits.startsWith("0")) {
+    digits = digits.replace(/^0+/, "");
+  }
+  return digits.slice(0, 10);
+}
+
+/**
+ * Normalizes phone number with country code 91 appended automatically.
+ * User only needs to provide a 10-digit number.
+ */
+export function formatIndianPhoneNumber(phone?: string): string {
+  const tenDigits = extractTenDigitNumber(phone);
+  if (tenDigits.length === 10) {
+    return `91${tenDigits}`;
+  }
+  return tenDigits;
+}
+
+/**
+ * Builds the WhatsApp send URL:
+ * - On tablet or mobile: uses wa.me link (e.g. https://wa.me/91XXXXXXXXXX?text=...)
+ * - On web / desktop: uses https://web.whatsapp.com/send?phone=91XXXXXXXXXX&text=...
  */
 export function buildWhatsAppLink(message: string, phone?: string): string {
-  const cleanPhone = (phone || "").replace(/[^0-9]/g, "");
+  const fullPhone = formatIndianPhoneNumber(phone);
   const encodedMsg = encodeURIComponent(message);
-  
-  if (cleanPhone) {
-    return `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
+  const isMobile = isMobileOrTablet();
+
+  if (isMobile) {
+    if (fullPhone) {
+      return `https://wa.me/${fullPhone}?text=${encodedMsg}`;
+    }
+    return `https://wa.me/?text=${encodedMsg}`;
+  }
+
+  // Desktop / Web
+  if (fullPhone) {
+    return `https://web.whatsapp.com/send?phone=${fullPhone}&text=${encodedMsg}`;
   }
   return `https://web.whatsapp.com/send?text=${encodedMsg}`;
+}
+
+// Window reference tracker to prevent opening duplicate tabs/windows on web
+let waTrackedWindow: Window | null = null;
+
+/**
+ * Opens WhatsApp link in the target platform:
+ * - On mobile/tablet: opens via location change to launch native WhatsApp app
+ * - On web: re-uses the same tracked window/tab so multiple clicks don't spam new tabs
+ */
+export function openWhatsAppChat(url: string): void {
+  if (typeof window === "undefined") return;
+
+  if (isMobileOrTablet()) {
+    // For mobile and tablet, standard navigation seamlessly triggers WhatsApp app
+    window.location.href = url;
+    return;
+  }
+
+  // On Web / desktop:
+  // 1. If we have a reference to a previously opened WhatsApp window that is still open, reuse it
+  if (waTrackedWindow && !waTrackedWindow.closed) {
+    try {
+      waTrackedWindow.location.href = url;
+      waTrackedWindow.focus();
+      return;
+    } catch {
+      // In case of cross-origin security block on reading location, fallback to named window
+    }
+  }
+
+  // 2. Open or reuse named window 'metallurgist_whatsapp_tab'
+  waTrackedWindow = window.open(url, "metallurgist_whatsapp_tab");
+  if (waTrackedWindow) {
+    waTrackedWindow.focus();
+  }
 }

@@ -102,7 +102,7 @@ export const SharedReportPage: React.FC = () => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Assay Certificate - ${reportPayload.customerName || "Report"}</title>
+  <title>Metallurgical Report - ${reportPayload.customerName || "Jeweller"}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; padding: 20px; color: #1e293b; }
     @media print { body { padding: 0; } }
@@ -118,7 +118,7 @@ export const SharedReportPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Assay_Certificate_${reportPayload.customerName || "Report"}_${reportPayload.karatDisplay}.html`;
+    a.download = `Metallurgical_Report_${reportPayload.customerName || "Jeweller"}_${reportPayload.karatDisplay}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -141,7 +141,7 @@ export const SharedReportPage: React.FC = () => {
                 Metallurgist
               </span>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                Official Report Viewer
+                Report Viewer
               </span>
             </div>
           </Link>
@@ -155,7 +155,7 @@ export const SharedReportPage: React.FC = () => {
                   value={selectedTemplate}
                   onChange={(e) => setSelectedTemplate(e.target.value as ReportTemplateId)}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold pl-7 pr-6 py-1.5 rounded-lg border border-slate-300 focus:outline-none cursor-pointer appearance-none shadow-2xs"
-                  title="Change Certificate Template"
+                  title="Change Report Template"
                 >
                   {REPORT_TEMPLATES.map((tmpl) => (
                     <option key={tmpl.id} value={tmpl.id}>
@@ -171,7 +171,7 @@ export const SharedReportPage: React.FC = () => {
                 type="button"
                 onClick={handlePrint}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                title="Print Certificate"
+                title="Print Report"
               >
                 <Printer size={13} />
                 <span className="hidden sm:inline">Print</span>
@@ -182,7 +182,7 @@ export const SharedReportPage: React.FC = () => {
                 type="button"
                 onClick={handleDownload}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors cursor-pointer"
-                title="Download Certificate File"
+                title="Download Report File"
               >
                 <Download size={13} />
                 <span className="hidden sm:inline">Download</span>
@@ -198,7 +198,7 @@ export const SharedReportPage: React.FC = () => {
           <div className="text-center py-20 space-y-3">
             <div className="w-10 h-10 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="text-sm font-semibold text-slate-600">
-              Verifying cryptographic SHA-256 certificate signature...
+              Loading report...
             </p>
           </div>
         )}
@@ -214,12 +214,12 @@ export const SharedReportPage: React.FC = () => {
             </h2>
 
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs font-medium text-red-800 text-left">
-              <p className="font-bold mb-1">Security Alert:</p>
-              <p>{errorMessage || "Report data validation failed. The shared report may have been modified or corrupted."}</p>
+              <p className="font-bold mb-1">Notice:</p>
+              <p>{errorMessage || "The shared report link could not be validated or has been corrupted."}</p>
             </div>
 
             <p className="text-xs text-slate-500">
-              The cryptographic signature of this report does not match the payload. To protect integrity, this report cannot be generated or viewed.
+              This report data does not match the shared link and cannot be displayed.
             </p>
 
             <div className="pt-2">
@@ -227,7 +227,7 @@ export const SharedReportPage: React.FC = () => {
                 to="/"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors"
               >
-                Go to Lab Workspace
+                Go to Metallurgist Studio
               </Link>
             </div>
           </div>
@@ -235,34 +235,18 @@ export const SharedReportPage: React.FC = () => {
 
         {!isLoading && isValid && reportPayload && (
           <div className="space-y-4">
-            {/* Cryptographic Verification Header Banner */}
-            <div className="print:hidden bg-emerald-50 border border-emerald-300 rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                  <ShieldCheck size={16} />
-                </div>
-                <div>
-                  <div className="font-bold text-emerald-950 flex items-center gap-1.5">
-                    <span>Cryptographically Verified (SHA-256 Checksum Valid)</span>
-                    <span className="bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded text-[10px]">
-                      Authentic
-                    </span>
-                  </div>
-                  <div className="font-mono text-[11px] text-emerald-800 truncate max-w-md mt-0.5">
-                    Hash: {checksum}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <Link
-                  to="/"
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-900 hover:text-emerald-950 underline"
-                >
-                  <span>Open Assaying Studio</span>
-                  <ExternalLink size={11} />
-                </Link>
-              </div>
+            {/* Top link back to workspace */}
+            <div className="print:hidden flex items-center justify-between text-xs text-slate-500 pb-1">
+              <span className="font-mono text-[11px] text-slate-400">
+                {reportPayload.reportId} • {reportPayload.timestamp}
+              </span>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-slate-900 transition-colors"
+              >
+                <span>Open Metallurgist Studio</span>
+                <ExternalLink size={11} />
+              </Link>
             </div>
 
             {/* Rendered Template Document */}

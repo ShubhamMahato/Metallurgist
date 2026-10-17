@@ -19,21 +19,17 @@ export const CompactSlipTemplate: React.FC<TemplateProps> = ({ payload, checksum
       <div className="text-center pb-3 mb-3 border-b border-dashed border-slate-300">
         <div className="inline-flex items-center gap-1 font-bold text-sm uppercase tracking-wider text-slate-900 mb-1">
           <Receipt size={14} className="text-amber-600" />
-          <span>METALLURGIST ASSAY SLIP</span>
+          <span>{(payload.shopName ? payload.shopName.toUpperCase() : "METALLURGIST")} REPORT SLIP</span>
         </div>
         <div className="text-[10px] text-slate-500">
           Ref: {payload.reportId} • Date: {payload.timestamp}
-        </div>
-        <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 border border-emerald-200 rounded text-[10px] text-emerald-800 font-sans font-semibold">
-          <ShieldCheck size={11} className="text-emerald-600" />
-          <span>SHA-256 Validated</span>
         </div>
       </div>
 
       {/* Client Particulars */}
       <div className="space-y-1 pb-3 mb-3 border-b border-dashed border-slate-300 text-slate-700">
         <div className="flex justify-between">
-          <span className="text-slate-500">CUSTOMER:</span>
+          <span className="text-slate-500">JEWELLER:</span>
           <span className="font-bold text-slate-900">{payload.customerName || "—"}</span>
         </div>
         <div className="flex justify-between">
@@ -49,7 +45,7 @@ export const CompactSlipTemplate: React.FC<TemplateProps> = ({ payload, checksum
       {/* Gold & Karat Box */}
       <div className="bg-slate-900 text-white rounded p-3 mb-3 text-center">
         <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">
-          Certified Gold Purity
+          Gold Purity
         </div>
         <div className="text-2xl font-black tracking-tight text-white my-0.5">
           {parseFloat(payload.goldPurity).toFixed(3)}%
@@ -107,9 +103,8 @@ export const CompactSlipTemplate: React.FC<TemplateProps> = ({ payload, checksum
       </div>
 
       {/* Slip Footer */}
-      <div className="text-center pt-2 text-[9px] text-slate-400 border-t border-dashed border-slate-300">
-        <div className="truncate max-w-full">HASH: {checksum}</div>
-        <div className="mt-0.5">*** END OF OFFICIAL SLIP ***</div>
+      <div className="text-center pt-2 text-[10px] text-slate-400 border-t border-dashed border-slate-300">
+        <div>*** END OF REPORT SLIP ***</div>
       </div>
     </div>
   );

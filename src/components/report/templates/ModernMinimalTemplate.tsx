@@ -19,10 +19,10 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 mb-6 border-b border-slate-100 gap-4">
         <div>
           <div className="inline-block px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] font-bold uppercase tracking-wider mb-2">
-            Assay Certificate
+            Analysis Report
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-            Metallurgist Certificate
+            {payload.shopName ? `${payload.shopName} Report` : "Metallurgist Report"}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Report Reference: <span className="font-mono font-medium">{payload.reportId}</span>
@@ -30,11 +30,7 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
         </div>
 
         <div className="flex sm:flex-col items-start sm:items-end justify-between w-full sm:w-auto text-xs">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-md border border-emerald-200 font-semibold text-[11px]">
-            <ShieldCheck size={13} className="text-emerald-600" />
-            Verified Hash
-          </div>
-          <span className="text-[11px] text-slate-400 mt-1 font-mono">
+          <span className="text-xs text-slate-500 font-mono">
             {payload.timestamp}
           </span>
         </div>
@@ -67,7 +63,7 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col justify-between text-xs space-y-3">
           <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-200">
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400">Customer</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Jeweller</span>
               <span className="block font-bold text-slate-900 text-sm truncate mt-0.5">
                 {payload.customerName || "—"}
               </span>
@@ -126,7 +122,7 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
       {/* All Metals Table */}
       <div className="mb-6">
         <div className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 flex items-center justify-between">
-          <span>Assayed Metals Spectrum</span>
+          <span>Elemental Spectrum</span>
           <span className="text-slate-400 font-normal font-mono text-[11px]">
             {payload.metals.length} Elements Monitored
           </span>
@@ -174,8 +170,8 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
 
       {/* Minimal Footer */}
       <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-2 font-mono">
-        <span className="truncate max-w-sm">SHA-256: {checksum}</span>
-        <span>Secure Report • Authenticity Verified</span>
+        <span>{payload.shopName ? `${payload.shopName} Report` : "Metallurgist Report"}</span>
+        <span>{payload.timestamp}</span>
       </div>
     </div>
   );

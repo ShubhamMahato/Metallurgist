@@ -21,12 +21,22 @@ export async function getPhoneDB(): Promise<IDBPDatabase> {
   });
 }
 
+export function normalizeToTenDigits(phone: string): string {
+  let digits = phone.replace(/[^0-9]/g, "");
+  if (digits.length > 10 && digits.startsWith("91")) {
+    digits = digits.slice(2);
+  } else if (digits.length > 10 && digits.startsWith("0")) {
+    digits = digits.replace(/^0+/, "");
+  }
+  return digits.slice(0, 10);
+}
+
 /**
- * Saves or updates a phone number in IndexedDB.
+ * Saves or updates a phone number.
  */
 export async function savePhoneNumber(phone: string, name?: string): Promise<void> {
-  const cleanPhone = phone.trim();
-  if (!cleanPhone || cleanPhone.replace(/[^0-9]/g, "").length < 6) return;
+  const cleanPhone = normalizeToTenDigits(phone);
+  if (!cleanPhone || cleanPhone.length !== 10) return;
 
   try {
     const db = await getPhoneDB();
@@ -36,7 +46,7 @@ export async function savePhoneNumber(phone: string, name?: string): Promise<voi
       lastUsed: Date.now(),
     });
   } catch (err) {
-    console.warn("Could not save phone number to IndexedDB:", err);
+    console.warn("Could not save phone number:", err);
   }
 }
 
@@ -47,21 +57,30 @@ export async function getRecentPhoneNumbers(): Promise<SavedContact[]> {
   try {
     const db = await getPhoneDB();
     const all = await db.getAll(STORE_NAME);
-    return all.sort((a, b) => b.lastUsed - a.lastUsed);
+    return all
+      .map((c) => ({
+        ...c,
+        phone: normalizeToTenDigits(c.phone) || c.phone,
+      }))
+      .sort((a, b) => b.lastUsed - a.lastUsed);
   } catch (err) {
-    console.warn("Could not retrieve phone numbers from IndexedDB:", err);
+    console.warn("Could not retrieve phone numbers:", err);
     return [];
   }
 }
 
 /**
- * Deletes a phone number from IndexedDB.
+ * Deletes a phone number.
  */
 export async function deletePhoneNumber(phone: string): Promise<void> {
   try {
     const db = await getPhoneDB();
-    await db.delete(STORE_NAME, phone);
+    const cleanPhone = normalizeToTenDigits(phone);
+    await db.delete(STORE_NAME, cleanPhone);
+    if (cleanPhone !== phone) {
+      await db.delete(STORE_NAME, phone);
+    }
   } catch (err) {
-    console.warn("Could not delete phone number from IndexedDB:", err);
+    console.warn("Could not delete phone number:", err);
   }
 }

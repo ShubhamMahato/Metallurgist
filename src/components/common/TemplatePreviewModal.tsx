@@ -8,11 +8,12 @@ interface TemplatePreviewModalProps {
   onClose: () => void;
   activeTemplateId: ReportTemplateId;
   onSelectTemplate: (id: ReportTemplateId) => void;
+  shopName?: string;
 }
 
 const SAMPLE_PREVIEW_PAYLOAD: SharedReportPayload = {
   version: "1.0",
-  reportId: "DEMO-ASSAY-752",
+  reportId: "DEMO-REP-752",
   customerName: "Radha Jewelers",
   sampleType: "18K Gold Ornament",
   weight: "4.850",
@@ -51,6 +52,7 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
   onClose,
   activeTemplateId,
   onSelectTemplate,
+  shopName,
 }) => {
   const [viewingTemplate, setViewingTemplate] = useState<ReportTemplateId>(activeTemplateId);
 
@@ -87,7 +89,7 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
             </div>
             <div>
               <h2 className="font-headline font-bold text-base sm:text-lg text-slate-900">
-                Certificate Template Preview
+                Report Template Preview
               </h2>
               <p className="text-xs text-slate-500">
                 Preview how shared reports will render for recipients
@@ -138,9 +140,10 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
           <ReportTemplateRenderer
             payload={{
               ...SAMPLE_PREVIEW_PAYLOAD,
+              shopName: shopName || undefined,
               templateId: viewingTemplate,
             }}
-            checksum="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            checksum="verified"
             templateId={viewingTemplate}
           />
         </div>

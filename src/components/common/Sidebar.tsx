@@ -8,10 +8,13 @@ import {
   Sparkles,
   Layers,
   Eye,
+  Store,
+  Check,
 } from "lucide-react";
 import { useLanguage } from "../../lib/LanguageContext";
 import { ReportTemplateId, REPORT_TEMPLATES } from "../../types/report";
 import { TemplatePreviewModal } from "./TemplatePreviewModal";
+import { useShopName } from "../../lib/useShopName";
 
 interface SidebarProps {
   isMobile?: boolean;
@@ -23,6 +26,13 @@ const STORAGE_KEY_TEMPLATE = "metallurgist_preferred_template";
 export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) => {
   const location = useLocation();
   const { t } = useLanguage();
+  const { shopName, updateShopName } = useShopName();
+  const [localShopName, setLocalShopName] = useState(shopName);
+  const [isSavedFeedback, setIsSavedFeedback] = useState(false);
+
+  React.useEffect(() => {
+    setLocalShopName(shopName);
+  }, [shopName]);
 
   const isDashboard = location.pathname === "/";
   const isCalculator = location.pathname === "/calculator";
@@ -54,6 +64,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
     }
   };
 
+  const handleShopNameChange = (val: string) => {
+    setLocalShopName(val);
+  };
+
+  const handleShopNameBlur = async () => {
+    if (localShopName.trim() !== shopName) {
+      await updateShopName(localShopName.trim());
+      setIsSavedFeedback(true);
+      setTimeout(() => setIsSavedFeedback(false), 2000);
+    }
+  };
+
+  const handleShopNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white text-slate-900 border-r border-slate-200 select-none">
       {/* Brand Header */}
@@ -72,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
               Metallurgist
             </span>
             <span className="text-[10px] uppercase font-bold tracking-wider text-amber-600">
-              Pro Assay Suite
+              Pro Metallurgy Suite
             </span>
           </div>
         </Link>
@@ -122,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
                 isDashboard ? "text-slate-300" : "text-slate-400"
               }`}
             >
-              Assay balance & purity
+              Metal balance & purity
             </span>
           </div>
         </Link>
@@ -159,11 +187,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
           </div>
         </Link>
 
-        {/* Report Certificate Templates Section */}
+        {/* Shop / Lab Identity Section */}
+        <div className="pt-4 px-2.5 pb-1 border-t border-slate-100 mt-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Store size={12} className="text-amber-500" />
+              <span>Shop / Lab Name</span>
+            </span>
+            {isSavedFeedback && (
+              <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5 animate-in fade-in">
+                <Check size={10} /> Saved
+              </span>
+            )}
+          </div>
+          <div className="relative">
+            <input
+              type="text"
+              value={localShopName}
+              onChange={(e) => {
+                const val = e.target.value;
+                setLocalShopName(val);
+                updateShopName(val);
+                setIsSavedFeedback(true);
+                setTimeout(() => setIsSavedFeedback(false), 2000);
+              }}
+              placeholder="e.g. Shreeji Jewellers, Tanishq..."
+              className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white font-medium"
+            />
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1 px-0.5">
+            Saved to your device & used across templates.
+          </p>
+        </div>
+
+        {/* Report Templates Section */}
         <div className="pt-4 px-2.5 pb-1 flex items-center justify-between border-t border-slate-100 mt-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
             <Layers size={12} className="text-amber-500" />
-            <span>Certificate Style</span>
+            <span>Report Style</span>
           </span>
           <button
             type="button"
@@ -240,7 +301,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
           </div>
           <div className="flex flex-col min-w-0">
             <span className="text-xs font-bold text-slate-800 truncate">
-              Precision Assay
+              Precision Analysis
             </span>
             <span className="text-[11px] text-slate-500 truncate">
               3-decimal exact rebalancing
@@ -255,6 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
         onClose={() => setIsPreviewModalOpen(false)}
         activeTemplateId={activeTemplate}
         onSelectTemplate={handleSelectTemplate}
+        shopName={shopName}
       />
     </div>
   );

@@ -395,7 +395,7 @@ export default function DashboardPage() {
                     </button>
                   </Tooltip>
 
-                  <Tooltip content="Share verified report via WhatsApp">
+                  <Tooltip content="Share report via WhatsApp">
                     <button
                       type="button"
                       onClick={() => setIsShareModalOpen(true)}

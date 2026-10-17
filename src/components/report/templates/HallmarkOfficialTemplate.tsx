@@ -15,7 +15,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
 
   return (
     <div className="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl border-4 border-emerald-900/20 shadow-xl max-w-4xl mx-auto font-body print:border print:shadow-none print:p-4 relative">
-      {/* Official Watermark Emblem */}
+      {/* Hallmark Emblem */}
       <div className="border-b-2 border-emerald-900 pb-5 mb-6">
         <div className="flex flex-col sm:flex-row items-center justify-between text-center sm:text-left gap-4">
           <div className="flex items-center gap-3">
@@ -23,43 +23,27 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
               <Award size={24} className="text-amber-400" />
             </div>
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-800">
-                Official Hallmarking & Assaying Bureau
+              <div className="text-[11px] font-bold uppercase tracking-widest text-emerald-800">
+                {payload.shopName || "Gold Testing Laboratory"}
               </div>
               <h1 className="font-headline text-lg sm:text-xl font-black text-slate-900 uppercase">
-                Hallmark Verification Certificate
+                Hallmark Report
               </h1>
               <div className="text-xs text-slate-500 font-mono">
-                Regulatory Standard: IS 1417 / Assaying Directive
+                Regulatory Standard: IS 1417 / Testing Directive
               </div>
             </div>
           </div>
 
           <div className="bg-emerald-50 border border-emerald-300 rounded-lg p-2.5 text-center min-w-[140px]">
             <div className="text-[10px] uppercase font-bold text-emerald-800">
-              Certificate No.
+              Report No.
             </div>
             <div className="font-mono text-sm font-extrabold text-slate-900">
               {payload.reportId || "BIS-HM-916"}
             </div>
-            <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
-              Verified Authenticity
-            </div>
           </div>
         </div>
-      </div>
-
-      {/* Security Check Banner */}
-      <div className="mb-6 p-3 bg-emerald-900 text-white rounded-xl flex items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
-          <span className="font-medium">
-            Cryptographic SHA-256 Checksum Verified Against Tampering
-          </span>
-        </div>
-        <span className="font-mono text-[11px] text-emerald-300 hidden sm:inline">
-          IS-COMPLIANT
-        </span>
       </div>
 
       {/* 3-Column Inspection Summary */}
@@ -72,7 +56,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
             {parseFloat(payload.goldPurity).toFixed(3)}%
           </span>
           <span className="text-[11px] text-slate-500 block mt-1">
-            Certified Purity Grade
+            Purity Grade
           </span>
         </div>
 
@@ -90,7 +74,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
 
         <div className="border border-slate-300 rounded-xl p-4 bg-slate-50">
           <span className="text-[10px] uppercase font-bold text-slate-500 block">
-            Gross Weight Assayed
+            Gross Net Weight
           </span>
           <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 block mt-1">
             {payload.weight} g
@@ -101,11 +85,11 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
         </div>
       </div>
 
-      {/* Client & Sample Particulars */}
+      {/* Jeweller & Sample Particulars */}
       <div className="border border-slate-200 rounded-xl p-4 mb-6 bg-white shadow-2xs">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div>
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Client</span>
+            <span className="text-[10px] text-slate-400 uppercase font-bold">Jeweller</span>
             <span className="block font-bold text-slate-900 text-sm mt-0.5 truncate">
               {payload.customerName || "—"}
             </span>
@@ -117,7 +101,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
             </span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Assay Date</span>
+            <span className="text-[10px] text-slate-400 uppercase font-bold">Report Date</span>
             <span className="block text-slate-700 text-xs mt-0.5">
               {payload.timestamp}
             </span>
@@ -141,7 +125,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
             <FileCheck size={14} />
-            Full Elemental Assay Ledger ({payload.metals.length} Constituents)
+            Full Elemental Analysis Ledger ({payload.metals.length} Constituents)
           </h3>
           <span className="text-[11px] font-mono text-slate-500">
             Precision: 0.001%
@@ -184,7 +168,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
                     <td className="py-2 px-3 text-right">
                       {val > 0 ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
-                          <CheckCircle2 size={12} /> Assayed
+                          <CheckCircle2 size={12} /> Tested
                         </span>
                       ) : (
                         <span className="text-slate-400 text-[10px] font-mono">
@@ -200,13 +184,11 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
         </div>
       </div>
 
-      {/* Official Seal Footer */}
+      {/* Footer */}
       <div className="pt-4 border-t-2 border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3">
-        <div className="text-[10px] font-mono text-slate-400 truncate max-w-sm">
-          SHA-256: {checksum}
-        </div>
-        <div className="font-bold text-emerald-900 text-[11px] uppercase tracking-wider">
-          Official Hallmarked Document
+        <div className="text-[10px] font-mono text-slate-400">{payload.timestamp}</div>
+        <div className="font-semibold text-emerald-900 text-[11px] tracking-wider">
+          {payload.shopName ? `${payload.shopName} Report` : "Hallmark Report"}
         </div>
       </div>
     </div>

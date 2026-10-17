@@ -23,7 +23,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
             <span>XRF Spectrometry Diagnostic</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white uppercase">
-            Elemental Diagnostic Spectrum
+            {payload.shopName ? `${payload.shopName} Spectrum` : "Elemental Diagnostic Spectrum"}
           </h1>
           <div className="text-xs text-slate-400 font-mono mt-0.5">
             DEVICE: XRF-PRO 8000 • CHANNELS: 24 • RES: 0.001%
@@ -31,11 +31,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
         </div>
 
         <div className="flex sm:flex-col items-start sm:items-end justify-between w-full sm:w-auto text-xs">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-cyan-950/80 border border-cyan-500/40 rounded-full text-cyan-300 font-mono text-[11px]">
-            <ShieldCheck size={13} className="text-cyan-400" />
-            SHA-256 SECURED
-          </span>
-          <span className="text-[10px] text-slate-400 font-mono mt-1">
+          <span className="text-[11px] text-cyan-400 font-mono">
             {payload.timestamp}
           </span>
         </div>
@@ -44,7 +40,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
       {/* Metadata Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 mb-6 text-xs font-mono">
         <div>
-          <span className="text-[10px] text-cyan-500 uppercase block">SUBJECT</span>
+          <span className="text-[10px] text-cyan-500 uppercase block">JEWELLER</span>
           <span className="font-bold text-white truncate block mt-0.5">
             {payload.customerName || "—"}
           </span>
@@ -75,7 +71,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
       </div>
 
       {/* Primary Spectrum Diagnostics Hero */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-cyan-500/40 rounded-xl p-5 sm:p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-855 to-slate-900 border border-cyan-500/40 rounded-xl p-5 sm:p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 font-bold uppercase tracking-wider mb-1">
             <Activity size={14} />
@@ -91,7 +87,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
 
         <div className="bg-cyan-950/40 border border-cyan-800/80 rounded-xl p-4 text-center sm:text-right min-w-[160px]">
           <span className="text-[10px] uppercase font-mono text-cyan-400 block font-bold">
-            Assayed Rating
+            Calculated Rating
           </span>
           <span className="text-3xl font-black font-mono text-cyan-200 block">
             {payload.karatDisplay}
@@ -165,10 +161,8 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
 
       {/* Tech Footer */}
       <div className="pt-4 border-t border-cyan-900/60 flex flex-col sm:flex-row items-center justify-between text-[10px] font-mono text-slate-500 gap-2">
-        <span className="truncate max-w-sm">CHECKSUM: {checksum}</span>
-        <span className="flex items-center gap-1 text-cyan-400">
-          <HardDrive size={11} /> RAW XRF TELEMETRY VERIFIED
-        </span>
+        <span>{payload.shopName ? `${payload.shopName.toUpperCase()} SPECTRUM REPORT` : "XRF SPECTROMETRY REPORT"}</span>
+        <span>{payload.timestamp}</span>
       </div>
     </div>
   );

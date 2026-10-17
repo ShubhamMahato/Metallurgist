@@ -27,29 +27,23 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
           <Sparkles size={24} className="text-amber-100" />
         </div>
         <h1 className="font-headline text-2xl sm:text-3xl font-extrabold tracking-wide uppercase text-amber-950">
-          Certificate of Fine Gold
+          {payload.shopName ? `${payload.shopName} Gold Report` : "Fine Gold Report"}
         </h1>
         <p className="text-xs uppercase tracking-widest text-amber-800 font-semibold mt-1">
-          Prestige Hallmarking & Assaying Verification
+          Bullion & Purity Analysis
         </p>
 
-        <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 border border-amber-300 rounded-full text-xs font-bold text-amber-900">
-            <ShieldCheck size={14} className="text-amber-700" />
-            Verified Cryptographic Certificate
-          </span>
-          <span className="text-xs font-mono text-slate-500">
-            Cert ID: {payload.reportId || "PRESTIGE-GOLD"}
-          </span>
+        <div className="mt-3 text-xs font-mono text-slate-500">
+          Report ID: {payload.reportId || "PRESTIGE-GOLD"}
         </div>
       </div>
 
-      {/* Customer & Specimen Card */}
+      {/* Jeweller & Specimen Card */}
       <div className="bg-white/80 backdrop-blur-xs rounded-xl border border-amber-200 p-4 sm:p-5 mb-6 shadow-xs">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
             <div className="text-[10px] uppercase font-bold text-amber-900 tracking-wider">
-              Client / Account
+              Jeweller
             </div>
             <div className="font-bold text-slate-900 text-sm mt-0.5 truncate">
               {payload.customerName || "—"}
@@ -92,7 +86,7 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
             {parseFloat(payload.goldPurity).toFixed(3)}%
           </div>
           <div className="text-xs text-amber-100 mt-1 font-medium">
-            Fine gold content verified through precision spectrometry
+            Fine gold content determined through precision spectrometry
           </div>
         </div>
 
@@ -156,7 +150,7 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
               <th className="py-2.5 px-4">Constituent</th>
               <th className="py-2.5 px-4">Symbol</th>
               <th className="py-2.5 px-4 text-right">Purity %</th>
-              <th className="py-2.5 px-4 text-right">Verification</th>
+              <th className="py-2.5 px-4 text-right">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-amber-100/60">
@@ -201,19 +195,10 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
         </table>
       </div>
 
-      {/* Official Signoff */}
+      {/* Footer */}
       <div className="pt-4 border-t border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-        <div className="text-[10px] font-mono text-slate-400 truncate max-w-sm">
-          SHA-256: {checksum}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-700 flex items-center justify-center font-bold text-[10px]">
-            ✓
-          </div>
-          <span className="font-bold text-amber-950 text-xs">
-            Authenticity Guaranteed
-          </span>
-        </div>
+        <div>{payload.shopName ? `${payload.shopName} Report` : "Prestige Fine Gold Report"}</div>
+        <div className="font-mono text-[10px] text-slate-400">{payload.timestamp}</div>
       </div>
     </div>
   );

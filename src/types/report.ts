@@ -25,6 +25,7 @@ export interface SharedReportMarketRate {
 export interface SharedReportPayload {
   version: string;
   reportId: string;
+  shopName?: string;
   customerName: string;
   sampleType: string;
   weight: string;
@@ -49,14 +50,14 @@ export const REPORT_TEMPLATES: ReportTemplateMeta[] = [
   {
     id: "classic-lab",
     name: "Classic Laboratory",
-    description: "Official laboratory assay sheet with Fischer-standard tabular format & dashed borders.",
+    description: "Laboratory report sheet with Fischer-standard tabular format & dashed borders.",
     badge: "Lab Standard",
     accentColor: "slate",
   },
   {
     id: "luxury-gold",
-    name: "Prestige Jeweler",
-    description: "High-end bullion house certificate with warm gold accents, ornamental borders & seal.",
+    name: "Prestige Jeweller",
+    description: "High-end bullion house report with warm gold accents, ornamental borders & seal.",
     badge: "Prestige",
     accentColor: "amber",
   },
@@ -69,14 +70,14 @@ export const REPORT_TEMPLATES: ReportTemplateMeta[] = [
   },
   {
     id: "hallmark-official",
-    name: "Hallmark Bureau",
-    description: "Official standards bureau layout with security emblem, serial numbering & compliance check.",
-    badge: "BIS / Hallmark",
+    name: "Hallmark Standard",
+    description: "Standards layout with emblem, serial numbering & compliance check.",
+    badge: "BIS Standard",
     accentColor: "emerald",
   },
   {
     id: "compact-slip",
-    name: "Retail Assay Slip",
+    name: "Retail Slip",
     description: "Countertop voucher format optimized for fast billing, jewelry receipts & customer copies.",
     badge: "Retail Slip",
     accentColor: "purple",

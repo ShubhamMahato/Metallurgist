@@ -20,6 +20,8 @@ import {
   buildReportShareUrl,
   generateWhatsAppMessage,
   buildWhatsAppLink,
+  openWhatsAppChat,
+  extractTenDigitNumber,
 } from "../../utils/cryptoReport";
 import { MetalValue } from "../../types/dashboard";
 import {
@@ -28,6 +30,7 @@ import {
   deletePhoneNumber,
   SavedContact,
 } from "../../lib/phoneStorage";
+import { useShopName } from "../../lib/useShopName";
 
 interface WhatsAppShareModalProps {
   isOpen: boolean;
@@ -62,6 +65,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [ibjaRate, setIbjaRate] = useState<number>(0);
+  const { shopName } = useShopName();
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -177,7 +181,8 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
       const payload: SharedReportPayload = {
         version: "1.0",
         reportId: `AS-${Date.now().toString().slice(-6)}`,
-        customerName: customerName || "Customer",
+        shopName: shopName.trim() || undefined,
+        customerName: customerName || "Jeweller",
         sampleType: sampleType || "Gold Sample",
         weight: weight || "0.000",
         timestamp: new Date().toLocaleDateString("en-IN", {
@@ -242,6 +247,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
     karatDisplay,
     metals,
     ibjaRate,
+    shopName,
   ]);
 
   if (!isOpen) return null;
@@ -258,18 +264,19 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
   };
 
   const handleSendWhatsApp = async () => {
-    // Save phone number to IndexedDB for next time autocomplete
-    if (phone.trim()) {
-      await savePhoneNumber(phone.trim(), customerName);
+    const rawDigits = extractTenDigitNumber(phone);
+    if (rawDigits) {
+      await savePhoneNumber(rawDigits, customerName);
     }
-    const waLink = buildWhatsAppLink(whatsAppText, phone);
-    window.open(waLink, "_blank", "noopener,noreferrer");
+    const waLink = buildWhatsAppLink(whatsAppText, rawDigits);
+    openWhatsAppChat(waLink);
     onClose();
   };
 
   const handleCopyLink = async () => {
-    if (phone.trim()) {
-      await savePhoneNumber(phone.trim(), customerName);
+    const rawDigits = extractTenDigitNumber(phone);
+    if (rawDigits) {
+      await savePhoneNumber(rawDigits, customerName);
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -317,7 +324,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                 Share Report on WhatsApp
               </h2>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-                <span>Certificate style:</span>
+                <span>Report template:</span>
                 <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 text-[11px]">
                   {activeTemplateMeta.name}
                 </span>
@@ -337,7 +344,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
 
         {/* Body */}
         <div className="py-4 space-y-4">
-          {/* Mobile Number Input with IndexedDB Dropdown Autocomplete */}
+          {/* Mobile Number Input with Auto-Prefixed +91 & Dropdown Autocomplete */}
           <div className="space-y-1.5" ref={dropdownRef}>
             <label
               htmlFor={phoneInputId}
@@ -345,7 +352,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             >
               <span className="flex items-center gap-1.5">
                 <Phone size={13} className="text-emerald-600" />
-                <span>Mobile Number</span>
+                <span>Mobile Number (10 Digits)</span>
               </span>
               {savedContacts.length > 0 && (
                 <span className="text-[10px] text-slate-400 font-normal">
@@ -354,79 +361,86 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               )}
             </label>
 
-            <div className="relative">
-              <input
-                ref={phoneInputRef}
-                id={phoneInputId}
-                type="tel"
-                value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
-                  setShowDropdown(true);
-                }}
-                onFocus={() => setShowDropdown(true)}
-                placeholder="Enter mobile number with country code (e.g. 919876543210)"
-                className="w-full text-xs font-mono px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white pr-9 transition-all"
-                autoComplete="off"
-              />
+            <div className="relative flex items-center">
+              <span className="inline-flex items-center px-3 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 text-xs font-mono font-bold select-none shrink-0">
+                +91
+              </span>
+              <div className="relative flex-1">
+                <input
+                  ref={phoneInputRef}
+                  id={phoneInputId}
+                  type="tel"
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => {
+                    const cleaned = extractTenDigitNumber(e.target.value);
+                    setPhone(cleaned);
+                    setShowDropdown(true);
+                  }}
+                  onFocus={() => setShowDropdown(true)}
+                  placeholder="Enter 10-digit mobile number"
+                  className="w-full text-xs font-mono px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white pr-9 transition-all"
+                  autoComplete="off"
+                />
 
-              {savedContacts.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded"
-                  title="View saved contacts"
-                >
-                  <ChevronDown size={14} />
-                </button>
-              )}
+                {savedContacts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded"
+                    title="View saved contacts"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                )}
 
-              {/* Autocomplete Dropdown List */}
-              {showDropdown && savedContacts.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-slate-100">
-                  <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Recent WhatsApp Numbers (IndexedDB)
-                  </div>
-                  {filteredContacts.length === 0 ? (
-                    <div className="p-3 text-xs text-slate-400 text-center">
-                      No matching saved numbers
+                {/* Autocomplete Dropdown List */}
+                {showDropdown && savedContacts.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                    <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Recent Numbers
                     </div>
-                  ) : (
-                    filteredContacts.map((contact) => (
-                      <div
-                        key={contact.phone}
-                        onClick={() => handleSelectContact(contact.phone)}
-                        className="flex items-center justify-between px-3 py-2 text-xs hover:bg-emerald-50/70 cursor-pointer transition-colors group"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Phone size={12} className="text-emerald-600 shrink-0" />
-                          <span className="font-mono font-semibold text-slate-900">
-                            {contact.phone}
-                          </span>
-                          {contact.name && (
-                            <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded truncate max-w-[120px]">
-                              {contact.name}
-                            </span>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteContact(e, contact.phone)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-600 rounded transition-opacity"
-                          title="Delete from saved contacts"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                    {filteredContacts.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-400 text-center">
+                        No matching saved numbers
                       </div>
-                    ))
-                  )}
-                </div>
-              )}
+                    ) : (
+                      filteredContacts.map((contact) => (
+                        <div
+                          key={contact.phone}
+                          onClick={() => handleSelectContact(extractTenDigitNumber(contact.phone))}
+                          className="flex items-center justify-between px-3 py-2 text-xs hover:bg-emerald-50/70 cursor-pointer transition-colors group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Phone size={12} className="text-emerald-600 shrink-0" />
+                            <span className="font-mono font-semibold text-slate-900">
+                              +91 {extractTenDigitNumber(contact.phone)}
+                            </span>
+                            {contact.name && (
+                              <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded truncate max-w-[120px]">
+                                {contact.name}
+                              </span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteContact(e, contact.phone)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-600 rounded transition-opacity"
+                            title="Delete from saved contacts"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <p className="text-[11px] text-slate-500">
-              Numbers are saved securely in your browser memory for 1-click autocomplete next time.
+              Country code +91 is appended automatically. Numbers are saved to your device for easy autocomplete.
             </p>
           </div>
 
@@ -437,7 +451,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                 Message Preview
               </span>
               <span className="text-[10px] text-slate-400">
-                Includes gold purity, karat & verified certificate link
+                Includes gold purity, karat & report link
               </span>
             </div>
 

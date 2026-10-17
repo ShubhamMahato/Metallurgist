@@ -61,7 +61,7 @@ const generateFischerPrintPreview = ({
   }
   const goldPurity = metals.find((metal) => metal.id === "gold")?.value || "0";
 
-  return `<!doctype html><html><head><title>Adjusted Fischer Report</title><style>
+  return `<!doctype html><html><head><title>Metallurgical Report</title><style>
     @page { size: A4 portrait; margin: 18mm 14mm; } * { box-sizing: border-box; }
     body { margin: 0; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; }
     .report { width: 100%; max-width: 182mm; margin: 0 auto; font-size: 12pt; }
@@ -71,7 +71,7 @@ const generateFischerPrintPreview = ({
     .rule { border: 0; border-top: 1px dashed #777; margin: 7px 0; }.purity { display: grid; grid-template-columns: 1fr 1fr; padding: 4px 18px; font-size: 14pt; font-weight: 700; }.purity span:last-child { text-align: center; }
     table { width: 100%; border-collapse: collapse; font-family: Calibri, Arial, sans-serif; font-size: 12pt; } td { border: 1px solid #aaa; height: 26px; padding: 3px 7px; } tbody tr:nth-child(even) td { background-color: #eeeeee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } td.label { width: 16.66%; } td.value { width: 16.66%; text-align: right; }
     @media print { body, table, tr, td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .report { max-width: none; } }
-  </style></head><body><main class="report"><div class="timestamp">${escapeHtml(timestamp)}</div><div class="customer">Customer Name     :${escapeHtml(customerName)}</div><div class="metadata"><span class="metaInfo">Weight</span><span class="metaInfo">:${escapeHtml(weight)}</span><span class="metaInfo">Sample Type</span><span>:${escapeHtml(sampleType)}</span></div><hr class="rule"><div class="purity"><span>Gold Purity : ${goldPurity}</span><span>Karat : ${escapeHtml(karat)}</span></div><hr class="rule"><table><tbody>${tableRows}</tbody></table></main></body></html>`;
+  </style></head><body><main class="report"><div class="timestamp">${escapeHtml(timestamp)}</div><div class="customer">Jeweller Name     :${escapeHtml(customerName)}</div><div class="metadata"><span class="metaInfo">Weight</span><span class="metaInfo">:${escapeHtml(weight)}</span><span class="metaInfo">Sample Type</span><span>:${escapeHtml(sampleType)}</span></div><hr class="rule"><div class="purity"><span>Gold Purity : ${goldPurity}</span><span>Karat : ${escapeHtml(karat)}</span></div><hr class="rule"><table><tbody>${tableRows}</tbody></table></main></body></html>`;
 };
 
 export const useDashboard = () => {
@@ -613,7 +613,7 @@ export const useDashboard = () => {
 
     const goldMatch = cleanText.match(/GOLD\s+PURITY\s*:\s*(\d+\.\d+)/);
     const karatMatch = cleanText.match(/KARAT\s*:\s*(\d+\.\d+|\d+)/);
-    const customerMatch = cleanText.match(/CUSTOMER\s+NAME\s*:\s*([^\n\r]+)/);
+    const customerMatch = cleanText.match(/(?:CUSTOMER(?:\s+NAME)?|JEWELLER(?:\s+NAME)?|JEWELER(?:\s+NAME)?|PARTY(?:\s+NAME)?|SIGNED(?:\s+BY)?)\s*:\s*([^\n\r]+)/i);
     const weightMatch = cleanText.match(/WEIGHT\s*:\s*(\d+\.\d+|\d+)/);
     const sampleTypeMatch = cleanText.match(/SAMPLE\s+TYPE\s*:\s*([^\n\r]+)/);
 
@@ -621,20 +621,15 @@ export const useDashboard = () => {
     if (weightMatch) setWeight(weightMatch[1].trim());
     if (sampleTypeMatch) setSampleType(sampleTypeMatch[1].trim());
 
-    if (karatMatch) {
-      setKarat(karatMatch[1]);
-      setBaselineKarat(karatMatch[1]);
-      const info = getKaratInfo(parseFloat(karatMatch[1]) * 100 / 24); // Reverse to get purity for display calculation
-      setKaratDisplay(info.karat_display);
-    }
-
     if (goldMatch) {
       const goldValue = parseFloat(goldMatch[1]);
+      const formulaKarat = calculateKarat(goldValue);
+      setKarat(formulaKarat);
+      setBaselineKarat(formulaKarat);
 
-      if (!karatMatch) {
-        const calculated = calculateKarat(goldValue);
-        setKarat(calculated);
-        setBaselineKarat(calculated);
+      if (karatMatch) {
+        setKaratDisplay(karatMatch[1].endsWith("K") ? karatMatch[1] : `${karatMatch[1]}K`);
+      } else {
         setKaratDisplay(getKaratInfo(goldValue).karat_display);
       }
 
@@ -654,15 +649,21 @@ export const useDashboard = () => {
 
       setMetals(balanceInitialMetals(rest));
     } else {
-      if (!karatMatch) {
-        const goldInLoop = newMetals.find((m) => m.id === "gold");
-        if (goldInLoop) {
-          const purity = parseFloat(goldInLoop.value);
-          const calculated = calculateKarat(purity);
-          setKarat(calculated);
-          setBaselineKarat(calculated);
+      const goldInLoop = newMetals.find((m) => m.id === "gold");
+      if (goldInLoop) {
+        const purity = parseFloat(goldInLoop.value);
+        const formulaKarat = calculateKarat(purity);
+        setKarat(formulaKarat);
+        setBaselineKarat(formulaKarat);
+        if (karatMatch) {
+          setKaratDisplay(karatMatch[1].endsWith("K") ? karatMatch[1] : `${karatMatch[1]}K`);
+        } else {
           setKaratDisplay(getKaratInfo(purity).karat_display);
         }
+      } else if (karatMatch) {
+        setKarat(karatMatch[1]);
+        setBaselineKarat(karatMatch[1]);
+        setKaratDisplay(karatMatch[1].endsWith("K") ? karatMatch[1] : `${karatMatch[1]}K`);
       }
       setMetals(balanceInitialMetals(newMetals));
     }

@@ -24,18 +24,18 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
             </div>
             <div>
               <div className="font-headline font-extrabold text-base sm:text-lg tracking-tight uppercase">
-                Metallurgist Laboratories
+                {payload.shopName || "Metallurgist Laboratories"}
               </div>
               <div className="text-[11px] text-slate-500 font-mono tracking-wider">
-                CERTIFICATE OF METALLURGICAL ASSAY
+                METALLURGICAL ANALYSIS REPORT
               </div>
             </div>
           </div>
 
           <div className="text-right">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Cert #</div>
+            <div className="text-[10px] uppercase font-bold text-slate-400">Report #</div>
             <div className="font-mono text-xs sm:text-sm font-bold text-slate-900">
-              {payload.reportId || "ML-LAB-ASSAY"}
+              {payload.reportId || "ML-LAB-REP"}
             </div>
             <div className="text-[10px] text-slate-500 flex items-center justify-end gap-1 mt-0.5">
               <Calendar size={10} />
@@ -43,19 +43,13 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
             </div>
           </div>
         </div>
-
-        {/* Security watermark banner */}
-        <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-300 rounded-full text-xs font-semibold text-emerald-800">
-          <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
-          <span>SHA-256 Cryptographically Validated</span>
-        </div>
       </div>
 
-      {/* Sample & Customer Metadata Grid */}
+      {/* Sample & Jeweller Metadata Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 mb-6 text-xs">
         <div>
           <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500 flex items-center gap-1">
-            <User size={11} /> Customer Name
+            <User size={11} /> Jeweller Name
           </span>
           <span className="font-bold text-slate-900 block mt-1 text-sm truncate">
             {payload.customerName || "—"}
@@ -79,9 +73,9 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
         </div>
         <div>
           <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500 flex items-center gap-1">
-            <Award size={11} /> Official Standard
+            <Award size={11} /> Standard
           </span>
-          <span className="font-bold text-slate-900 block mt-1 text-sm text-emerald-700">
+          <span className="font-bold text-slate-900 block mt-1 text-sm text-slate-700">
             Fischer XRF Std
           </span>
         </div>
@@ -91,13 +85,13 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
       <div className="border-2 border-slate-900 rounded-xl p-5 mb-6 bg-slate-900 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-1">
-            Certified Gold Purity (Au)
+            Gold Purity (Au)
           </div>
           <div className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-white">
             {parseFloat(payload.goldPurity).toFixed(3)}%
           </div>
           <div className="text-xs text-slate-400 mt-1">
-            Elemental concentration verified by spectrometric analysis
+            Elemental concentration determined by spectrometric analysis
           </div>
         </div>
 
@@ -213,21 +207,10 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
         </div>
       </div>
 
-      {/* Footer & Cryptographic Validation Stamp */}
+      {/* Footer */}
       <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left text-[11px] text-slate-500">
-        <div>
-          <div className="font-mono text-[10px] text-slate-400 truncate max-w-sm">
-            SHA-256: {checksum}
-          </div>
-          <div>Official Metallurgist Certificate • Authorized digital report</div>
-        </div>
-
-        <div className="border border-slate-300 rounded-lg px-3 py-1.5 bg-slate-50 text-center shrink-0">
-          <div className="text-[9px] uppercase font-bold text-slate-400">
-            Assay Seal
-          </div>
-          <div className="font-bold text-slate-900 text-xs">CERTIFIED VALID</div>
-        </div>
+        <div>{payload.shopName ? `${payload.shopName} Report` : "Metallurgist Laboratory Report"}</div>
+        <div className="font-mono text-[10px] text-slate-400">{payload.timestamp}</div>
       </div>
     </div>
   );

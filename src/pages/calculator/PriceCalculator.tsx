@@ -50,7 +50,7 @@ export default function PriceCalculator() {
   const [discountValue, setDiscountValue] = useState<string>("10");
 
   // Taxes: default to "unified" (3%)
-  const [gstType, setGstType] = useState<"unified" | "split">("unified");
+  const [gstType, setGstType] = useState<"unified" | "split" | "none">("unified");
 
   // Live Rates from SnapData / IBJA
   const [liveKaratRates, setLiveKaratRates] =
@@ -213,8 +213,11 @@ export default function PriceCalculator() {
       goldGst = goldValue * 0.03;
       makingGst = netMakingAmount * 0.05;
       totalGst = goldGst + makingGst;
-    } else {
+    } else if (gstType === "unified") {
       totalGst = subtotal * 0.03;
+    } else {
+      // "none" (0% tax)
+      totalGst = 0;
     }
 
     const finalTotal = subtotal + totalGst;
@@ -595,18 +598,18 @@ export default function PriceCalculator() {
                 </div>
               </div>
 
-              {/* Reordered: Unified 3% first, Split 3% + 5% second */}
+              {/* 3 Tax Modes: Unified 3% (Default), Split 3%+5%, and No Tax (0%) */}
               <div
                 role="radiogroup"
                 aria-label={t("taxes")}
-                className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200"
+                className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200"
               >
                 <button
                   type="button"
                   role="radio"
                   aria-checked={gstType === "unified"}
                   onClick={() => setGstType("unified")}
-                  className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer text-center truncate ${
                     gstType === "unified"
                       ? "bg-slate-900 text-white shadow-xs"
                       : "text-slate-700 hover:text-slate-900 hover:bg-slate-200"
@@ -619,13 +622,26 @@ export default function PriceCalculator() {
                   role="radio"
                   aria-checked={gstType === "split"}
                   onClick={() => setGstType("split")}
-                  className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer text-center truncate ${
                     gstType === "split"
                       ? "bg-slate-900 text-white shadow-xs"
                       : "text-slate-700 hover:text-slate-900 hover:bg-slate-200"
                   }`}
                 >
                   {t("splitTax")}
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={gstType === "none"}
+                  onClick={() => setGstType("none")}
+                  className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer text-center truncate ${
+                    gstType === "none"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-700 hover:text-slate-900 hover:bg-slate-200"
+                  }`}
+                >
+                  {t("noTax")}
                 </button>
               </div>
 
@@ -635,9 +651,13 @@ export default function PriceCalculator() {
                   <span>
                     <strong className="text-slate-700">Unified 3%:</strong> 3% GST on Subtotal (Gold + Making)
                   </span>
-                ) : (
+                ) : gstType === "split" ? (
                   <span>
                     <strong className="text-slate-700">Split:</strong> 3% GST on Gold + 5% GST on Making
+                  </span>
+                ) : (
+                  <span>
+                    <strong className="text-slate-700">No Tax (0%):</strong> Calculated without tax — Subtotal equals Total
                   </span>
                 )}
               </div>
@@ -745,7 +765,13 @@ export default function PriceCalculator() {
               {/* Step 3: Taxes (Unified is default) */}
               <div className="space-y-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
-                  {t("taxes")} ({gstType === "unified" ? "Unified 3%" : "Split 3%+5%"})
+                  {t("taxes")} (
+                  {gstType === "unified"
+                    ? "Unified 3%"
+                    : gstType === "split"
+                    ? "Split 3%+5%"
+                    : "No Tax 0%"}
+                  )
                 </span>
 
                 {gstType === "unified" ? (
@@ -762,7 +788,7 @@ export default function PriceCalculator() {
                       ₹{calculations.totalGst}
                     </span>
                   </div>
-                ) : (
+                ) : gstType === "split" ? (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-2 bg-slate-50 rounded-md border border-slate-200">
                       <span className="block text-[10px] font-semibold text-slate-500">
@@ -780,6 +806,20 @@ export default function PriceCalculator() {
                         ₹{calculations.makingGst}
                       </span>
                     </div>
+                  </div>
+                ) : (
+                  <div className="p-2 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="block text-[11px] font-semibold text-slate-700">
+                        No Tax Applied (0%)
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Calculation without GST (Subtotal = Total)
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold font-mono text-slate-500">
+                      ₹0.00
+                    </span>
                   </div>
                 )}
               </div>
