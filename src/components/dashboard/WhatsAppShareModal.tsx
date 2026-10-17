@@ -263,10 +263,12 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
     setSavedContacts((prev) => prev.filter((c) => c.phone !== phoneToDelete));
   };
 
-  const handleSendWhatsApp = async () => {
+  const handleSendWhatsApp = () => {
     const rawDigits = extractTenDigitNumber(phone);
     if (rawDigits) {
-      await savePhoneNumber(rawDigits, customerName);
+      savePhoneNumber(rawDigits, customerName).catch((err) =>
+        console.error("Failed to save contact:", err)
+      );
     }
     const waLink = buildWhatsAppLink(whatsAppText, rawDigits);
     openWhatsAppChat(waLink);

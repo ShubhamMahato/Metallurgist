@@ -250,14 +250,16 @@ declare global {
   }
 }
 
-// Window reference tracker to control and reuse the same popup window on web
+// Module-level and window reference to the WhatsApp popup window
+let activeWaPopup: Window | null = null;
 const WA_POPUP_WINDOW_NAME = "metallurgist_whatsapp_popup_window";
 
 /**
  * Opens WhatsApp:
  * - On mobile/tablet: launches native WhatsApp app via wa.me link directly
  * - On web: opens in a new standalone window (popup, not a tab) and controls it so
- *   subsequent clicks reuse that SAME window and update its URL instead of opening a new window or tab.
+ *   subsequent clicks close any previous WhatsApp window and open the updated chat,
+ *   preventing multiple windows or tabs from accumulating.
  */
 export function openWhatsAppChat(url: string): void {
   if (typeof window === "undefined") return;
@@ -269,8 +271,6 @@ export function openWhatsAppChat(url: string): void {
   }
 
   // On Web / desktop:
-  // Explicitly specify window dimensions and features to force modern browsers
-  // to open a NEW POPUP WINDOW rather than a new browser tab.
   const screenW = window.screen.availWidth || 1280;
   const screenH = window.screen.availHeight || 800;
   const width = Math.min(1050, Math.max(800, Math.floor(screenW * 0.75)));
@@ -279,33 +279,38 @@ export function openWhatsAppChat(url: string): void {
   const top = Math.max(0, Math.floor((screenH - height) / 2));
   const windowFeatures = `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes,toolbar=no,menubar=no,location=yes`;
 
-  const existingPopup = window.__metallurgist_wa_popup;
-
-  // If a previous WhatsApp window was already opened, close it first so that:
-  // 1. Only ONE WhatsApp window exists at any given time (never accumulating windows or tabs)
-  // 2. The browser is guaranteed to bring the updated window to the active foreground
-  // 3. WhatsApp Web cleanly loads the new contact and pre-filled message without getting stuck in the background
-  if (existingPopup) {
+  // Close previous popup window if open, ensuring no duplicate or stale windows remain
+  const prev = activeWaPopup || window.__metallurgist_wa_popup;
+  if (prev) {
     try {
-      if (!existingPopup.closed) {
-        existingPopup.close();
+      if (!prev.closed) {
+        prev.close();
       }
-    } catch {
-      try {
-        existingPopup.close();
-      } catch {}
+    } catch (e) {
+      console.warn("Could not close previous WhatsApp window:", e);
     }
+    activeWaPopup = null;
+    window.__metallurgist_wa_popup = null;
   }
 
-  // Open in a standalone window with explicit dimensions (not a tab) and keep reference to control it
+  // Open the fresh WhatsApp popup window with the updated URL
   try {
     const newPopup = window.open(url, WA_POPUP_WINDOW_NAME, windowFeatures);
+    activeWaPopup = newPopup;
     window.__metallurgist_wa_popup = newPopup;
     if (newPopup) {
       newPopup.focus();
     }
   } catch (err) {
     console.error("Could not open WhatsApp window:", err);
-    window.open(url, WA_POPUP_WINDOW_NAME);
+    try {
+      const fallbackPopup = window.open(url, WA_POPUP_WINDOW_NAME, windowFeatures);
+      activeWaPopup = fallbackPopup;
+      window.__metallurgist_wa_popup = fallbackPopup;
+    } catch {
+      // Last resort fallback
+      window.location.href = url;
+    }
   }
 }
+
