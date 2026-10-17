@@ -626,12 +626,7 @@ export const useDashboard = () => {
       const formulaKarat = calculateKarat(goldValue);
       setKarat(formulaKarat);
       setBaselineKarat(formulaKarat);
-
-      if (karatMatch) {
-        setKaratDisplay(karatMatch[1].endsWith("K") ? karatMatch[1] : `${karatMatch[1]}K`);
-      } else {
-        setKaratDisplay(getKaratInfo(goldValue).karat_display);
-      }
+      setKaratDisplay(getKaratInfo(goldValue).karat_display);
 
       const rest = newMetals.filter((m) => m.id !== "gold");
 
@@ -655,15 +650,14 @@ export const useDashboard = () => {
         const formulaKarat = calculateKarat(purity);
         setKarat(formulaKarat);
         setBaselineKarat(formulaKarat);
-        if (karatMatch) {
-          setKaratDisplay(karatMatch[1].endsWith("K") ? karatMatch[1] : `${karatMatch[1]}K`);
-        } else {
-          setKaratDisplay(getKaratInfo(purity).karat_display);
-        }
+        setKaratDisplay(getKaratInfo(purity).karat_display);
       } else if (karatMatch) {
-        setKarat(karatMatch[1]);
-        setBaselineKarat(karatMatch[1]);
-        setKaratDisplay(karatMatch[1].endsWith("K") ? karatMatch[1] : `${karatMatch[1]}K`);
+        const rawKarat = parseFloat(karatMatch[1]);
+        const validKarat = !isNaN(rawKarat) ? rawKarat.toFixed(2) : karatMatch[1];
+        setKarat(validKarat);
+        setBaselineKarat(validKarat);
+        const purityApprox = !isNaN(rawKarat) ? (rawKarat * 100) / 24 : 75;
+        setKaratDisplay(getKaratInfo(purityApprox).karat_display);
       }
       setMetals(balanceInitialMetals(newMetals));
     }

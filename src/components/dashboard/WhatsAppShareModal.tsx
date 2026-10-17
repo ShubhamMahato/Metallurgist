@@ -21,6 +21,7 @@ import {
   buildWhatsAppLink,
   openWhatsAppChat,
   extractTenDigitNumber,
+  calculateKaratFromPurity,
 } from "../../utils/cryptoReport";
 import { MetalValue } from "../../types/dashboard";
 import {
@@ -118,7 +119,13 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           const obs: any[] = data.observations || [];
           let targetRate = 0;
 
-          const targetInst = karatDisplay.toUpperCase();
+          const purityNum = parseFloat(goldPurity) || 75;
+          const fallbackKarat = calculateKaratFromPurity(purityNum);
+          const targetInst = (
+            karatDisplay && !/\d+\.\d+/.test(karatDisplay)
+              ? (karatDisplay.endsWith("K") ? karatDisplay : `${karatDisplay}K`)
+              : fallbackKarat.karatDisplay
+          ).toUpperCase();
           for (const item of obs) {
             if (
               item.instrument?.includes(targetInst) ||
@@ -177,6 +184,14 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
       const weightNum = parseFloat(weight) || 0;
       const calculatedGoldVal = Math.round(weightNum * ibjaRate * 100) / 100;
 
+      const purityNum = parseFloat(goldPurity || "0");
+      const karatInfo = calculateKaratFromPurity(purityNum);
+      const cleanKaratDisplay =
+        karatDisplay && !/\d+\.\d+/.test(karatDisplay)
+          ? (karatDisplay.endsWith("K") ? karatDisplay : `${karatDisplay}K`)
+          : karatInfo.karatDisplay;
+      const cleanKaratExact = (karatExact || karatInfo.karatExact).replace(/k$/i, "").trim();
+
       const payload: SharedReportPayload = {
         version: "1.0",
         reportId: `AS-${Date.now().toString().slice(-6)}`,
@@ -191,9 +206,9 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           hour: "2-digit",
           minute: "2-digit",
         }),
-        goldPurity: parseFloat(goldPurity || "0").toFixed(3),
-        karatExact: karatExact || "18.06",
-        karatDisplay: karatDisplay || "18K",
+        goldPurity: purityNum.toFixed(3),
+        karatExact: cleanKaratExact,
+        karatDisplay: cleanKaratDisplay,
         metals: metals.map((m) => ({
           id: m.id,
           name: m.name,

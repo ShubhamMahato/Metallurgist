@@ -412,13 +412,21 @@ export function generateWhatsAppMessage(
     ? `🔬 *${payload.shopName.toUpperCase()} REPORT*`
     : `🔬 *METALLURGIST REPORT*`;
 
+  const purityNum = parseFloat(payload.goldPurity || "0");
+  const fallbackKarat = calculateKaratFromPurity(purityNum);
+  const displayKarat =
+    payload.karatDisplay && !/\d+\.\d+/.test(payload.karatDisplay)
+      ? (payload.karatDisplay.endsWith("K") ? payload.karatDisplay : `${payload.karatDisplay}K`)
+      : fallbackKarat.karatDisplay;
+  const exactKarat = (payload.karatExact || fallbackKarat.karatExact).replace(/k$/i, "").trim();
+
   return (
     `${headerTitle}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `👤 *Jeweller:* ${payload.customerName || "N/A"}\n` +
     `⚖️ *Weight:* ${payload.weight}g\n` +
     `🥇 *GOLD PURITY:* ${parseFloat(payload.goldPurity).toFixed(3)}%\n` +
-    `👑 *Karat Rating:* ${payload.karatDisplay} (Exact: ${payload.karatExact}K)` +
+    `👑 *Karat Rating:* ${displayKarat} (Exact: ${exactKarat}K)` +
     rateBlock +
     `\n\n` +
     `🧪 *Constituent Breakdown:*\n` +

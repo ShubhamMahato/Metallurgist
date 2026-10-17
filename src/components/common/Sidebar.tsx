@@ -29,9 +29,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
   const { shopName, updateShopName } = useShopName();
   const [localShopName, setLocalShopName] = useState(shopName);
   const [isSavedFeedback, setIsSavedFeedback] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   React.useEffect(() => {
-    setLocalShopName(shopName);
+    if (document.activeElement !== inputRef.current) {
+      setLocalShopName(shopName);
+    }
   }, [shopName]);
 
   const isDashboard = location.pathname === "/";
@@ -66,11 +70,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
 
   const handleShopNameChange = (val: string) => {
     setLocalShopName(val);
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(async () => {
+      const clean = val.trim();
+      if (clean && clean !== shopName) {
+        await updateShopName(clean);
+        setIsSavedFeedback(true);
+        setTimeout(() => setIsSavedFeedback(false), 2000);
+      }
+    }, 1000);
   };
 
   const handleShopNameBlur = async () => {
-    if (localShopName.trim() !== shopName) {
-      await updateShopName(localShopName.trim());
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    const clean = localShopName.trim();
+    setLocalShopName(clean);
+    if (clean !== shopName) {
+      await updateShopName(clean);
       setIsSavedFeedback(true);
       setTimeout(() => setIsSavedFeedback(false), 2000);
     }
@@ -202,15 +223,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
           </div>
           <div className="relative">
             <input
+              ref={inputRef}
               type="text"
               value={localShopName}
-              onChange={(e) => {
-                const val = e.target.value;
-                setLocalShopName(val);
-                updateShopName(val);
-                setIsSavedFeedback(true);
-                setTimeout(() => setIsSavedFeedback(false), 2000);
-              }}
+              onChange={(e) => handleShopNameChange(e.target.value)}
+              onBlur={handleShopNameBlur}
+              onKeyDown={handleShopNameKeyDown}
               placeholder="e.g. Shreeji Jewellers, Tanishq..."
               className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white font-medium"
             />

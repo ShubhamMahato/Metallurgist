@@ -289,7 +289,7 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                <div className="h-4 rounded-md overflow-hidden bg-slate-200 flex">
+                <div className="h-4 rounded-md overflow-hidden bg-slate-200 flex w-full">
                   {visibleMetals.map((metal) => {
                     const val = parseFloat(metal.value) || 0;
                     if (val <= 0) return null;
@@ -309,17 +309,13 @@ export default function DashboardPage() {
                         : "bg-slate-700";
 
                     return (
-                      <Tooltip
+                      <div
                         key={metal.id}
-                        content={`${t(metal.id as any) || metal.name} (${metal.symbol}): ${val.toFixed(3)}%`}
-                        className="h-full"
-                      >
-                        <div
-                          style={{ width: `${Math.min(100, val)}%` }}
-                          className={`h-full ${bgClass} border-r border-white/40 transition-all hover:brightness-110`}
-                          aria-label={`${metal.name}: ${val.toFixed(3)}%`}
-                        />
-                      </Tooltip>
+                        style={{ width: `${Math.min(100, val)}%` }}
+                        className={`h-full ${bgClass} border-r border-white/40 transition-all hover:brightness-110 cursor-pointer`}
+                        title={`${t(metal.id as any) || metal.name} (${metal.symbol}): ${val.toFixed(3)}%`}
+                        aria-label={`${metal.name}: ${val.toFixed(3)}%`}
+                      />
                     );
                   })}
                 </div>
