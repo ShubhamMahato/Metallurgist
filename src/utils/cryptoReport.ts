@@ -281,29 +281,23 @@ export function openWhatsAppChat(url: string): void {
 
   const existingPopup = window.__metallurgist_wa_popup;
 
-  // 1. If we have a reference to an already opened window, reuse it and change its URL
+  // If a previous WhatsApp window was already opened, close it first so that:
+  // 1. Only ONE WhatsApp window exists at any given time (never accumulating windows or tabs)
+  // 2. The browser is guaranteed to bring the updated window to the active foreground
+  // 3. WhatsApp Web cleanly loads the new contact and pre-filled message without getting stuck in the background
   if (existingPopup) {
     try {
-      // First attempt: direct write-only navigation and focus
-      existingPopup.location.href = url;
-      existingPopup.focus();
-      return;
-    } catch {
-      // If direct location write is restricted, try navigating the existing named window without features
-      try {
-        const reused = window.open(url, WA_POPUP_WINDOW_NAME);
-        if (reused) {
-          window.__metallurgist_wa_popup = reused;
-          reused.focus();
-          return;
-        }
-      } catch {
-        // Fall through to open a new popup
+      if (!existingPopup.closed) {
+        existingPopup.close();
       }
+    } catch {
+      try {
+        existingPopup.close();
+      } catch {}
     }
   }
 
-  // 2. Open in a new standalone window (not a tab) and save reference to control it
+  // Open in a standalone window with explicit dimensions (not a tab) and keep reference to control it
   try {
     const newPopup = window.open(url, WA_POPUP_WINDOW_NAME, windowFeatures);
     window.__metallurgist_wa_popup = newPopup;
