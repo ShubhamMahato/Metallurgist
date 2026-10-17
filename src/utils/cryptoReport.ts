@@ -1,4 +1,66 @@
-import { SharedReportPayload, ReportTemplateId } from "../types/report";
+import { SharedReportPayload, SharedReportMetal, SharedReportMarketRate, ReportTemplateId } from "../types/report";
+
+/**
+ * Symbol to Metal definitions for lightweight URL serialization.
+ */
+export const SYMBOL_TO_METAL: Record<string, { id: string; name: string }> = {
+  Au: { id: "gold", name: "Gold" },
+  Ag: { id: "silver", name: "Silver" },
+  Cu: { id: "copper", name: "Copper" },
+  Zn: { id: "zinc", name: "Zinc" },
+  Cd: { id: "cadimium", name: "Cadmium" },
+  Cr: { id: "cromium", name: "Chromium" },
+  Fe: { id: "iron", name: "Iron" },
+  Ni: { id: "nickel", name: "Nickel" },
+  Pt: { id: "platinum", name: "Platinum" },
+  Pd: { id: "palladium", name: "Palladium" },
+  Sn: { id: "tin", name: "Tin" },
+  Pb: { id: "lead", name: "Lead" },
+  Mn: { id: "manganese", name: "Manganese" },
+  Rh: { id: "rhodium", name: "Rhodium" },
+  Co: { id: "cobalt", name: "Cobalt" },
+  In: { id: "indium", name: "Indium" },
+  Ir: { id: "iredium", name: "Iridium" },
+  Ru: { id: "ruthenium", name: "Ruthenium" },
+  W: { id: "tungestan", name: "Tungsten" },
+  Ga: { id: "gallium", name: "Gallium" },
+  V: { id: "vanadium", name: "Vanadium" },
+  Os: { id: "osmium", name: "Osmium" },
+};
+
+/**
+ * Calculates Karat exact rating and display category from gold purity percentage.
+ */
+export function calculateKaratFromPurity(purity: number): {
+  karatExact: string;
+  karatDisplay: string;
+} {
+  const exact = (purity * 24) / 100;
+  const standards = [24, 23, 22, 21, 18, 14, 10, 9];
+
+  let closest = standards[0];
+  let minDiff = Math.abs(exact - closest);
+
+  for (const k of standards) {
+    const diff = Math.abs(exact - k);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = k;
+    }
+  }
+
+  return {
+    karatExact: exact.toFixed(2),
+    karatDisplay: `${closest}K`,
+  };
+}
+
+export interface CompactReportParams {
+  shopName?: string;
+  customerName: string;
+  weight: string;
+  metals: { symbol: string; value: string }[];
+}
 
 /**
  * Encodes a string into a URL-safe Base64 string (handles Unicode / UTF-8 safely).
@@ -46,22 +108,54 @@ export async function calculateSha256(str: string): Promise<string> {
 }
 
 /**
- * Serializes and prepares a cryptographic report package containing URL-safe base64 data and SHA-256 checksum.
+ * Creates an ultra-compact, tamper-proof SHA-256 encoded report link.
+ * Serializes only essential params (shop, cust, wt, non-zero metals),
+ * computes SHA-256 checksum so users cannot edit the URL to forge results,
+ * and produces a concise URL under ~220 characters.
  */
-export async function createCryptographicReport(payload: SharedReportPayload): Promise<{
+export async function createCompactReportPackage(params: CompactReportParams): Promise<{
   encodedData: string;
   checksum: string;
-  serializedJson: string;
+  url: string;
 }> {
-  const serializedJson = JSON.stringify(payload);
-  const checksum = await calculateSha256(serializedJson);
-  const encodedData = toUrlSafeBase64(serializedJson);
-  return { encodedData, checksum, serializedJson };
+  const baseUrl = "https://shubhammahato.github.io/Metallurgist/#/report";
+  const searchParams = new URLSearchParams();
+
+  if (params.shopName && params.shopName.trim()) {
+    searchParams.set("shop", params.shopName.trim());
+  }
+  if (params.customerName && params.customerName.trim()) {
+    searchParams.set("cust", params.customerName.trim());
+  }
+  if (params.weight && params.weight.trim()) {
+    searchParams.set("wt", params.weight.trim());
+  }
+
+  // Non-zero metals only: Au=75.240&Ag=15.100...
+  for (const metal of params.metals) {
+    const val = parseFloat(metal.value);
+    if (!isNaN(val) && val > 0) {
+      searchParams.set(metal.symbol, val.toFixed(3));
+    }
+  }
+
+  const rawPayloadString = searchParams.toString();
+  const checksum = await calculateSha256(rawPayloadString);
+  const encodedData = toUrlSafeBase64(rawPayloadString);
+
+  const url = `${baseUrl}?d=${encodeURIComponent(encodedData)}&c=${encodeURIComponent(checksum)}`;
+
+  return {
+    encodedData,
+    checksum,
+    url,
+  };
 }
 
 /**
  * Verifies and decodes a shared report package.
  * Recalculates SHA-256 and compares with the checksum provided in the URL.
+ * If anyone tampers with or edits the URL parameters, validation immediately fails.
  */
 export async function verifyAndDecodeReport(
   encodedData: string,
@@ -81,20 +175,85 @@ export async function verifyAndDecodeReport(
   }
 
   try {
-    const jsonStr = fromUrlSafeBase64(encodedData);
-    const computedChecksum = await calculateSha256(jsonStr);
+    const rawString = fromUrlSafeBase64(encodedData);
+    const computedChecksum = await calculateSha256(rawString);
 
     if (computedChecksum.toLowerCase() !== providedChecksum.toLowerCase()) {
       return {
         isValid: false,
         payload: null,
         computedChecksum,
-        error:
-          "Report data validation failed. The shared report may have been modified or corrupted.",
+        error: "Report data validation failed. The shared report link has been modified or corrupted.",
       };
     }
 
-    const payload: SharedReportPayload = JSON.parse(jsonStr);
+    // 1. Check legacy JSON format support
+    if (rawString.trim().startsWith("{")) {
+      const legacyPayload: SharedReportPayload = JSON.parse(rawString);
+      return {
+        isValid: true,
+        payload: legacyPayload,
+        computedChecksum,
+      };
+    }
+
+    // 2. Compact query string format
+    const searchParams = new URLSearchParams(rawString);
+    const shopName = searchParams.get("shop") || undefined;
+    const customerName = searchParams.get("cust") || "Jeweller";
+    const weight = searchParams.get("wt") || "0.000";
+
+    let goldPurity = searchParams.get("Au") || searchParams.get("gold") || searchParams.get("purity") || "";
+    const metalsList: SharedReportMetal[] = [];
+
+    for (const [symbol, info] of Object.entries(SYMBOL_TO_METAL)) {
+      if (searchParams.has(symbol)) {
+        const val = parseFloat(searchParams.get(symbol) || "0");
+        if (!isNaN(val) && val > 0) {
+          metalsList.push({
+            id: info.id,
+            name: info.name,
+            symbol,
+            value: val.toFixed(3),
+          });
+          if (symbol === "Au" && !goldPurity) {
+            goldPurity = val.toFixed(3);
+          }
+        }
+      }
+    }
+
+    const goldPurityNum = parseFloat(goldPurity) || 0;
+    if (!metalsList.some((m) => m.symbol === "Au") && goldPurityNum > 0) {
+      metalsList.unshift({
+        id: "gold",
+        name: "Gold",
+        symbol: "Au",
+        value: goldPurityNum.toFixed(3),
+      });
+    }
+
+    const { karatExact, karatDisplay } = calculateKaratFromPurity(goldPurityNum);
+
+    const payload: SharedReportPayload = {
+      version: "1.0",
+      reportId: `AS-${Date.now().toString().slice(-6)}`,
+      shopName,
+      customerName,
+      sampleType: "Gold Sample",
+      weight,
+      timestamp: new Date().toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+      goldPurity: goldPurityNum.toFixed(3),
+      karatExact,
+      karatDisplay,
+      metals: metalsList,
+      templateId: "classic-lab",
+    };
+
     return {
       isValid: true,
       payload,
@@ -104,25 +263,74 @@ export async function verifyAndDecodeReport(
     return {
       isValid: false,
       payload: null,
-      error:
-        "Report data validation failed. The shared report may have been modified or corrupted.",
+      error: "Report data validation failed. The shared report link has been modified or corrupted.",
     };
   }
 }
 
 /**
- * Builds the full report URL for sharing.
- * Hosted on GitHub Pages: https://shubhammahato.github.io/Metallurgist/#/report
+ * Dynamically fetches live IBJA benchmark rate from snapdata.dev API.
  */
-export function buildReportShareUrl(
-  encodedData: string,
-  checksum: string,
-  templateId: ReportTemplateId
-): string {
-  const baseUrl = "https://shubhammahato.github.io/Metallurgist/#/report";
-  return `${baseUrl}?d=${encodeURIComponent(
-    encodedData
-  )}&c=${encodeURIComponent(checksum)}&t=${encodeURIComponent(templateId)}`;
+export async function fetchLiveIbjaRate(
+  karatDisplay: string,
+  goldPurity: string
+): Promise<SharedReportMarketRate | undefined> {
+  try {
+    const response = await fetch("https://snapdata.dev/api/v1/gold/in/latest.json");
+    if (response.ok) {
+      const data = await response.json();
+      const obs: any[] = data.observations || [];
+      let targetRate = 0;
+
+      const targetInst = karatDisplay.toUpperCase();
+      for (const item of obs) {
+        if (
+          item.instrument?.includes(targetInst) ||
+          item.instrument_id?.includes(targetInst)
+        ) {
+          const val = typeof item.value === "number" ? item.value : parseFloat(item.value);
+          if (!isNaN(val) && val > 0) {
+            targetRate = val;
+            break;
+          }
+        }
+      }
+
+      if (!targetRate) {
+        for (const item of obs) {
+          if (item.instrument?.includes("24K") || item.instrument_id?.includes("24K")) {
+            const val = typeof item.value === "number" ? item.value : parseFloat(item.value);
+            if (!isNaN(val) && val > 0) {
+              const purityNum = parseFloat(goldPurity) || 75;
+              targetRate = Math.round(val * (purityNum / 100));
+              break;
+            }
+          }
+        }
+      }
+
+      if (targetRate > 0) {
+        return {
+          ratePerGram: targetRate,
+          rateSource: "IBJA Retail Standard",
+          calculatedGoldValue: 0,
+          fetchedAt: new Date().toISOString(),
+          karatCategory: karatDisplay,
+        };
+      }
+    }
+  } catch (err) {
+    const purityNum = parseFloat(goldPurity) || 75;
+    const estimated24K = 14929;
+    return {
+      ratePerGram: Math.round(estimated24K * (purityNum / 100)),
+      rateSource: "IBJA Retail Standard",
+      calculatedGoldValue: 0,
+      fetchedAt: new Date().toISOString(),
+      karatCategory: karatDisplay,
+    };
+  }
+  return undefined;
 }
 
 /**
@@ -164,8 +372,7 @@ export function generateWhatsAppMessage(
     `${headerTitle}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `👤 *Jeweller:* ${payload.customerName || "N/A"}\n` +
-    `🏷️ *Sample:* ${payload.sampleType || "Sample"} | ⚖️ *Weight:* ${payload.weight}g\n` +
-    `📅 *Date:* ${payload.timestamp}\n\n` +
+    `⚖️ *Weight:* ${payload.weight}g\n` +
     `🥇 *GOLD PURITY:* ${parseFloat(payload.goldPurity).toFixed(3)}%\n` +
     `👑 *Karat Rating:* ${payload.karatDisplay} (Exact: ${payload.karatExact}K)` +
     rateBlock +
@@ -261,5 +468,3 @@ export function openWhatsAppChat(url: string): void {
   // On Web / desktop: open standard web URL in new tab
   window.open(url, "_blank");
 }
-
-

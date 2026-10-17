@@ -16,8 +16,7 @@ import {
   REPORT_TEMPLATES,
 } from "../../types/report";
 import {
-  createCryptographicReport,
-  buildReportShareUrl,
+  createCompactReportPackage,
   generateWhatsAppMessage,
   buildWhatsAppLink,
   openWhatsAppChat,
@@ -216,8 +215,16 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
       };
 
       try {
-        const { encodedData, checksum: hash } = await createCryptographicReport(payload);
-        const url = buildReportShareUrl(encodedData, hash, activeTemplateId);
+        const { url } = await createCompactReportPackage({
+          shopName: shopName.trim() || undefined,
+          customerName: customerName || "Jeweller",
+          weight: weight || "0.000",
+          metals: metals.map((m) => ({
+            symbol: m.symbol,
+            value: m.value,
+          })),
+        });
+
         const msg = generateWhatsAppMessage(payload, url);
 
         if (!isCancelled) {
@@ -225,7 +232,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           setWhatsAppText(msg);
         }
       } catch (err) {
-        console.error("Failed to generate report crypto package:", err);
+        console.error("Failed to generate report package:", err);
       } finally {
         if (!isCancelled) setIsGenerating(false);
       }

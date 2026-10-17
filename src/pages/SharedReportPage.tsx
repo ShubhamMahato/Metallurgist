@@ -1,18 +1,14 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   ShieldAlert,
-  ShieldCheck,
   Printer,
   Download,
   FlaskConical,
-  RotateCcw,
-  Sliders,
   ExternalLink,
-  ChevronDown,
 } from "lucide-react";
-import { verifyAndDecodeReport } from "../utils/cryptoReport";
-import { SharedReportPayload, ReportTemplateId, REPORT_TEMPLATES } from "../types/report";
+import { verifyAndDecodeReport, fetchLiveIbjaRate } from "../utils/cryptoReport";
+import { SharedReportPayload, ReportTemplateId } from "../types/report";
 import { ReportTemplateRenderer } from "../components/report/ReportTemplateRenderer";
 
 export const SharedReportPage: React.FC = () => {
@@ -23,7 +19,7 @@ export const SharedReportPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reportPayload, setReportPayload] = useState<SharedReportPayload | null>(null);
   const [checksum, setChecksum] = useState<string>("");
-  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplateId>("classic-lab");
+  const [selectedTemplate] = useState<ReportTemplateId>("classic-lab");
 
   // Extract query parameters from either window.location.search or HashRouter's search
   useEffect(() => {
@@ -41,12 +37,11 @@ export const SharedReportPage: React.FC = () => {
         const params = new URLSearchParams(search);
         const encodedData = params.get("d") || "";
         const providedChecksum = params.get("c") || "";
-        const templateParam = (params.get("t") as ReportTemplateId) || "";
 
         if (!encodedData || !providedChecksum) {
           setIsValid(false);
           setErrorMessage(
-            "Report data validation failed. The shared report may have been modified or corrupted."
+            "Report data validation failed. The shared report link is missing security parameters."
           );
           setIsLoading(false);
           return;
@@ -60,26 +55,36 @@ export const SharedReportPage: React.FC = () => {
           setIsValid(false);
           setErrorMessage(
             result.error ||
-              "Report data validation failed. The shared report may have been modified or corrupted."
+              "Report data validation failed. The shared report link has been modified or corrupted."
           );
-        } else {
-          setIsValid(true);
-          setReportPayload(result.payload);
-
-          // Use template from URL if valid, or payload template, fallback to classic-lab
-          const validTemplateIds = REPORT_TEMPLATES.map((t) => t.id);
-          if (templateParam && validTemplateIds.includes(templateParam)) {
-            setSelectedTemplate(templateParam);
-          } else if (result.payload.templateId && validTemplateIds.includes(result.payload.templateId)) {
-            setSelectedTemplate(result.payload.templateId);
-          } else {
-            setSelectedTemplate("classic-lab");
-          }
+          setIsLoading(false);
+          return;
         }
+
+        setIsValid(true);
+        setReportPayload(result.payload);
+        setIsLoading(false);
+
+        // Dynamically fetch and calculate live market rate when user opens the report
+        fetchLiveIbjaRate(result.payload.karatDisplay, result.payload.goldPurity).then((rate) => {
+          if (rate) {
+            setReportPayload((prev) => {
+              if (!prev) return null;
+              const wt = parseFloat(prev.weight) || 0;
+              return {
+                ...prev,
+                marketRate: {
+                  ...rate,
+                  calculatedGoldValue: Math.round(wt * rate.ratePerGram * 100) / 100,
+                },
+              };
+            });
+          }
+        });
       } catch (err: any) {
         setIsValid(false);
         setErrorMessage(
-          "Report data validation failed. The shared report may have been modified or corrupted."
+          "Report data validation failed. The shared report link is invalid or corrupted."
         );
       } finally {
         setIsLoading(false);
@@ -148,24 +153,6 @@ export const SharedReportPage: React.FC = () => {
 
           {isValid && reportPayload && (
             <div className="flex items-center gap-2">
-              {/* Template Switcher Dropdown */}
-              <div className="relative inline-flex items-center">
-                <Sliders size={13} className="text-slate-400 absolute left-2.5 pointer-events-none" />
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => setSelectedTemplate(e.target.value as ReportTemplateId)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold pl-7 pr-6 py-1.5 rounded-lg border border-slate-300 focus:outline-none cursor-pointer appearance-none shadow-2xs"
-                  title="Change Report Template"
-                >
-                  {REPORT_TEMPLATES.map((tmpl) => (
-                    <option key={tmpl.id} value={tmpl.id}>
-                      {tmpl.name} ({tmpl.badge})
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="text-slate-400 absolute right-2 pointer-events-none" />
-              </div>
-
               {/* Print Button */}
               <button
                 type="button"
@@ -215,11 +202,11 @@ export const SharedReportPage: React.FC = () => {
 
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs font-medium text-red-800 text-left">
               <p className="font-bold mb-1">Notice:</p>
-              <p>{errorMessage || "The shared report link could not be validated or has been corrupted."}</p>
+              <p>{errorMessage || "The shared report link could not be validated or is incomplete."}</p>
             </div>
 
             <p className="text-xs text-slate-500">
-              This report data does not match the shared link and cannot be displayed.
+              This report link does not contain valid metallurgical testing data.
             </p>
 
             <div className="pt-2">
@@ -235,7 +222,7 @@ export const SharedReportPage: React.FC = () => {
 
         {!isLoading && isValid && reportPayload && (
           <div className="space-y-4">
-            {/* Top link back to workspace */}
+            {/* Top info bar */}
             <div className="print:hidden flex items-center justify-between text-xs text-slate-500 pb-1">
               <span className="font-mono text-[11px] text-slate-400">
                 {reportPayload.reportId} • {reportPayload.timestamp}
