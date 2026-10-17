@@ -184,12 +184,14 @@ export function generateWhatsAppMessage(
  */
 export function isMobileOrTablet(): boolean {
   if (typeof window === "undefined" || !window.navigator) return false;
-  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
-  const isMobileUA = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
-  const isTouchTablet = Boolean(
-    navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && window.innerWidth <= 1024
+  const ua = (navigator.userAgent || navigator.vendor || (window as any).opera || "").toLowerCase();
+  const isMobileUA = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet|silk|kindle/i.test(ua);
+  const isTouchScreen = Boolean(
+    (navigator.maxTouchPoints && navigator.maxTouchPoints > 1) ||
+    ("ontouchstart" in window)
   );
-  return isMobileUA || isTouchTablet;
+  const isSmallScreen = window.innerWidth <= 1024;
+  return isMobileUA || (isTouchScreen && isSmallScreen);
 }
 
 /**
@@ -220,7 +222,7 @@ export function formatIndianPhoneNumber(phone?: string): string {
 
 /**
  * Builds the WhatsApp send URL:
- * - On tablet or mobile: uses wa.me link (e.g. https://wa.me/91XXXXXXXXXX?text=...)
+ * - On tablet or mobile: uses wa.me link only (e.g. https://wa.me/91XXXXXXXXXX?text=...)
  * - On web / desktop: uses https://web.whatsapp.com/send?phone=91XXXXXXXXXX&text=...
  */
 export function buildWhatsAppLink(message: string, phone?: string): string {
@@ -242,38 +244,50 @@ export function buildWhatsAppLink(message: string, phone?: string): string {
   return `https://web.whatsapp.com/send?text=${encodedMsg}`;
 }
 
-// Window reference tracker to prevent opening duplicate tabs/windows on web
-let waTrackedWindow: Window | null = null;
+// Window reference tracker to control and reuse the same popup window on web
+let waPopupRef: Window | null = null;
 
 /**
- * Opens WhatsApp link in the target platform:
- * - On mobile/tablet: opens via location change to launch native WhatsApp app
- * - On web: re-uses the same tracked window/tab so multiple clicks don't spam new tabs
+ * Opens WhatsApp:
+ * - On mobile/tablet: launches native WhatsApp app via wa.me link
+ * - On web: opens in a new standalone window (not a new tab) and keeps control of that window,
+ *   re-using the same window on subsequent clicks so multiple clicks update the existing window.
  */
 export function openWhatsAppChat(url: string): void {
   if (typeof window === "undefined") return;
 
   if (isMobileOrTablet()) {
-    // For mobile and tablet, standard navigation seamlessly triggers WhatsApp app
+    // For mobile and tablet: trigger direct wa.me link navigation to open WhatsApp app
     window.location.href = url;
     return;
   }
 
   // On Web / desktop:
-  // 1. If we have a reference to a previously opened WhatsApp window that is still open, reuse it
-  if (waTrackedWindow && !waTrackedWindow.closed) {
+  // Explicitly specify window dimensions and features to force modern browsers
+  // to open a NEW POPUP WINDOW rather than a new browser tab.
+  const screenW = window.screen.availWidth || 1280;
+  const screenH = window.screen.availHeight || 800;
+  const width = Math.min(1050, Math.max(800, Math.floor(screenW * 0.75)));
+  const height = Math.min(850, Math.max(650, Math.floor(screenH * 0.85)));
+  const left = Math.max(0, Math.floor((screenW - width) / 2));
+  const top = Math.max(0, Math.floor((screenH - height) / 2));
+  const windowFeatures = `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes,toolbar=no,menubar=no,location=yes`;
+  const windowName = "metallurgist_whatsapp_popup_window";
+
+  // If the popup window is already open, reuse the SAME window and update its URL
+  if (waPopupRef && !waPopupRef.closed) {
     try {
-      waTrackedWindow.location.href = url;
-      waTrackedWindow.focus();
+      waPopupRef.location.href = url;
+      waPopupRef.focus();
       return;
     } catch {
-      // In case of cross-origin security block on reading location, fallback to named window
+      // If cross-origin restrictions apply after WhatsApp loads, window.open with the same target name navigates it
     }
   }
 
-  // 2. Open or reuse named window 'metallurgist_whatsapp_tab'
-  waTrackedWindow = window.open(url, "metallurgist_whatsapp_tab");
-  if (waTrackedWindow) {
-    waTrackedWindow.focus();
+  // Open in a new standalone window (not a tab) and keep reference to control it
+  waPopupRef = window.open(url, windowName, windowFeatures);
+  if (waPopupRef) {
+    waPopupRef.focus();
   }
 }
