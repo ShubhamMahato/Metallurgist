@@ -8,7 +8,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { verifyAndDecodeReport, fetchLiveIbjaRate } from "../utils/cryptoReport";
-import { SharedReportPayload, ReportTemplateId } from "../types/report";
+import { SharedReportPayload, ReportTemplateId, REPORT_TEMPLATES } from "../types/report";
 import { ReportTemplateRenderer } from "../components/report/ReportTemplateRenderer";
 
 export const SharedReportPage: React.FC = () => {
@@ -19,7 +19,7 @@ export const SharedReportPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reportPayload, setReportPayload] = useState<SharedReportPayload | null>(null);
   const [checksum, setChecksum] = useState<string>("");
-  const [selectedTemplate] = useState<ReportTemplateId>("classic-lab");
+  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplateId>("classic-lab");
 
   // Extract query parameters from either window.location.search or HashRouter's search
   useEffect(() => {
@@ -63,6 +63,14 @@ export const SharedReportPage: React.FC = () => {
 
         setIsValid(true);
         setReportPayload(result.payload);
+
+        const directTmpl = params.get("tmpl") || params.get("template");
+        if (directTmpl && REPORT_TEMPLATES.some((t) => t.id === directTmpl)) {
+          setSelectedTemplate(directTmpl as ReportTemplateId);
+        } else if (result.payload.templateId) {
+          setSelectedTemplate(result.payload.templateId);
+        }
+
         setIsLoading(false);
 
         // Dynamically fetch and calculate live market rate when user opens the report

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   FlaskConical,
@@ -53,10 +53,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
 
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
+  useEffect(() => {
+    const handleTemplateChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<ReportTemplateId>;
+      if (customEvent.detail && REPORT_TEMPLATES.some((tmpl) => tmpl.id === customEvent.detail)) {
+        setActiveTemplate(customEvent.detail);
+      }
+    };
+    window.addEventListener("templateChanged", handleTemplateChanged);
+    return () => window.removeEventListener("templateChanged", handleTemplateChanged);
+  }, []);
+
   const handleSelectTemplate = (id: ReportTemplateId) => {
     setActiveTemplate(id);
     try {
       localStorage.setItem(STORAGE_KEY_TEMPLATE, id);
+      window.dispatchEvent(new CustomEvent("templateChanged", { detail: id }));
     } catch (e) {
       console.warn("Could not save template to localStorage:", e);
     }

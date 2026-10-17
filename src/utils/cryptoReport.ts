@@ -1,4 +1,10 @@
-import { SharedReportPayload, SharedReportMetal, SharedReportMarketRate, ReportTemplateId } from "../types/report";
+import {
+  SharedReportPayload,
+  SharedReportMetal,
+  SharedReportMarketRate,
+  ReportTemplateId,
+  REPORT_TEMPLATES,
+} from "../types/report";
 import { ALL_AVAILABLE_METALS } from "../constants/metals";
 
 /**
@@ -62,6 +68,8 @@ export interface CompactReportParams {
   weight: string;
   goldPurity?: string;
   metals: { id?: string; symbol: string; value: string }[];
+  templateId?: ReportTemplateId;
+  baseUrl?: string;
 }
 
 /**
@@ -124,7 +132,14 @@ export async function createCompactReportPackage(params: CompactReportParams): P
   checksum: string;
   url: string;
 }> {
-  const baseUrl = "https://shubhammahato.github.io/Metallurgist/#/report";
+  let baseUrl = "https://shubhammahato.github.io/Metallurgist/#/report";
+  if (params.baseUrl) {
+    baseUrl = params.baseUrl;
+  } else if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    const cleanPath = window.location.pathname.replace(/\/index\.html$/i, "").replace(/\/+$/, "");
+    baseUrl = `${origin}${cleanPath}/#/report`;
+  }
   const searchParams = new URLSearchParams();
 
   if (params.shopName && params.shopName.trim()) {
@@ -135,6 +150,9 @@ export async function createCompactReportPackage(params: CompactReportParams): P
   }
   if (params.weight && params.weight.trim()) {
     searchParams.set("wt", params.weight.trim());
+  }
+  if (params.templateId) {
+    searchParams.set("tmpl", params.templateId);
   }
 
   // Determine gold purity
@@ -216,7 +234,10 @@ export async function verifyAndDecodeReport(
       const legacyPayload: SharedReportPayload = JSON.parse(rawString);
       return {
         isValid: true,
-        payload: legacyPayload,
+        payload: {
+          ...legacyPayload,
+          templateId: legacyPayload.templateId || "classic-lab",
+        },
         computedChecksum,
       };
     }
@@ -231,6 +252,12 @@ export async function verifyAndDecodeReport(
     const shopName = paramMap.get("shop") || undefined;
     const customerName = paramMap.get("cust") || "Jeweller";
     const weight = paramMap.get("wt") || "0.000";
+
+    const rawTmpl = paramMap.get("tmpl") || paramMap.get("template");
+    const validTemplate: ReportTemplateId =
+      rawTmpl && REPORT_TEMPLATES.some((t) => t.id === rawTmpl)
+        ? (rawTmpl as ReportTemplateId)
+        : "classic-lab";
 
     const goldPurityStr =
       paramMap.get("au") || paramMap.get("gold") || paramMap.get("purity") || "0.000";
@@ -260,7 +287,7 @@ export async function verifyAndDecodeReport(
 
     // Also include any custom/extra metals in the URL that weren't in ALL_AVAILABLE_METALS
     for (const [key, valStr] of paramMap.entries()) {
-      if (["shop", "cust", "wt", "au", "gold", "purity"].includes(key)) continue;
+      if (["shop", "cust", "wt", "au", "gold", "purity", "tmpl", "template"].includes(key)) continue;
       const alreadyIncluded = metalsList.some(
         (m) => m.symbol.toLowerCase() === key || m.id.toLowerCase() === key
       );
@@ -295,7 +322,7 @@ export async function verifyAndDecodeReport(
       karatExact,
       karatDisplay,
       metals: metalsList,
-      templateId: "classic-lab",
+      templateId: validTemplate,
     };
 
     return {

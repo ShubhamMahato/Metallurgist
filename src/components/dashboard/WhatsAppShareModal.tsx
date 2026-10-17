@@ -72,7 +72,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
   const phoneInputId = useId();
 
   // Load preferred template from localStorage or fallback
-  const activeTemplateId = (() => {
+  const [activeTemplateId, setActiveTemplateId] = useState<ReportTemplateId>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_TEMPLATE);
       if (saved && REPORT_TEMPLATES.some((t) => t.id === saved)) {
@@ -80,7 +80,30 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
       }
     } catch {}
     return "classic-lab";
-  })();
+  });
+
+  // Keep template synced when modal opens or when changed globally
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_TEMPLATE);
+        if (saved && REPORT_TEMPLATES.some((t) => t.id === saved)) {
+          setActiveTemplateId(saved as ReportTemplateId);
+        }
+      } catch {}
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleTemplateChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<ReportTemplateId>;
+      if (customEvent.detail && REPORT_TEMPLATES.some((t) => t.id === customEvent.detail)) {
+        setActiveTemplateId(customEvent.detail);
+      }
+    };
+    window.addEventListener("templateChanged", handleTemplateChanged);
+    return () => window.removeEventListener("templateChanged", handleTemplateChanged);
+  }, []);
 
   const activeTemplateMeta =
     REPORT_TEMPLATES.find((t) => t.id === activeTemplateId) || REPORT_TEMPLATES[0];
@@ -240,6 +263,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             symbol: m.symbol,
             value: m.value,
           })),
+          templateId: activeTemplateId,
         });
 
         const msg = generateWhatsAppMessage(payload, url);
@@ -351,9 +375,26 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               </h2>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
                 <span>Report template:</span>
-                <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 text-[11px]">
-                  {activeTemplateMeta.name}
-                </span>
+                <select
+                  value={activeTemplateId}
+                  onChange={(e) => {
+                    const newTmpl = e.target.value as ReportTemplateId;
+                    setActiveTemplateId(newTmpl);
+                    try {
+                      localStorage.setItem(STORAGE_KEY_TEMPLATE, newTmpl);
+                      window.dispatchEvent(
+                        new CustomEvent("templateChanged", { detail: newTmpl })
+                      );
+                    } catch {}
+                  }}
+                  className="font-semibold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300 text-[11px] cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                >
+                  {REPORT_TEMPLATES.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.badge})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
