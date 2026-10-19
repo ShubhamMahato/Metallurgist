@@ -12,6 +12,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
   const ratePerGram = payload.marketRate?.ratePerGram || 0;
   const calculatedGoldVal =
     payload.marketRate?.calculatedGoldValue || weightNum * ratePerGram;
+  const precision = payload.decimalPrecision === 3 ? 3 : 2;
 
   return (
     <div className="bg-slate-950 text-slate-100 p-6 sm:p-10 rounded-2xl border border-cyan-500/30 shadow-2xl max-w-4xl mx-auto font-body print:bg-white print:text-slate-900 print:border print:p-4">
@@ -78,7 +79,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
             <span>Target Gold Concentration (Au)</span>
           </div>
           <div className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-white drop-shadow-xs">
-            {parseFloat(payload.goldPurity).toFixed(3)}%
+            {parseFloat(payload.goldPurity).toFixed(precision)}%
           </div>
           <div className="text-xs text-slate-400 font-mono mt-1">
             Formula Value: ((Purity × 24) / 100) = {payload.karatExact}K
@@ -150,7 +151,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
                       isGold ? "text-amber-300 text-sm" : val > 0 ? "text-cyan-200" : "text-slate-500"
                     }`}
                   >
-                    {val.toFixed(3)}%
+                    {val.toFixed(precision)}%
                   </span>
                 </div>
               </div>

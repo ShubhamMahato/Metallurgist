@@ -34,7 +34,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   const isCalculator = location.pathname === "/calculator";
 
   return (
-    <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-xs border-b border-slate-200 w-full max-w-full overflow-x-clip">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-slate-200 w-full max-w-full overflow-x-clip">
       <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 w-full">
         <div className="flex items-center justify-between h-14 sm:h-16 gap-1.5 sm:gap-4 w-full min-w-0">
           {/* Left: Hamburger Menu Trigger + Brand / Current Module Breadcrumb */}

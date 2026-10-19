@@ -12,6 +12,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
   const ratePerGram = payload.marketRate?.ratePerGram || 0;
   const calculatedGoldVal =
     payload.marketRate?.calculatedGoldValue || weightNum * ratePerGram;
+  const precision = payload.decimalPrecision === 3 ? 3 : 2;
 
   return (
     <div className="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl border-4 border-emerald-900/20 shadow-xl max-w-4xl mx-auto font-body print:border print:shadow-none print:p-4 relative">
@@ -53,7 +54,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
             Gold (Au) Concentration
           </span>
           <span className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-950 block mt-1">
-            {parseFloat(payload.goldPurity).toFixed(3)}%
+            {parseFloat(payload.goldPurity).toFixed(precision)}%
           </span>
           <span className="text-[11px] text-slate-500 block mt-1">
             Purity Grade
@@ -163,7 +164,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
                       {metal.symbol}
                     </td>
                     <td className="py-2 px-3 font-mono text-right font-bold text-slate-900">
-                      {val.toFixed(3)}%
+                      {val.toFixed(precision)}%
                     </td>
                     <td className="py-2 px-3 text-right">
                       {val > 0 ? (
@@ -172,7 +173,7 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
                         </span>
                       ) : (
                         <span className="text-slate-400 text-[10px] font-mono">
-                          0.000 (Compliant)
+                          {precision === 2 ? "0.00" : "0.000"} (Compliant)
                         </span>
                       )}
                     </td>

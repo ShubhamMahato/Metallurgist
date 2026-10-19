@@ -21,9 +21,26 @@ import { MetadataField } from "../components/dashboard/MetadataField";
 import { Tooltip } from "../components/common/Tooltip";
 import { useLanguage } from "../lib/LanguageContext";
 
+const SPECTRUM_COLORS: Record<string, string> = {
+  gold: "bg-amber-500",
+  silver: "bg-slate-400",
+  copper: "bg-orange-500",
+  zinc: "bg-teal-500",
+  platinum: "bg-indigo-500",
+  palladium: "bg-cyan-600",
+  cadmium: "bg-rose-500",
+  nickel: "bg-emerald-600",
+  iron: "bg-neutral-600",
+  ruthenium: "bg-violet-600",
+  rhodium: "bg-blue-600",
+  iridium: "bg-pink-600",
+};
+
 export default function DashboardPage() {
   const { t } = useLanguage();
   const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
+  const headerSummaryRef = React.useRef<HTMLDivElement>(null);
+  const [isHeaderSummaryVisible, setIsHeaderSummaryVisible] = React.useState(true);
   const dashboard = useDashboard();
   const {
     lastEditedId,
@@ -57,7 +74,6 @@ export default function DashboardPage() {
     reloadFile,
     handleValueChange,
     handleValueBlur,
-    toggleLock,
     removeMetal,
     resetToOriginal,
     downloadDOC,
@@ -68,7 +84,33 @@ export default function DashboardPage() {
     totalAggregate,
     isVerified,
     addMetal,
+    autoBalance,
+    toggleAutoBalance,
+    decimalPrecision,
+    stepMetalValue,
   } = dashboard;
+
+  React.useEffect(() => {
+    if (!isParsed) {
+      setIsHeaderSummaryVisible(true);
+      return;
+    }
+    const target = headerSummaryRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsHeaderSummaryVisible(entry.isIntersecting);
+      },
+      {
+        threshold: 0,
+        rootMargin: "-64px 0px 0px 0px",
+      }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [isParsed]);
 
   const saveOrDownload = () => {
     if (isPersistent) saveToOriginalFile();
@@ -148,20 +190,49 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Calculations Readout */}
-            <div className="shrink-0 w-full lg:w-auto">
-              <CalculationSummary
-                totalAggregate={totalAggregate}
-                isVerified={isVerified}
-                karat={karat}
-                karatDisplay={karatDisplay}
-                isParsed={isParsed}
-                goldValue={metals.find((m) => m.id === "gold")?.value}
-                weight={weight}
-              />
-            </div>
+            {/* Header Calculations Readout (stays in header next to Metal Composition) */}
+            {isParsed && (
+              <div ref={headerSummaryRef} className="shrink-0 w-full lg:w-auto">
+                <CalculationSummary
+                  totalAggregate={totalAggregate}
+                  isVerified={isVerified}
+                  karat={karat}
+                  karatDisplay={karatDisplay}
+                  isParsed={isParsed}
+                  goldValue={metals.find((m) => m.id === "gold")?.value}
+                  weight={weight}
+                  decimalPrecision={decimalPrecision}
+                />
+              </div>
+            )}
           </div>
         </section>
+
+        {/* Floating Sticky Calculations Readout Bar - appears only when header summary scrolls out of viewport */}
+        <AnimatePresence>
+          {isParsed && !isHeaderSummaryVisible && (
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+              className="fixed top-14 sm:top-16 left-0 right-0 z-20 px-3 sm:px-6 lg:px-8 py-2 bg-slate-50/95 backdrop-blur-md border-b border-slate-200/80 shadow-md"
+            >
+              <div className="max-w-7xl mx-auto">
+                <CalculationSummary
+                  totalAggregate={totalAggregate}
+                  isVerified={isVerified}
+                  karat={karat}
+                  karatDisplay={karatDisplay}
+                  isParsed={isParsed}
+                  goldValue={metals.find((m) => m.id === "gold")?.value}
+                  weight={weight}
+                  decimalPrecision={decimalPrecision}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Upload State */}
         <AnimatePresence>
@@ -249,115 +320,97 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-4 sm:space-y-5"
             >
-              {/* Sample Details */}
-              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-                <span className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">
-                  {t("sampleDetails")}
-                </span>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <MetadataField
-                    label={t("customerName")}
-                    value={customerName}
-                    onChange={setCustomerName}
-                    icon={FileText}
-                    placeholder="e.g. JAJ"
-                  />
-                  <MetadataField
-                    label={t("sampleType")}
-                    value={sampleType}
-                    onChange={setSampleType}
-                    icon={Sparkles}
-                    placeholder="e.g. RAWA"
-                  />
-                  <MetadataField
-                    label={t("weight")}
-                    value={weight}
-                    onChange={setWeight}
-                    icon={Scale}
-                    placeholder="e.g. 1.510"
-                  />
-                </div>
-              </div>
-
-              {/* Composition Breakdown Strip */}
-              <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-800 uppercase tracking-wider">
-                    {t("constituents")}
+              {/* Sample Details & Composition Spectrum Breakdown Side-by-Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
+                {/* Left: Sample Details */}
+                <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-3.5 sm:p-4 shadow-xs flex flex-col justify-between">
+                  <span className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5">
+                    {t("sampleDetails")}
                   </span>
-                  <span className="font-mono text-slate-500 font-medium">
-                    {visibleMetals.length} elements
-                  </span>
+
+                  <div className="grid gap-2.5 sm:grid-cols-3">
+                    <MetadataField
+                      label={t("customerName")}
+                      value={customerName}
+                      onChange={setCustomerName}
+                      icon={FileText}
+                      placeholder="e.g. JAJ"
+                    />
+                    <MetadataField
+                      label={t("sampleType")}
+                      value={sampleType}
+                      onChange={setSampleType}
+                      icon={Sparkles}
+                      placeholder="e.g. RAWA"
+                    />
+                    <MetadataField
+                      label={t("weight")}
+                      value={weight}
+                      onChange={setWeight}
+                      icon={Scale}
+                      placeholder="e.g. 1.510"
+                    />
+                  </div>
                 </div>
 
-                <div className="h-4 rounded-md overflow-hidden bg-slate-200 flex w-full">
-                  {visibleMetals.map((metal) => {
-                    const val = parseFloat(metal.value) || 0;
-                    if (val <= 0) return null;
-                    const bgClass =
-                      metal.id === "gold"
-                        ? "bg-amber-500"
-                        : metal.id === "silver"
-                        ? "bg-slate-600"
-                        : metal.id === "copper"
-                        ? "bg-orange-600"
-                        : metal.id === "zinc"
-                        ? "bg-teal-600"
-                        : metal.id === "platinum"
-                        ? "bg-indigo-600"
-                        : metal.id === "palladium"
-                        ? "bg-cyan-700"
-                        : "bg-slate-700";
+                {/* Right: Composition Visualizer */}
+                <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-3.5 sm:p-4 shadow-xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      {t("compositionBreakdown")}
+                    </span>
+                    <span className="font-mono text-[11px] text-slate-500 font-medium">
+                      {visibleMetals.length} elements
+                    </span>
+                  </div>
 
-                    return (
-                      <div
-                        key={metal.id}
-                        style={{ width: `${Math.min(100, val)}%` }}
-                        className={`h-full ${bgClass} border-r border-white/40 transition-all hover:brightness-110 cursor-pointer`}
-                        title={`${t(metal.id as any) || metal.name} (${metal.symbol}): ${val.toFixed(3)}%`}
-                        aria-label={`${metal.name}: ${val.toFixed(3)}%`}
-                      />
-                    );
-                  })}
-                </div>
+                  {/* Stacked colored spectrum bar */}
+                  <div className="h-3.5 sm:h-4 rounded-md overflow-hidden bg-slate-200 flex w-full my-auto">
+                    {visibleMetals.map((metal) => {
+                      const val = parseFloat(metal.value) || 0;
+                      if (val <= 0) return null;
+                      const bgClass =
+                        SPECTRUM_COLORS[metal.id.toLowerCase()] || "bg-slate-600";
 
-                {/* Minimal Legend */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-xs">
-                  {visibleMetals.map((metal) => {
-                    const dotBg =
-                      metal.id === "gold"
-                        ? "bg-amber-500"
-                        : metal.id === "silver"
-                        ? "bg-slate-600"
-                        : metal.id === "copper"
-                        ? "bg-orange-600"
-                        : metal.id === "zinc"
-                        ? "bg-teal-600"
-                        : metal.id === "platinum"
-                        ? "bg-indigo-600"
-                        : metal.id === "palladium"
-                        ? "bg-cyan-700"
-                        : "bg-slate-700";
+                      return (
+                        <div
+                          key={metal.id}
+                          style={{ width: `${Math.min(100, Math.max(0, val))}%` }}
+                          className={`h-full ${bgClass} border-r border-white/40 transition-all hover:brightness-110 cursor-pointer`}
+                          title={`${t(metal.id as any) || metal.name} (${metal.symbol}): ${val.toFixed(decimalPrecision)}%`}
+                          aria-label={`${metal.name}: ${val.toFixed(decimalPrecision)}%`}
+                        />
+                      );
+                    })}
+                  </div>
 
-                    return (
-                      <div key={metal.id} className="flex items-center gap-1.5">
-                        <span className={`w-2.5 h-2.5 rounded-xs ${dotBg}`} aria-hidden="true" />
-                        <span className="font-medium text-slate-700">
-                          {t(metal.id as any) || metal.name}:
-                        </span>
-                        <span className="font-mono text-slate-900 font-bold">
-                          {metal.value}%
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {/* Minimal Legend Pills */}
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-2 text-[11px]">
+                    {visibleMetals.map((metal) => {
+                      const val = parseFloat(metal.value) || 0;
+                      if (val <= 0) return null;
+                      const dotBg =
+                        SPECTRUM_COLORS[metal.id.toLowerCase()] || "bg-slate-600";
+
+                      return (
+                        <div key={metal.id} className="inline-flex items-center gap-1">
+                          <span className={`w-2 h-2 rounded-xs ${dotBg}`} aria-hidden="true" />
+                          <span className="font-medium text-slate-600">
+                            {t(metal.id as any) || metal.name}:
+                          </span>
+                          <span className="font-mono text-slate-900 font-bold">
+                            {val.toFixed(decimalPrecision)}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
               {/* Toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                   <h2 className="text-base font-bold text-slate-900">
                     {t("constituents")}
                   </h2>
@@ -370,6 +423,19 @@ export default function DashboardPage() {
                   >
                     {isVerified ? t("balanced") : t("unbalanced")}
                   </span>
+
+                  <label
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer transition-colors select-none"
+                    title="Automatically adjust remaining constituents proportionally to 100%"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={autoBalance}
+                      onChange={toggleAutoBalance}
+                      className="w-3.5 h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span>{t("autoBalanceLabel")}</span>
+                  </label>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -400,7 +466,7 @@ export default function DashboardPage() {
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-xs transition-colors cursor-pointer"
                     >
                       <Share2 size={12} className="text-emerald-600" />
-                      <span>WhatsApp Share</span>
+                      <span>{t("whatsAppShare")}</span>
                     </button>
                   </Tooltip>
 
@@ -427,8 +493,9 @@ export default function DashboardPage() {
                     tempValues={tempValues}
                     handleValueChange={handleValueChange}
                     handleValueBlur={handleValueBlur}
-                    toggleLock={toggleLock}
                     removeMetal={removeMetal}
+                    onStep={stepMetalValue}
+                    decimalPrecision={decimalPrecision}
                   />
                 ))}
               </div>

@@ -12,6 +12,7 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
   const ratePerGram = payload.marketRate?.ratePerGram || 0;
   const calculatedGoldVal =
     payload.marketRate?.calculatedGoldValue || weightNum * ratePerGram;
+  const precision = payload.decimalPrecision === 3 ? 3 : 2;
 
   return (
     <div className="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl border border-slate-200 shadow-lg max-w-4xl mx-auto font-body print:border-none print:shadow-none print:p-4">
@@ -45,7 +46,7 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
               Gold Purity (Au)
             </span>
             <div className="text-4xl font-extrabold font-mono tracking-tight mt-1">
-              {parseFloat(payload.goldPurity).toFixed(3)}%
+              {parseFloat(payload.goldPurity).toFixed(precision)}%
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
@@ -158,7 +159,7 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
                       {metal.symbol}
                     </td>
                     <td className="py-2.5 px-4 font-mono text-right font-bold text-slate-900">
-                      {val.toFixed(3)}%
+                      {val.toFixed(precision)}%
                     </td>
                   </tr>
                 );

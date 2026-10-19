@@ -1,7 +1,5 @@
 import React from "react";
 import {
-  Lock,
-  Unlock,
   Trash2,
   TrendingUp,
   TrendingDown,
@@ -16,8 +14,9 @@ interface MetalCardProps {
   tempValues: Record<string, string>;
   handleValueChange: (id: string, value: string) => void;
   handleValueBlur: (id: string) => void;
-  toggleLock: (id: string) => void;
   removeMetal: (id: string) => void;
+  onStep?: (id: string, delta: number) => void;
+  decimalPrecision?: number;
 }
 
 const ELEMENT_BADGES: Record<string, { bg: string; text: string }> = {
@@ -37,21 +36,23 @@ export const MetalCard: React.FC<MetalCardProps> = ({
   tempValues,
   handleValueChange,
   handleValueBlur,
-  toggleLock,
   removeMetal,
+  onStep,
+  decimalPrecision = 2,
 }) => {
   const { t } = useLanguage();
+  const precision = decimalPrecision === 3 ? 3 : 2;
   const isEditing = lastEditedId === metal.id;
   const badgeTheme = ELEMENT_BADGES[metal.id] || DEFAULT_BADGE;
   const numericValue = parseFloat(tempValues[metal.id] ?? metal.value) || 0;
   const baseline = metal.baseline ?? 0;
   const deltaNum = Math.round((numericValue - baseline) * 1000) / 1000;
   const hasChangedFromBaseline =
-    baseline > 0 && Math.abs(deltaNum) >= 0.001;
-  const delta = deltaNum > 0 ? `+${deltaNum.toFixed(3)}` : deltaNum.toFixed(3);
+    baseline > 0 && Math.abs(deltaNum) >= (precision === 2 ? 0.01 : 0.001);
+  const delta = deltaNum > 0 ? `+${deltaNum.toFixed(precision)}` : deltaNum.toFixed(precision);
 
   const visibleHistory = (metal.history || []).filter(
-    (h) => Math.abs(h.delta) >= 0.001 && Math.abs(h.from - h.to) >= 0.001
+    (h) => Math.abs(h.delta) >= (precision === 2 ? 0.01 : 0.001) && Math.abs(h.from - h.to) >= (precision === 2 ? 0.01 : 0.001)
   );
 
   const translatedName = t(metal.id as any) || metal.name;
@@ -74,50 +75,14 @@ export const MetalCard: React.FC<MetalCardProps> = ({
             {metal.symbol}
           </div>
 
-          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-            <span className="text-sm font-bold text-slate-900 truncate">
-              {translatedName}
-            </span>
-            {metal.lastAdjustedBy && metal.lastAdjustedBy !== "User" && (hasChangedFromBaseline || visibleHistory.length > 0) && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
-                via {metal.lastAdjustedBy}
-              </span>
-            )}
-          </div>
+          <span className="text-sm font-bold text-slate-900 truncate">
+            {translatedName}
+          </span>
         </div>
 
-        {/* Lock and Remove Actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          <Tooltip
-            content={
-              metal.locked
-                ? "Locked: Value stays fixed during rebalancing."
-                : "Unlocked: Recalculates automatically when other metals change."
-            }
-          >
-            <button
-              type="button"
-              onClick={() => toggleLock(metal.id)}
-              aria-label={
-                metal.locked
-                  ? `Unlock ${translatedName}`
-                  : `Lock ${translatedName}`
-              }
-              aria-pressed={metal.locked}
-              className={`px-2 py-1 rounded-md border text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
-                metal.locked
-                  ? "bg-amber-100 border-amber-300 text-amber-900"
-                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
-              }`}
-            >
-              {metal.locked ? <Lock size={12} /> : <Unlock size={12} />}
-              <span className="text-[11px]">
-                {metal.locked ? t("lock") : t("free")}
-              </span>
-            </button>
-          </Tooltip>
-
-          {metal.isManual && (
+        {/* Remove Action for manual metals */}
+        {metal.isManual && (
+          <div className="flex items-center gap-1 shrink-0">
             <Tooltip content={t("remove")}>
               <button
                 type="button"
@@ -128,8 +93,8 @@ export const MetalCard: React.FC<MetalCardProps> = ({
                 <Trash2 size={13} />
               </button>
             </Tooltip>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Value Input Section */}
@@ -142,23 +107,45 @@ export const MetalCard: React.FC<MetalCardProps> = ({
             {t("concentration")}
           </label>
 
-          <div className="relative flex items-center">
-            <input
-              id={`input-metal-${metal.id}`}
-              type="text"
-              inputMode="decimal"
-              value={tempValues[metal.id] ?? metal.value}
-              onChange={(e) => handleValueChange(metal.id, e.target.value)}
-              onBlur={() => handleValueBlur(metal.id)}
-              disabled={metal.locked}
-              aria-label={`${translatedName} ${t("concentration")}`}
-              className={`w-full font-mono font-bold text-lg text-slate-900 bg-slate-50 border rounded-lg py-1.5 pl-3 pr-10 focus:bg-white focus:border-slate-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900 disabled:opacity-60 disabled:bg-slate-100 ${
-                isEditing ? "border-slate-900 bg-white" : "border-slate-300"
-              }`}
-            />
-            <div className="absolute right-3 flex items-center pointer-events-none text-slate-500 font-mono font-bold text-sm">
-              %
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex-1 flex items-center">
+              <input
+                id={`input-metal-${metal.id}`}
+                type="text"
+                inputMode="decimal"
+                value={tempValues[metal.id] ?? metal.value}
+                onChange={(e) => handleValueChange(metal.id, e.target.value)}
+                onBlur={() => handleValueBlur(metal.id)}
+                aria-label={`${translatedName} ${t("concentration")}`}
+                className={`w-full font-mono font-bold text-lg text-slate-900 bg-slate-50 border rounded-lg py-1.5 pl-3 pr-8 focus:bg-white focus:border-slate-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900 ${
+                  isEditing ? "border-slate-900 bg-white" : "border-slate-300"
+                }`}
+              />
+              <div className="absolute right-2.5 flex items-center pointer-events-none text-slate-500 font-mono font-bold text-xs">
+                %
+              </div>
             </div>
+
+            {onStep && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onStep(metal.id, -0.1)}
+                  title={`Decrease ${translatedName} by 0.1%`}
+                  className="w-8 h-9 flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 font-bold text-sm transition-colors cursor-pointer select-none"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStep(metal.id, 0.1)}
+                  title={`Increase ${translatedName} by 0.1%`}
+                  className="w-8 h-9 flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 font-bold text-sm transition-colors cursor-pointer select-none"
+                >
+                  +
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Baseline Comparison Delta */}
@@ -168,7 +155,7 @@ export const MetalCard: React.FC<MetalCardProps> = ({
                 <span className="text-slate-600 font-medium text-[11px] shrink-0">
                   Original:{" "}
                   <span className="font-mono font-semibold text-slate-800">
-                    {baseline.toFixed(3)}%
+                    {baseline.toFixed(precision)}%
                   </span>
                 </span>
                 {metal.lastAdjustedBy && metal.lastAdjustedBy !== "User" && (
@@ -214,7 +201,7 @@ export const MetalCard: React.FC<MetalCardProps> = ({
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-slate-700">
-                      {h.from.toFixed(3)}% → {h.to.toFixed(3)}%
+                      {h.from.toFixed(precision)}% → {h.to.toFixed(precision)}%
                     </span>
                     {h.source && (
                       <span

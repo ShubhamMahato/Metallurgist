@@ -70,6 +70,7 @@ export interface CompactReportParams {
   metals: { id?: string; symbol: string; value: string }[];
   templateId?: ReportTemplateId;
   baseUrl?: string;
+  decimalPrecision?: number;
 }
 
 /**
@@ -154,6 +155,10 @@ export async function createCompactReportPackage(params: CompactReportParams): P
   if (params.templateId) {
     searchParams.set("tmpl", params.templateId);
   }
+  const precision = params.decimalPrecision === 3 ? 3 : 2;
+  if (params.decimalPrecision) {
+    searchParams.set("dp", precision.toString());
+  }
 
   // Determine gold purity
   let goldVal = params.goldPurity ? parseFloat(params.goldPurity) : 0;
@@ -172,13 +177,13 @@ export async function createCompactReportPackage(params: CompactReportParams): P
         metal.symbol.length > 1
           ? metal.symbol.charAt(0).toUpperCase() + metal.symbol.slice(1).toLowerCase()
           : metal.symbol.toUpperCase();
-      searchParams.set(normalizedSym, val.toFixed(3));
+      searchParams.set(normalizedSym, val.toFixed(precision));
     }
   }
 
   // Always set Au
   if (!isNaN(goldVal) && goldVal > 0) {
-    searchParams.set("Au", goldVal.toFixed(3));
+    searchParams.set("Au", goldVal.toFixed(precision));
   }
 
   const rawPayloadString = searchParams.toString();
@@ -263,6 +268,9 @@ export async function verifyAndDecodeReport(
       paramMap.get("au") || paramMap.get("gold") || paramMap.get("purity") || "0.000";
     const goldPurityNum = parseFloat(goldPurityStr) || 0;
 
+    const dpStr = paramMap.get("dp") || paramMap.get("digits") || paramMap.get("precision");
+    const decimalPrecision = dpStr === "3" ? 3 : 2;
+
     // Build complete elemental spectrometry list including all zero-value trace metals
     const metalsList: SharedReportMetal[] = ALL_AVAILABLE_METALS.map((metal) => {
       const isGold = metal.id === "gold" || metal.symbol.toLowerCase() === "au";
@@ -271,7 +279,7 @@ export async function verifyAndDecodeReport(
           id: "gold",
           name: "Gold",
           symbol: "Au",
-          value: goldPurityNum.toFixed(3),
+          value: goldPurityNum.toFixed(decimalPrecision),
         };
       }
       const valStr =
@@ -281,13 +289,13 @@ export async function verifyAndDecodeReport(
         id: metal.id,
         name: metal.name,
         symbol: metal.symbol,
-        value: !isNaN(val) && val > 0 ? val.toFixed(3) : "0.000",
+        value: !isNaN(val) && val > 0 ? val.toFixed(decimalPrecision) : (decimalPrecision === 2 ? "0.00" : "0.000"),
       };
     });
 
     // Also include any custom/extra metals in the URL that weren't in ALL_AVAILABLE_METALS
     for (const [key, valStr] of paramMap.entries()) {
-      if (["shop", "cust", "wt", "au", "gold", "purity", "tmpl", "template"].includes(key)) continue;
+      if (["shop", "cust", "wt", "au", "gold", "purity", "tmpl", "template", "dp", "digits", "precision"].includes(key)) continue;
       const alreadyIncluded = metalsList.some(
         (m) => m.symbol.toLowerCase() === key || m.id.toLowerCase() === key
       );
@@ -298,7 +306,7 @@ export async function verifyAndDecodeReport(
             id: key,
             name: key.toUpperCase(),
             symbol: key.toUpperCase(),
-            value: val.toFixed(3),
+            value: val.toFixed(decimalPrecision),
           });
         }
       }
@@ -318,11 +326,12 @@ export async function verifyAndDecodeReport(
         month: "short",
         year: "numeric",
       }),
-      goldPurity: goldPurityNum.toFixed(3),
+      goldPurity: goldPurityNum.toFixed(decimalPrecision),
       karatExact,
       karatDisplay,
       metals: metalsList,
       templateId: validTemplate,
+      decimalPrecision,
     };
 
     return {
@@ -404,20 +413,31 @@ export async function fetchLiveIbjaRate(
   return undefined;
 }
 
+export interface WhatsAppMessageOptions {
+  includeLink?: boolean;
+  includeValuation?: boolean;
+}
+
 /**
- * Generates formatted text for WhatsApp with emojis, key metrics, and tamper-proof verification link.
+ * Generates formatted text for WhatsApp with emojis, key metrics, and optional tamper-proof verification link / market valuation.
  */
 export function generateWhatsAppMessage(
   payload: SharedReportPayload,
-  shareUrl: string
+  shareUrl: string,
+  configuredPrecision?: number,
+  options?: WhatsAppMessageOptions
 ): string {
+  const precision = configuredPrecision ?? payload.decimalPrecision ?? 2;
+  const includeLink = options?.includeLink ?? false;
+  const includeValuation = options?.includeValuation ?? false;
+
   const nonNullMetals = payload.metals.filter((m) => {
     const val = parseFloat(m.value);
     return !isNaN(val) && val > 0;
   });
 
   const metalsList = nonNullMetals
-    .map((m) => `  • ${m.name} (${m.symbol}): ${parseFloat(m.value).toFixed(3)}%`)
+    .map((m) => `  • ${m.name} (${m.symbol}): ${parseFloat(m.value).toFixed(precision)}%`)
     .join("\n");
 
   const weightNum = parseFloat(payload.weight) || 0;
@@ -426,7 +446,7 @@ export function generateWhatsAppMessage(
     payload.marketRate?.calculatedGoldValue || weightNum * ratePerGram;
 
   const rateBlock =
-    ratePerGram > 0
+    includeValuation && ratePerGram > 0
       ? `\n💰 *Market Valuation (IBJA):*\n  • Current Rate: ₹${ratePerGram.toLocaleString(
           "en-IN"
         )}/g (${payload.karatDisplay})\n  • Gold Value: ₹${calculatedGoldVal.toLocaleString(
@@ -447,22 +467,24 @@ export function generateWhatsAppMessage(
       : fallbackKarat.karatDisplay;
   const exactKarat = (payload.karatExact || fallbackKarat.karatExact).replace(/k$/i, "").trim();
 
-  return (
+  let message =
     `${headerTitle}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `👤 *Jeweller:* ${payload.customerName || "N/A"}\n` +
     `⚖️ *Weight:* ${payload.weight}g\n` +
-    `🥇 *GOLD PURITY:* ${parseFloat(payload.goldPurity).toFixed(3)}%\n` +
+    `🥇 *GOLD PURITY:* ${parseFloat(payload.goldPurity).toFixed(precision)}%\n` +
     `👑 *Karat Rating:* ${displayKarat} (Exact: ${exactKarat}K)` +
     rateBlock +
     `\n\n` +
     `🧪 *Constituent Breakdown:*\n` +
-    metalsList +
-    `\n\n` +
-    `📄 *Report Link:*\n` +
-    `${shareUrl}\n` +
-    `━━━━━━━━━━━━━━━━━━━━`
-  );
+    metalsList;
+
+  if (includeLink && shareUrl) {
+    message += `\n\n📄 *Report Link:*\n${shareUrl}`;
+  }
+
+  message += `\n━━━━━━━━━━━━━━━━━━━━`;
+  return message;
 }
 
 /**

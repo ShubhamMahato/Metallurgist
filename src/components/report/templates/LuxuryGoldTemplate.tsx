@@ -12,6 +12,7 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
   const ratePerGram = payload.marketRate?.ratePerGram || 0;
   const calculatedGoldVal =
     payload.marketRate?.calculatedGoldValue || weightNum * ratePerGram;
+  const precision = payload.decimalPrecision === 3 ? 3 : 2;
 
   return (
     <div className="bg-gradient-to-b from-amber-50/40 via-white to-amber-50/30 text-slate-900 p-6 sm:p-10 rounded-2xl border-4 border-amber-500/30 shadow-2xl max-w-4xl mx-auto font-body print:border-2 print:shadow-none print:p-4 relative overflow-hidden">
@@ -83,7 +84,7 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
             Gold (Au) Concentration
           </div>
           <div className="text-4xl sm:text-5xl font-black font-mono tracking-tight drop-shadow-xs">
-            {parseFloat(payload.goldPurity).toFixed(3)}%
+            {parseFloat(payload.goldPurity).toFixed(precision)}%
           </div>
           <div className="text-xs text-amber-100 mt-1 font-medium">
             Fine gold content determined through precision spectrometry
@@ -175,7 +176,7 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
                     {metal.symbol}
                   </td>
                   <td className="py-2.5 px-4 font-mono text-right font-bold text-slate-900">
-                    {val.toFixed(3)}%
+                    {val.toFixed(precision)}%
                   </td>
                   <td className="py-2.5 px-4 text-right">
                     {val > 0 ? (
@@ -184,7 +185,7 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
                       </span>
                     ) : (
                       <span className="text-[10px] font-mono text-slate-400">
-                        0.000 (Nil)
+                        {precision === 2 ? "0.00" : "0.000"} (Nil)
                       </span>
                     )}
                   </td>

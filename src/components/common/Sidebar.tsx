@@ -15,6 +15,12 @@ import { useLanguage } from "../../lib/LanguageContext";
 import { ReportTemplateId, REPORT_TEMPLATES } from "../../types/report";
 import { TemplatePreviewModal } from "./TemplatePreviewModal";
 import { useShopName } from "../../lib/useShopName";
+import {
+  getDecimalPrecision,
+  saveDecimalPrecision,
+  getAutoBalance,
+  saveAutoBalance,
+} from "../../lib/settingsStore";
 
 interface SidebarProps {
   isMobile?: boolean;
@@ -29,6 +35,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
   const { shopName, updateShopName } = useShopName();
   const [localShopName, setLocalShopName] = useState(shopName);
   const [isSavedFeedback, setIsSavedFeedback] = useState(false);
+  const [decimalPrecision, setDecimalPrecision] = useState<number>(2);
+  const [autoBalance, setAutoBalance] = useState<boolean>(true);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -37,6 +45,43 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
       setLocalShopName(shopName);
     }
   }, [shopName]);
+
+  React.useEffect(() => {
+    const loadSettings = async () => {
+      const [prec, auto] = await Promise.all([
+        getDecimalPrecision(),
+        getAutoBalance(),
+      ]);
+      setDecimalPrecision(prec);
+      setAutoBalance(auto);
+    };
+    loadSettings();
+
+    const handlePrecisionChange = (e: any) => {
+      if (typeof e.detail === "number") setDecimalPrecision(e.detail);
+    };
+    const handleAutoChange = (e: any) => {
+      if (typeof e.detail === "boolean") setAutoBalance(e.detail);
+    };
+
+    window.addEventListener("decimalPrecisionChanged", handlePrecisionChange);
+    window.addEventListener("autoBalanceChanged", handleAutoChange);
+    return () => {
+      window.removeEventListener("decimalPrecisionChanged", handlePrecisionChange);
+      window.removeEventListener("autoBalanceChanged", handleAutoChange);
+    };
+  }, []);
+
+  const handlePrecisionSelect = async (prec: number) => {
+    setDecimalPrecision(prec);
+    await saveDecimalPrecision(prec);
+  };
+
+  const handleToggleAutoBalance = async () => {
+    const next = !autoBalance;
+    setAutoBalance(next);
+    await saveAutoBalance(next);
+  };
 
   const isDashboard = location.pathname === "/";
   const isCalculator = location.pathname === "/calculator";
@@ -250,6 +295,74 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
           </p>
         </div>
 
+        {/* Calculation & Precision Section */}
+        <div className="pt-4 px-2.5 pb-1 border-t border-slate-100 mt-3 space-y-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <SlidersHorizontal size={12} className="text-amber-500" />
+            <span>Calculation & Precision</span>
+          </div>
+
+          {/* Decimal Precision Selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+              <span>Decimal Digits</span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {decimalPrecision === 2 ? "0.00" : "0.000"}
+              </span>
+            </label>
+            <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => handlePrecisionSelect(2)}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  decimalPrecision === 2
+                    ? "bg-white text-slate-900 shadow-xs border border-slate-200 font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                2 Digits (0.00)
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePrecisionSelect(3)}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  decimalPrecision === 3
+                    ? "bg-white text-slate-900 shadow-xs border border-slate-200 font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                3 Digits (0.000)
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 px-0.5">
+              Affects print preview, WhatsApp sharing & report views.
+            </p>
+          </div>
+
+          {/* Auto Balance Toggle */}
+          <div className="pt-1">
+            <label
+              onClick={handleToggleAutoBalance}
+              className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100/80 cursor-pointer transition-colors select-none"
+            >
+              <div className="flex flex-col min-w-0 pr-2">
+                <span className="text-xs font-semibold text-slate-800">
+                  Auto Balance (100%)
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  Proportionally adjust constituents
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={autoBalance}
+                onChange={() => {}}
+                className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer shrink-0"
+              />
+            </label>
+          </div>
+        </div>
+
         {/* Report Templates Section */}
         <div className="pt-4 px-2.5 pb-1 flex items-center justify-between border-t border-slate-100 mt-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -334,7 +447,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
               Precision Analysis
             </span>
             <span className="text-[11px] text-slate-500 truncate">
-              3-decimal exact rebalancing
+              {decimalPrecision}-decimal exact rebalancing
             </span>
           </div>
         </div>

@@ -12,6 +12,7 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
   const ratePerGram = payload.marketRate?.ratePerGram || 0;
   const calculatedGoldVal =
     payload.marketRate?.calculatedGoldValue || weightNum * ratePerGram;
+  const precision = payload.decimalPrecision === 3 ? 3 : 2;
 
   return (
     <div className="bg-white text-slate-900 p-6 sm:p-10 rounded-2xl border-2 border-slate-800 shadow-xl max-w-4xl mx-auto font-body print:border print:shadow-none print:p-4">
@@ -88,7 +89,7 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
             Gold Purity (Au)
           </div>
           <div className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-white">
-            {parseFloat(payload.goldPurity).toFixed(3)}%
+            {parseFloat(payload.goldPurity).toFixed(precision)}%
           </div>
           <div className="text-xs text-slate-400 mt-1">
             Elemental concentration determined by spectrometric analysis
@@ -186,7 +187,7 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
                       {metal.symbol}
                     </td>
                     <td className="py-2 px-3 font-mono text-right font-bold text-slate-900">
-                      {valNum.toFixed(3)}%
+                      {valNum.toFixed(precision)}%
                     </td>
                     <td className="py-2 px-3 text-right">
                       {isNonZero ? (
@@ -195,7 +196,7 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
                         </span>
                       ) : (
                         <span className="text-slate-400 text-[10px] font-mono">
-                          0.000 (Trace)
+                          {precision === 2 ? "0.00" : "0.000"} (Trace)
                         </span>
                       )}
                     </td>

@@ -47,7 +47,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }, [isSidebarOpen]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col w-full max-w-full overflow-x-hidden selection:bg-amber-200">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-body flex flex-col w-full max-w-full overflow-x-clip selection:bg-amber-200">
       {/* Off-canvas Sidebar Drawer (collapsed by default, toggled via hamburger on desktop & mobile) */}
       {isSidebarOpen && (
         <div

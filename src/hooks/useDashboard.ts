@@ -8,6 +8,12 @@ import {
 } from "../lib/fileSystem";
 import { MetalValue } from "../types/dashboard";
 import { INITIAL_METALS, METAL_MAP, ALL_AVAILABLE_METALS } from "../constants/metals";
+import {
+  getAutoBalance,
+  saveAutoBalance,
+  getDecimalPrecision,
+  saveDecimalPrecision,
+} from "../lib/settingsStore";
 
 const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;",
@@ -28,6 +34,7 @@ const generateFischerPrintPreview = ({
   sampleType,
   karat,
   metals,
+  decimalPrecision = 2,
 }: {
   sourceContent: string;
   customerName: string;
@@ -35,7 +42,10 @@ const generateFischerPrintPreview = ({
   sampleType: string;
   karat: string;
   metals: MetalValue[];
+  decimalPrecision?: number;
 }) => {
+  const precision = decimalPrecision === 2 ? 2 : 3;
+  const zeroStr = precision === 2 ? "0.00" : "0.000";
   const now = new Date();
   const timestamp = `${now.toLocaleDateString("en-GB").replace(/\//g, "-")}    ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}`;
   const rows: string[][] = [
@@ -49,8 +59,11 @@ const generateFischerPrintPreview = ({
   };
   const metalValue = (metalId: string) => {
     const metal = metals.find((item) => item.id === metalId);
-    if (metal && ((metal.baseline ?? 0) > 0 || parseFloat(metal.value) > 0 || metal.isManual)) return metal.value;
-    return new RegExp(`${metalId.toUpperCase()}\\s+[-]{2,}`, "i").test(sourceContent) ? "--------" : "0.000";
+    if (metal && ((metal.baseline ?? 0) > 0 || parseFloat(metal.value) > 0 || metal.isManual)) {
+      const num = parseFloat(metal.value);
+      return !isNaN(num) ? num.toFixed(precision) : metal.value;
+    }
+    return new RegExp(`${metalId.toUpperCase()}\\s+[-]{2,}`, "i").test(sourceContent) ? "--------" : zeroStr;
   };
 
   let tableRows = "";
@@ -98,12 +111,53 @@ export const useDashboard = () => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showIntakeLink, setShowIntakeLink] = useState(false);
   const [originalContent, setOriginalContent] = useState("");
+  const [autoBalance, setAutoBalanceState] = useState<boolean>(true);
+  const [decimalPrecision, setDecimalPrecisionState] = useState<number>(2);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMetalRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const rebalanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const initSettings = async () => {
+      const [savedAuto, savedPrecision] = await Promise.all([
+        getAutoBalance(),
+        getDecimalPrecision(),
+      ]);
+      setAutoBalanceState(savedAuto);
+      setDecimalPrecisionState(savedPrecision);
+    };
+    initSettings();
+
+    const handleAutoChange = (e: any) => {
+      if (typeof e.detail === 'boolean') {
+        setAutoBalanceState(e.detail);
+      }
+    };
+
+    const handlePrecisionChange = (e: any) => {
+      const prec = e.detail === 2 ? 2 : 3;
+      setDecimalPrecisionState(prec);
+      setMetals((prev) =>
+        prev.map((m) => {
+          const num = parseFloat(m.value || "0");
+          return {
+            ...m,
+            value: !isNaN(num) ? num.toFixed(prec) : m.value,
+          };
+        })
+      );
+    };
+
+    window.addEventListener('autoBalanceChanged', handleAutoChange);
+    window.addEventListener('decimalPrecisionChanged', handlePrecisionChange);
+    return () => {
+      window.removeEventListener('autoBalanceChanged', handleAutoChange);
+      window.removeEventListener('decimalPrecisionChanged', handlePrecisionChange);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -192,7 +246,11 @@ export const useDashboard = () => {
     prevMetals: MetalValue[],
     editedId: string,
     newValueStr: string,
+    activeAutoBalance: boolean = autoBalance,
+    activePrecision: number = decimalPrecision
   ): MetalValue[] => {
+    const precision = activePrecision === 2 ? 2 : 3;
+    const factor = precision === 2 ? 100 : 1000;
     const rawNum = parseFloat(newValueStr);
     let newValueNum = isNaN(rawNum) ? 0 : rawNum;
 
@@ -202,6 +260,7 @@ export const useDashboard = () => {
     } else {
       newValueNum = Math.max(0, newValueNum);
     }
+    newValueNum = Math.round(newValueNum * factor) / factor;
 
     // Working copies with numeric values and preserved locked flags
     let parsedMetals = prevMetals.map((m) => ({
@@ -212,255 +271,105 @@ export const useDashboard = () => {
     const editedMetal = parsedMetals.find((m) => m.id === editedId);
     const sourceName = editedMetal ? editedMetal.name : "Adjustment";
 
-    let delta = 100 - parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
+    if (activeAutoBalance) {
+      let delta = 100 - parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
 
-    // Only balance if there is a delta to distribute
-    if (Math.abs(delta) > 0.00001) {
-      if (editedId === "gold") {
-        if (delta < 0) {
-          // Gold was increased, so total sum > 100. We must reduce other metals by needToReduce.
-          let needToReduce = Math.abs(delta);
+      if (Math.abs(delta) > 0.00001) {
+        // Find eligible metals (all non-edited metals)
+        const eligible = parsedMetals.filter((m) => m.id !== editedId);
 
-          // 1. First metal is Silver: should get reduced and unlocked
-          const silver = parsedMetals.find((m) => m.id === "silver");
-          if (silver) {
-            silver.locked = false; // unlock silver
-            if (silver.numValue >= needToReduce) {
-              silver.numValue -= needToReduce;
-              needToReduce = 0;
-            } else {
-              needToReduce -= silver.numValue;
-              silver.numValue = 0;
-            }
-          }
+        const getMetalWeight = (m: (typeof parsedMetals)[0]) => {
+          if (m.baseline !== undefined && m.baseline > 0) return m.baseline;
+          if (m.numValue > 0) return m.numValue;
+          return 0;
+        };
 
-          // 2. If reduced value is more than the silver, then unlock copper and reduce from copper as well
-          const copper = parsedMetals.find((m) => m.id === "copper");
-          if (needToReduce > 0.00001 && copper) {
-            copper.locked = false; // unlock copper
-            if (copper.numValue >= needToReduce) {
-              copper.numValue -= needToReduce;
-              needToReduce = 0;
-            } else {
-              needToReduce -= copper.numValue;
-              copper.numValue = 0;
-            }
-          }
-
-          // 3. If more than silver + copper, then reduce from zinc
-          const zinc = parsedMetals.find((m) => m.id === "zinc");
-          if (needToReduce > 0.00001 && zinc) {
-            zinc.locked = false; // unlock zinc
-            if (zinc.numValue >= needToReduce) {
-              zinc.numValue -= needToReduce;
-              needToReduce = 0;
-            } else {
-              needToReduce -= zinc.numValue;
-              zinc.numValue = 0;
-            }
-          }
-
-          // 4. And then rest of the non-zero metals
-          if (needToReduce > 0.00001) {
-            for (const metal of parsedMetals) {
-              if (
-                metal.id !== "gold" &&
-                metal.id !== "silver" &&
-                metal.id !== "copper" &&
-                metal.id !== "zinc" &&
-                metal.numValue > 0.00001
-              ) {
-                metal.locked = false; // unlock metal
-                if (metal.numValue >= needToReduce) {
-                  metal.numValue -= needToReduce;
-                  needToReduce = 0;
-                  break;
-                } else {
-                  needToReduce -= metal.numValue;
-                  metal.numValue = 0;
-                }
-              }
-            }
+        if (delta > 0) {
+          // Surplus: Total sum < 100. Increase other metals proportionally based on baseline %
+          const sumWeights = eligible.reduce((acc, m) => acc + getMetalWeight(m), 0);
+          if (sumWeights > 0.00001) {
+            eligible.forEach((m) => {
+              const share = delta * (getMetalWeight(m) / sumWeights);
+              m.numValue += share;
+            });
+          } else if (eligible.length > 0) {
+            const share = delta / eligible.length;
+            eligible.forEach((m) => {
+              m.numValue += share;
+            });
           }
         } else {
-          // Gold was decreased (delta > 0). Total sum < 100.
-          // First replenish all other constituents as per original (baseline), then replenish silver.
-          let surplus = delta;
-
-          // 1. Replenish other non-zero metals that were depleted below baseline
-          for (const metal of parsedMetals) {
-            if (
-              metal.id !== "gold" &&
-              metal.id !== "silver" &&
-              metal.id !== "copper" &&
-              metal.id !== "zinc"
-            ) {
-              const base = metal.baseline !== undefined ? metal.baseline : metal.numValue;
-              const deficit = Math.max(0, base - metal.numValue);
-              if (deficit > 0.00001 && surplus > 0.00001) {
-                const add = Math.min(surplus, deficit);
-                metal.numValue += add;
-                surplus -= add;
-              }
-            }
-          }
-
-          // 2. Replenish Zinc if below baseline
-          const zinc = parsedMetals.find((m) => m.id === "zinc");
-          if (zinc && surplus > 0.00001) {
-            const base = zinc.baseline !== undefined ? zinc.baseline : zinc.numValue;
-            const deficit = Math.max(0, base - zinc.numValue);
-            if (deficit > 0.00001) {
-              const add = Math.min(surplus, deficit);
-              zinc.numValue += add;
-              surplus -= add;
-            }
-          }
-
-          // 3. Replenish Copper if below baseline
-          const copper = parsedMetals.find((m) => m.id === "copper");
-          if (copper && surplus > 0.00001) {
-            const base = copper.baseline !== undefined ? copper.baseline : copper.numValue;
-            const deficit = Math.max(0, base - copper.numValue);
-            if (deficit > 0.00001) {
-              const add = Math.min(surplus, deficit);
-              copper.numValue += add;
-              surplus -= add;
-            }
-          }
-
-          // 4. And then update / replenish Silver with any remaining surplus
-          const silver = parsedMetals.find((m) => m.id === "silver");
-          if (silver && surplus > 0.00001) {
-            silver.locked = false;
-            silver.numValue += surplus;
-            surplus = 0;
-          } else if (surplus > 0.00001) {
-            if (copper) {
-              copper.locked = false;
-              copper.numValue += surplus;
-              surplus = 0;
-            } else {
-              const firstOther = parsedMetals.find((m) => m.id !== "gold");
-              if (firstOther) {
-                firstOther.locked = false;
-                firstOther.numValue += surplus;
-                surplus = 0;
-              }
-            }
-          }
-        }
-      } else {
-        // User edited a metal other than Gold
-        if (delta < 0) {
+          // Deficit: Total sum > 100. Reduce other metals proportionally based on baseline %,
+          // without letting any metal drop below 0.
           let needToReduce = Math.abs(delta);
-          const reductionOrder = ["silver", "copper", "zinc"].filter((id) => id !== editedId);
-          for (const redId of reductionOrder) {
-            const m = parsedMetals.find((p) => p.id === redId);
-            if (m && needToReduce > 0.00001 && m.numValue > 0.00001) {
-              m.locked = false;
-              if (m.numValue >= needToReduce) {
-                m.numValue -= needToReduce;
-                needToReduce = 0;
-                break;
-              } else {
-                needToReduce -= m.numValue;
-                m.numValue = 0;
-              }
-            }
-          }
+          let safetyLoops = 0;
+          while (needToReduce > 0.00001 && safetyLoops < 30) {
+            safetyLoops++;
+            const reducible = eligible.filter((m) => m.numValue > 0.00001);
+            if (reducible.length === 0) break;
 
-          if (needToReduce > 0.00001) {
-            for (const m of parsedMetals) {
-              if (m.id !== "gold" && m.id !== editedId && m.numValue > 0.00001) {
-                m.locked = false;
-                if (m.numValue >= needToReduce) {
-                  m.numValue -= needToReduce;
-                  needToReduce = 0;
-                  break;
-                } else {
-                  needToReduce -= m.numValue;
-                  m.numValue = 0;
-                }
-              }
-            }
-          }
-        } else {
-          let surplus = delta;
-          // First replenish any metals below baseline (excluding editedId and gold and silver)
-          for (const m of parsedMetals) {
-            if (
-              m.id !== "gold" &&
-              m.id !== "silver" &&
-              m.id !== editedId
-            ) {
-              const base = m.baseline !== undefined ? m.baseline : m.numValue;
-              const deficit = Math.max(0, base - m.numValue);
-              if (deficit > 0.00001 && surplus > 0.00001) {
-                const add = Math.min(surplus, deficit);
-                m.numValue += add;
-                surplus -= add;
-              }
-            }
-          }
+            const sumWeights = reducible.reduce((acc, m) => acc + getMetalWeight(m), 0);
+            let reducedInPass = 0;
 
-          if (surplus > 0.00001) {
-            const target =
-              editedId !== "silver"
-                ? parsedMetals.find((m) => m.id === "silver")
-                : parsedMetals.find((m) => m.id === "copper");
-            if (target) {
-              target.locked = false;
-              target.numValue += surplus;
-            } else {
-              const firstNonEdited = parsedMetals.find((m) => m.id !== editedId && m.id !== "gold");
-              if (firstNonEdited) {
-                firstNonEdited.locked = false;
-                firstNonEdited.numValue += surplus;
-              }
+            for (const m of reducible) {
+              const w = getMetalWeight(m);
+              const share = sumWeights > 0.00001
+                ? needToReduce * (w / sumWeights)
+                : needToReduce / reducible.length;
+              const canReduce = Math.min(m.numValue, share);
+              m.numValue -= canReduce;
+              reducedInPass += canReduce;
             }
+
+            needToReduce -= reducedInPass;
+            if (reducedInPass < 0.00001) break;
           }
         }
       }
-    }
 
-    // Round values to 3 decimal places
-    parsedMetals.forEach((m) => {
-      m.numValue = Math.round(m.numValue * 1000) / 1000;
-    });
+      // Round to precision decimal places
+      parsedMetals.forEach((m) => {
+        m.numValue = Math.round(m.numValue * factor) / factor;
+      });
 
-    // The edited metal MUST always retain the exact typed value (rounded to 3 decimals, gold capped at 100)
-    const editedEntry = parsedMetals.find((m) => m.id === editedId);
-    if (editedEntry) {
-      editedEntry.numValue = Math.round(newValueNum * 1000) / 1000;
-    }
+      // The edited metal retains exact value
+      const editedEntry = parsedMetals.find((m) => m.id === editedId);
+      if (editedEntry) {
+        editedEntry.numValue = newValueNum;
+      }
 
-    // Micro-rounding adjustment to guarantee total constituent sum is precisely 100.000
-    const currentSum = parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
-    const microDiff = Math.round((100 - currentSum) * 1000) / 1000;
+      // Micro-rounding adjustment to guarantee total constituent sum is precisely 100.00 / 100.000
+      const currentSum = parsedMetals.reduce((acc, m) => acc + m.numValue, 0);
+      const microDiff = Math.round((100 - currentSum) * factor) / factor;
+      const minStep = 1 / factor;
 
-    if (Math.abs(microDiff) >= 0.001) {
-      const silver = parsedMetals.find((m) => m.id === "silver");
-      const copper = parsedMetals.find((m) => m.id === "copper");
-      if (silver && editedId !== "silver" && silver.numValue + microDiff >= 0) {
-        silver.numValue = Math.round((silver.numValue + microDiff) * 1000) / 1000;
-      } else if (copper && editedId !== "copper" && copper.numValue + microDiff >= 0) {
-        copper.numValue = Math.round((copper.numValue + microDiff) * 1000) / 1000;
-      } else {
-        const anyUnlocked = parsedMetals.find(
-          (m) => !m.locked && m.id !== editedId && m.numValue + microDiff >= 0
-        );
-        if (anyUnlocked) {
-          anyUnlocked.numValue = Math.round((anyUnlocked.numValue + microDiff) * 1000) / 1000;
+      if (Math.abs(microDiff) >= minStep / 2) {
+        // Target an eligible metal with highest weight / value that can absorb microDiff
+        const eligibleForMicro = parsedMetals
+          .filter((m) => m.id !== editedId && m.numValue + microDiff >= 0)
+          .sort((a, b) => (b.baseline ?? b.numValue) - (a.baseline ?? a.numValue));
+
+        if (eligibleForMicro.length > 0) {
+          eligibleForMicro[0].numValue =
+            Math.round((eligibleForMicro[0].numValue + microDiff) * factor) / factor;
         }
+      }
+    } else {
+      // Auto-balance is OFF: only round and format without modifying other metals
+      parsedMetals.forEach((m) => {
+        m.numValue = Math.round(m.numValue * factor) / factor;
+      });
+      const editedEntry = parsedMetals.find((m) => m.id === editedId);
+      if (editedEntry) {
+        editedEntry.numValue = newValueNum;
       }
     }
 
-    // Map to final MetalValue array with history tracking and .toFixed(3)
+    // Map to final MetalValue array with history tracking and .toFixed(precision)
     return parsedMetals.map((m) => {
       const prev = prevMetals.find((x) => x.id === m.id);
       const prevValue = prev ? parseFloat(prev.value || "0") : 0;
-      const adjustment = Math.round((m.numValue - prevValue) * 1000) / 1000;
+      const adjustment = Math.round((m.numValue - prevValue) * factor) / factor;
       const percentChange = prevValue === 0 ? 0 : (adjustment / prevValue) * 100;
 
       const lastHistory =
@@ -469,14 +378,12 @@ export const useDashboard = () => {
           : null;
       let newHistory = m.history ? [...m.history] : [];
 
-      if (Math.abs(adjustment) > 0.0001) {
+      if (Math.abs(adjustment) >= (1 / factor)) {
         const historySource = m.id === editedId ? "User Edit" : sourceName;
 
         if (lastHistory && lastHistory.source === historySource) {
-          const totalDelta = Math.round((m.numValue - lastHistory.from) * 1000) / 1000;
-          if (Math.abs(totalDelta) < 0.001) {
-            // Net difference is 0.000 - the change has been completely undone/replenished!
-            // Remove the history record instead of displaying 0.000 diff.
+          const totalDelta = Math.round((m.numValue - lastHistory.from) * factor) / factor;
+          if (Math.abs(totalDelta) < (1 / factor)) {
             newHistory = newHistory.slice(0, -1);
           } else {
             const totalPercent =
@@ -503,19 +410,18 @@ export const useDashboard = () => {
         }
       }
 
-      // Filter out any zero-delta entries so no 0.000 difference ever lingers
       newHistory = newHistory.filter(
-        (h) => Math.abs(h.delta) >= 0.001 && Math.abs(h.from - h.to) >= 0.001
+        (h) => Math.abs(h.delta) >= (1 / factor) && Math.abs(h.from - h.to) >= (1 / factor)
       );
 
       const hasHistory = newHistory.length > 0;
       const latestSource = hasHistory ? newHistory[newHistory.length - 1].source : undefined;
       const baselineDiff =
         m.baseline !== undefined
-          ? Math.round((m.numValue - m.baseline) * 1000) / 1000
+          ? Math.round((m.numValue - m.baseline) * factor) / factor
           : 0;
       const isChangedFromBaseline =
-        m.baseline !== undefined && Math.abs(baselineDiff) >= 0.001;
+        m.baseline !== undefined && Math.abs(baselineDiff) >= (1 / factor);
 
       let lastAdjustedBy: string | undefined = undefined;
       if (m.id === editedId) {
@@ -527,33 +433,32 @@ export const useDashboard = () => {
 
       return {
         ...m,
-        value: m.numValue.toFixed(3),
+        value: m.numValue.toFixed(precision),
         previous: prevValue,
         delta: adjustment,
         percentChange,
         history: newHistory,
         lastAdjustedBy,
-        changed: isChangedFromBaseline || Math.abs(adjustment) > 0.0001,
+        changed: isChangedFromBaseline || Math.abs(adjustment) >= (1 / factor),
       };
     });
   };
 
   const balanceInitialMetals = (initialMetals: MetalValue[]) => {
+    const precision = decimalPrecision === 2 ? 2 : 3;
     const currentSum = initialMetals.reduce((acc, m) => acc + parseFloat(m.value || "0"), 0);
     if (Math.abs(currentSum - 100) < 0.001) {
       return initialMetals.map((m) => ({
         ...m,
-        value: parseFloat(m.value || "0").toFixed(3),
-        locked: m.id !== "gold",
+        value: parseFloat(m.value || "0").toFixed(precision),
       }));
     }
 
     const gold = initialMetals.find((m) => m.id === "gold");
     const goldVal = gold ? gold.value : "0";
-    const balanced = rebalanceMetals(initialMetals, "gold", goldVal);
+    const balanced = rebalanceMetals(initialMetals, "gold", goldVal, autoBalance, precision);
     return balanced.map((m) => ({
       ...m,
-      locked: m.id !== "gold",
       changed: false,
       history: [],
     }));
@@ -596,13 +501,13 @@ export const useDashboard = () => {
         };
 
         const metalInfo = ALL_AVAILABLE_METALS.find((m) => m.id === metal.toLowerCase());
+        const precision = decimalPrecision === 2 ? 2 : 3;
 
         newMetals.push({
           id: metal.toLowerCase(),
           name: info.name,
           symbol: metalInfo?.symbol || metal.slice(0, 2).toUpperCase(),
-          value: value.toFixed(3),
-          locked: metal.toLowerCase() !== "gold",
+          value: value.toFixed(precision),
           color: info.color,
           textColor: info.textColor,
           baseline: value,
@@ -621,6 +526,8 @@ export const useDashboard = () => {
     if (weightMatch) setWeight(weightMatch[1].trim());
     if (sampleTypeMatch) setSampleType(sampleTypeMatch[1].trim());
 
+    const precision = decimalPrecision === 2 ? 2 : 3;
+
     if (goldMatch) {
       const goldValue = parseFloat(goldMatch[1]);
       const formulaKarat = calculateKarat(goldValue);
@@ -634,8 +541,7 @@ export const useDashboard = () => {
         id: "gold",
         name: "Gold",
         symbol: "AU",
-        value: goldValue.toFixed(3),
-        locked: false,
+        value: goldValue.toFixed(precision),
         color: "bg-yellow-50",
         textColor: "text-yellow-600",
         baseline: goldValue,
@@ -865,6 +771,7 @@ export const useDashboard = () => {
         sampleType,
         karat: karat,
         metals,
+        decimalPrecision,
       }));
       documentForPrint.close();
 
@@ -938,12 +845,13 @@ export const useDashboard = () => {
     if (rawVal === "" || rawVal === ".") return;
     const numValue = parseFloat(rawVal);
     if (isNaN(numValue)) return;
+    const precision = decimalPrecision === 2 ? 2 : 3;
     let processedValue: string;
     if (id === "gold") {
       const clamped = Math.min(100, Math.max(0, numValue));
-      processedValue = clamped.toFixed(3);
+      processedValue = clamped.toFixed(precision);
     } else {
-      processedValue = numValue >= 100 ? "100.000" : numValue.toFixed(3);
+      processedValue = (numValue >= 100 ? 100 : Math.max(0, numValue)).toFixed(precision);
     }
 
     setMetals((prev) => {
@@ -952,8 +860,50 @@ export const useDashboard = () => {
         setKarat(calculateKarat(purity));
         setKaratDisplay(getKaratInfo(purity).karat_display);
       }
-      return rebalanceMetals(prev, id, processedValue);
+      return rebalanceMetals(prev, id, processedValue, autoBalance, decimalPrecision);
     });
+  };
+
+  const stepMetalValue = (id: string, delta: number) => {
+    const metal = metals.find((m) => m.id === id);
+    if (!metal) return;
+    const current = parseFloat(tempValues[id] ?? metal.value ?? "0") || 0;
+    const precision = decimalPrecision === 2 ? 2 : 3;
+    let next = Math.round((current + delta) * 1000) / 1000;
+    if (next < 0) next = 0;
+    if (id === "gold" && next > 100) next = 100;
+    commitValue(id, next.toFixed(precision));
+  };
+
+  const toggleAutoBalance = async () => {
+    const next = !autoBalance;
+    setAutoBalanceState(next);
+    await saveAutoBalance(next);
+    if (next) {
+      setMetals((prev) => {
+        const gold = prev.find((m) => m.id === "gold");
+        const goldVal = gold ? gold.value : "0";
+        return rebalanceMetals(prev, "gold", goldVal, next, decimalPrecision);
+      });
+    }
+  };
+
+  const setAutoBalance = async (val: boolean) => {
+    setAutoBalanceState(val);
+    await saveAutoBalance(val);
+    if (val) {
+      setMetals((prev) => {
+        const gold = prev.find((m) => m.id === "gold");
+        const goldVal = gold ? gold.value : "0";
+        return rebalanceMetals(prev, "gold", goldVal, val, decimalPrecision);
+      });
+    }
+  };
+
+  const setDecimalPrecision = async (val: number) => {
+    const prec = val === 2 ? 2 : 3;
+    setDecimalPrecisionState(prec);
+    await saveDecimalPrecision(prec);
   };
 
   const handleValueChange = (id: string, newValue: string) => {
@@ -994,12 +944,6 @@ export const useDashboard = () => {
     setLastEditedId(null);
   };
 
-  const toggleLock = (id: string) => {
-    setMetals((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, locked: !m.locked } : m)),
-    );
-  };
-
   const removeMetal = (id: string) => {
     setMetals((prev) => {
       const metalToRemove = prev.find((m) => m.id === id);
@@ -1011,8 +955,9 @@ export const useDashboard = () => {
       if (isPurelyManual) {
         nextMetals = prev.filter((m) => m.id !== id);
       } else {
+        const zeroVal = decimalPrecision === 2 ? "0.00" : "0.000";
         nextMetals = prev.map((m) =>
-          m.id === id ? { ...m, value: "0.000", isManual: false } : m,
+          m.id === id ? { ...m, value: zeroVal, isManual: false } : m,
         );
       }
 
@@ -1029,6 +974,7 @@ export const useDashboard = () => {
     setTempValues({});
     setLastEditedId(null);
 
+    const precision = decimalPrecision === 2 ? 2 : 3;
     let resetBalanced: MetalValue[] = [];
     setMetals((prev) => {
       const originalMetals = prev.filter((m) => m.baseline !== undefined);
@@ -1038,8 +984,7 @@ export const useDashboard = () => {
 
         return {
           ...m,
-          value: base.toFixed(3),
-          locked: m.id !== "gold",
+          value: base.toFixed(precision),
           isManual: false,
           history: [],
           changed: false,
@@ -1051,7 +996,6 @@ export const useDashboard = () => {
         ...m,
         history: [],
         changed: false,
-        locked: m.id !== "gold",
       }));
       return resetBalanced;
     });
@@ -1118,8 +1062,8 @@ export const useDashboard = () => {
       (acc, m) => acc + (parseFloat(tempValues[m.id] ?? m.value) || 0),
       0
     )
-    .toFixed(2);
-  const isVerified = Math.abs(parseFloat(totalAggregate) - 100) < 0.01;
+    .toFixed(decimalPrecision === 2 ? 2 : 3);
+  const isVerified = Math.abs(parseFloat(totalAggregate) - 100) < (decimalPrecision === 2 ? 0.02 : 0.002);
 
   const addMetal = (metalId: string) => {
     const metalInfo = ALL_AVAILABLE_METALS.find((m) => m.id === metalId);
@@ -1130,6 +1074,8 @@ export const useDashboard = () => {
       color: "bg-slate-100",
       textColor: "text-slate-700",
     };
+
+    const zeroVal = decimalPrecision === 2 ? "0.00" : "0.000";
 
     setMetals((prev) => {
       const existing = prev.find((m) => m.id === metalId);
@@ -1144,8 +1090,7 @@ export const useDashboard = () => {
           id: metalId,
           name: info.name,
           symbol: metalInfo.symbol,
-          value: "0.000",
-          locked: false,
+          value: zeroVal,
           color: info.color,
           textColor: info.textColor,
           isManual: true,
@@ -1196,7 +1141,6 @@ export const useDashboard = () => {
     disconnectFile,
     handleValueChange,
     handleValueBlur,
-    toggleLock,
     removeMetal,
     resetToOriginal,
     downloadDOC,
@@ -1207,5 +1151,11 @@ export const useDashboard = () => {
     totalAggregate,
     isVerified,
     addMetal,
+    autoBalance,
+    setAutoBalance,
+    toggleAutoBalance,
+    decimalPrecision,
+    setDecimalPrecision,
+    stepMetalValue,
   };
 };

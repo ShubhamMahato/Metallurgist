@@ -12,6 +12,7 @@ export const CompactSlipTemplate: React.FC<TemplateProps> = ({ payload, checksum
   const ratePerGram = payload.marketRate?.ratePerGram || 0;
   const calculatedGoldVal =
     payload.marketRate?.calculatedGoldValue || weightNum * ratePerGram;
+  const precision = payload.decimalPrecision === 3 ? 3 : 2;
 
   return (
     <div className="bg-white text-slate-900 p-5 sm:p-7 rounded-xl border border-dashed border-slate-300 shadow-md max-w-xl mx-auto font-mono text-xs print:border print:shadow-none print:p-2">
@@ -48,7 +49,7 @@ export const CompactSlipTemplate: React.FC<TemplateProps> = ({ payload, checksum
           Gold Purity
         </div>
         <div className="text-2xl font-black tracking-tight text-white my-0.5">
-          {parseFloat(payload.goldPurity).toFixed(3)}%
+          {parseFloat(payload.goldPurity).toFixed(precision)}%
         </div>
         <div className="text-[11px] text-slate-300">
           Rating: <strong className="text-amber-400">{payload.karatDisplay}</strong>{" "}
@@ -95,7 +96,7 @@ export const CompactSlipTemplate: React.FC<TemplateProps> = ({ payload, checksum
                 <span>
                   {metal.name} ({metal.symbol})
                 </span>
-                <span className="font-bold">{val.toFixed(3)}%</span>
+                <span className="font-bold">{val.toFixed(precision)}%</span>
               </div>
             );
           })}

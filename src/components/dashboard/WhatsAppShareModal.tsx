@@ -31,6 +31,8 @@ import {
   SavedContact,
 } from "../../lib/phoneStorage";
 import { useShopName } from "../../lib/useShopName";
+import { getDecimalPrecision } from "../../lib/settingsStore";
+import { useLanguage } from "../../lib/LanguageContext";
 
 interface WhatsAppShareModalProps {
   isOpen: boolean;
@@ -66,6 +68,25 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [ibjaRate, setIbjaRate] = useState<number>(0);
   const { shopName } = useShopName();
+  const { t } = useLanguage();
+
+  const [includeLink, setIncludeLink] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("metallurgist_wa_include_link");
+      return saved !== null ? saved === "true" : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [includeValuation, setIncludeValuation] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("metallurgist_wa_include_valuation");
+      return saved !== null ? saved === "true" : false;
+    } catch {
+      return false;
+    }
+  });
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -103,6 +124,26 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
     };
     window.addEventListener("templateChanged", handleTemplateChanged);
     return () => window.removeEventListener("templateChanged", handleTemplateChanged);
+  }, []);
+
+  const [decimalPrecision, setDecimalPrecision] = useState<number>(2);
+
+  // Keep decimal precision synced
+  useEffect(() => {
+    if (isOpen) {
+      getDecimalPrecision().then((dp) => setDecimalPrecision(dp));
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handlePrecisionChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<number>;
+      if (typeof customEvent.detail === "number") {
+        setDecimalPrecision(customEvent.detail);
+      }
+    };
+    window.addEventListener("decimalPrecisionChanged", handlePrecisionChanged);
+    return () => window.removeEventListener("decimalPrecisionChanged", handlePrecisionChanged);
   }, []);
 
   const activeTemplateMeta =
@@ -215,6 +256,8 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           : karatInfo.karatDisplay;
       const cleanKaratExact = (karatExact || karatInfo.karatExact).replace(/k$/i, "").trim();
 
+        const precision = decimalPrecision === 2 ? 2 : 3;
+
       const payload: SharedReportPayload = {
         version: "1.0",
         reportId: `AS-${Date.now().toString().slice(-6)}`,
@@ -229,14 +272,14 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           hour: "2-digit",
           minute: "2-digit",
         }),
-        goldPurity: purityNum.toFixed(3),
+        goldPurity: purityNum.toFixed(precision),
         karatExact: cleanKaratExact,
         karatDisplay: cleanKaratDisplay,
         metals: metals.map((m) => ({
           id: m.id,
           name: m.name,
           symbol: m.symbol,
-          value: parseFloat(m.value || "0").toFixed(3),
+          value: parseFloat(m.value || "0").toFixed(precision),
           baseline: m.baseline,
         })),
         marketRate:
@@ -250,6 +293,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               }
             : undefined,
         templateId: activeTemplateId,
+        decimalPrecision: precision,
       };
 
       try {
@@ -264,9 +308,13 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             value: m.value,
           })),
           templateId: activeTemplateId,
+          decimalPrecision: precision,
         });
 
-        const msg = generateWhatsAppMessage(payload, url);
+        const msg = generateWhatsAppMessage(payload, url, precision, {
+          includeLink,
+          includeValuation,
+        });
 
         if (!isCancelled) {
           setShareUrl(url);
@@ -296,6 +344,9 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
     metals,
     ibjaRate,
     shopName,
+    decimalPrecision,
+    includeLink,
+    includeValuation,
   ]);
 
   if (!isOpen) return null;
@@ -371,10 +422,10 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             </div>
             <div>
               <h2 className="font-headline font-bold text-base sm:text-lg text-slate-900 leading-tight">
-                Share Report on WhatsApp
+                {t("shareOnWhatsApp")}
               </h2>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-                <span>Report template:</span>
+                <span>{t("reportTemplateLabel")}</span>
                 <select
                   value={activeTemplateId}
                   onChange={(e) => {
@@ -410,7 +461,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="py-4 space-y-4">
+        <div className="py-4 space-y-3.5">
           {/* Mobile Number Input with Auto-Prefixed +91 & Dropdown Autocomplete */}
           <div className="space-y-1.5" ref={dropdownRef}>
             <label
@@ -419,11 +470,11 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             >
               <span className="flex items-center gap-1.5">
                 <Phone size={13} className="text-emerald-600" />
-                <span>Mobile Number (10 Digits)</span>
+                <span>{t("mobileNumberLabel")}</span>
               </span>
               {savedContacts.length > 0 && (
                 <span className="text-[10px] text-slate-400 font-normal">
-                  Saved numbers available
+                  {t("savedNumbersAvailable")}
                 </span>
               )}
             </label>
@@ -445,7 +496,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                     setShowDropdown(true);
                   }}
                   onFocus={() => setShowDropdown(true)}
-                  placeholder="Enter 10-digit mobile number"
+                  placeholder={t("mobilePlaceholder")}
                   className="w-full text-xs font-mono px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white pr-9 transition-all"
                   autoComplete="off"
                 />
@@ -455,7 +506,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                     type="button"
                     onClick={() => setShowDropdown(!showDropdown)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded"
-                    title="View saved contacts"
+                    title={t("viewSavedContacts")}
                   >
                     <ChevronDown size={14} />
                   </button>
@@ -465,11 +516,11 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                 {showDropdown && savedContacts.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-slate-100">
                     <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Recent Numbers
+                      {t("recentNumbers")}
                     </div>
                     {filteredContacts.length === 0 ? (
                       <div className="p-3 text-xs text-slate-400 text-center">
-                        No matching saved numbers
+                        {t("noMatchingNumbers")}
                       </div>
                     ) : (
                       filteredContacts.map((contact) => (
@@ -494,7 +545,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                             type="button"
                             onClick={(e) => handleDeleteContact(e, contact.phone)}
                             className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-600 rounded transition-opacity"
-                            title="Delete from saved contacts"
+                            title={t("deleteFromSaved")}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -507,25 +558,74 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-500">
-              Country code +91 is appended automatically. Numbers are saved to your device for easy autocomplete.
+              {t("phoneHelperText")}
             </p>
+          </div>
+
+          {/* Customization Checkboxes: Report Link & Market Valuation */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 cursor-pointer transition-colors select-none">
+              <input
+                type="checkbox"
+                checked={includeLink}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setIncludeLink(val);
+                  try {
+                    localStorage.setItem("metallurgist_wa_include_link", String(val));
+                  } catch {}
+                }}
+                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+              />
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-slate-800">
+                  {t("includeReportLink")}
+                </span>
+                <span className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                  {t("includeReportLinkDesc")}
+                </span>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 cursor-pointer transition-colors select-none">
+              <input
+                type="checkbox"
+                checked={includeValuation}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setIncludeValuation(val);
+                  try {
+                    localStorage.setItem("metallurgist_wa_include_valuation", String(val));
+                  } catch {}
+                }}
+                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+              />
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-slate-800">
+                  {t("includeValuation")}
+                </span>
+                <span className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                  {t("includeValuationDesc")}
+                </span>
+              </div>
+            </label>
           </div>
 
           {/* Message Preview (Clean and focused) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold uppercase tracking-wider text-slate-700">
-                Message Preview
+                {t("messagePreview")}
               </span>
               <span className="text-[10px] text-slate-400">
-                Includes gold purity, karat & report link
+                {t("messagePreviewHelp")}
               </span>
             </div>
 
             <textarea
               readOnly
               value={whatsAppText}
-              rows={7}
+              rows={6}
               className="w-full text-xs font-mono p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none select-all resize-none shadow-2xs leading-relaxed"
             />
           </div>
@@ -540,16 +640,16 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors cursor-pointer"
           >
             {isCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-            <span>{isCopied ? "Link Copied!" : "Copy Link"}</span>
+            <span>{isCopied ? t("linkCopied") : t("copyLink")}</span>
           </button>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-initial px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+              className="flex-1 sm:flex-initial px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
             >
-              Cancel
+              {t("cancel")}
             </button>
 
             <button
@@ -559,7 +659,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 rounded-xl shadow-xs transition-colors cursor-pointer"
             >
               <MessageCircle size={15} />
-              <span>Send on WhatsApp</span>
+              <span>{t("sendOnWhatsApp")}</span>
             </button>
           </div>
         </div>

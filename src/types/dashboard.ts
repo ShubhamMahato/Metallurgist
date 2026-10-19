@@ -11,7 +11,7 @@ export interface MetalValue {
   name: string;
   symbol: string;
   value: string;
-  locked: boolean;
+  locked?: boolean;
   color: string;
   textColor: string;
 

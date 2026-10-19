@@ -36,6 +36,7 @@ export interface SharedReportPayload {
   metals: SharedReportMetal[];
   marketRate?: SharedReportMarketRate;
   templateId: ReportTemplateId;
+  decimalPrecision?: number;
 }
 
 export interface ReportTemplateMeta {
