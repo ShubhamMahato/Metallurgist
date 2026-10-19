@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   ShieldAlert,
+  ShieldCheck,
   Printer,
   Download,
   FlaskConical,
-  ExternalLink,
 } from "lucide-react";
 import { verifyAndDecodeReport, fetchLiveIbjaRate } from "../utils/cryptoReport";
 import { SharedReportPayload, ReportTemplateId, REPORT_TEMPLATES } from "../types/report";
@@ -141,23 +141,19 @@ export const SharedReportPage: React.FC = () => {
       {/* Top Banner (Hidden in print) */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 print:hidden shadow-xs">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <Link
-            to="/"
-            className="flex items-center gap-2 group text-slate-900"
-            title="Open Metallurgist Workspace"
-          >
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold">
+          <div className="flex items-center gap-2 select-none text-slate-900">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold shadow-2xs">
               <FlaskConical size={16} className="text-amber-400" />
             </div>
             <div className="flex flex-col">
-              <span className="font-headline font-bold text-sm tracking-tight">
-                Metallurgist
+              <span className="font-headline font-bold text-sm tracking-tight text-slate-900">
+                {reportPayload?.shopName || "Metallurgist"}
               </span>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
                 Report Viewer
               </span>
             </div>
-          </Link>
+          </div>
 
           {isValid && reportPayload && (
             <div className="flex items-center gap-2">
@@ -214,17 +210,8 @@ export const SharedReportPage: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-500">
-              This report link does not contain valid metallurgical testing data.
+              Please contact the issuing assay laboratory or jeweller to request a valid report link.
             </p>
-
-            <div className="pt-2">
-              <Link
-                to="/"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors"
-              >
-                Go to Metallurgist Studio
-              </Link>
-            </div>
           </div>
         )}
 
@@ -235,13 +222,10 @@ export const SharedReportPage: React.FC = () => {
               <span className="font-mono text-[11px] text-slate-400">
                 {reportPayload.reportId} • {reportPayload.timestamp}
               </span>
-              <Link
-                to="/"
-                className="inline-flex items-center gap-1 font-semibold text-slate-700 hover:text-slate-900 transition-colors"
-              >
-                <span>Open Metallurgist Studio</span>
-                <ExternalLink size={11} />
-              </Link>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
+                <ShieldCheck size={12} className="text-emerald-600" />
+                <span>Verified Report</span>
+              </span>
             </div>
 
             {/* Rendered Template Document */}
