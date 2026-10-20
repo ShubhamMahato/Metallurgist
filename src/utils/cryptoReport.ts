@@ -461,10 +461,6 @@ export function generateWhatsAppMessage(
 
   const purityNum = parseFloat(payload.goldPurity || "0");
   const fallbackKarat = calculateKaratFromPurity(purityNum);
-  const displayKarat =
-    payload.karatDisplay && !/\d+\.\d+/.test(payload.karatDisplay)
-      ? (payload.karatDisplay.endsWith("K") ? payload.karatDisplay : `${payload.karatDisplay}K`)
-      : fallbackKarat.karatDisplay;
   const exactKarat = (payload.karatExact || fallbackKarat.karatExact).replace(/k$/i, "").trim();
 
   let message =
@@ -473,7 +469,7 @@ export function generateWhatsAppMessage(
     `👤 *Jeweller:* ${payload.customerName || "N/A"}\n` +
     `⚖️ *Weight:* ${payload.weight}g\n` +
     `🥇 *GOLD PURITY:* ${parseFloat(payload.goldPurity).toFixed(precision)}%\n` +
-    `👑 *Karat Rating:* ${displayKarat} (Exact: ${exactKarat}K)` +
+    `👑 *Karat Rating:* ${exactKarat}K` +
     rateBlock +
     `\n\n` +
     `🧪 *Constituent Breakdown:*\n` +
