@@ -86,8 +86,10 @@ export default function DashboardPage() {
     addMetal,
     autoBalance,
     toggleAutoBalance,
+    triggerManualBalance,
     decimalPrecision,
     stepMetalValue,
+    rebalanceCountdown,
   } = dashboard;
 
   React.useEffect(() => {
@@ -135,7 +137,7 @@ export default function DashboardPage() {
       onReload={reloadFile}
       onShareWhatsApp={() => setIsShareModalOpen(true)}
     >
-      <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
+      <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-2.5 sm:pt-4 pb-8 sm:pb-12 space-y-3 sm:space-y-4">
         <input
           ref={fileInputRef}
           type="file"
@@ -151,19 +153,19 @@ export default function DashboardPage() {
         />
 
         {/* Minimal Header */}
-        <section className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
-            <div className="space-y-1">
+        <section className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-4">
+            <div className="space-y-0.5 sm:space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 {fileHandle ? (
                   <span
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold ${
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] sm:text-xs font-semibold ${
                       isPersistent
                         ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
                         : "bg-amber-50 text-amber-800 border border-amber-300"
                     }`}
                   >
-                    <HardDrive size={12} />
+                    <HardDrive size={11} className="sm:w-3 sm:h-3" />
                     {t("localConnected")}
                     {!isPersistent && (
                       <button
@@ -176,13 +178,13 @@ export default function DashboardPage() {
                     )}
                   </span>
                 ) : (
-                  <span className="text-xs font-medium text-slate-500">
+                  <span className="text-[11px] sm:text-xs font-medium text-slate-500">
                     {t("localMode")}
                   </span>
                 )}
               </div>
 
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight">
                 {t("metalComposition")}
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 max-w-xl">
@@ -436,6 +438,19 @@ export default function DashboardPage() {
                     />
                     <span>{t("autoBalanceLabel")}</span>
                   </label>
+
+                  {!autoBalance && (
+                    <Tooltip content={t("balanceNowDesc")}>
+                      <button
+                        type="button"
+                        onClick={triggerManualBalance}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg shadow-xs transition-all cursor-pointer animate-in fade-in duration-150"
+                      >
+                        <Scale size={13} className="text-amber-700" />
+                        <span>{t("balanceNow")}</span>
+                      </button>
+                    </Tooltip>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -503,6 +518,32 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Fixed Round Auto-Balance Countdown Pill (Web Only) */}
+      <AnimatePresence>
+        {isParsed && autoBalance && rebalanceCountdown !== null && rebalanceCountdown > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.85, y: 10 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="hidden sm:inline-flex fixed bottom-6 right-6 z-40 items-center gap-2 px-3.5 py-1.5 bg-slate-900/90 text-white rounded-full shadow-lg border border-amber-500/40 backdrop-blur-md cursor-pointer hover:bg-slate-900 transition-colors select-none"
+            onClick={() => handleValueBlur()}
+            title="Click to balance now"
+          >
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            <span className="text-xs font-medium text-slate-200">
+              {t("autoBalanceCountdown")}{" "}
+              <strong className="font-mono text-amber-400 font-bold tabular-nums">
+                {rebalanceCountdown}s
+              </strong>
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* WhatsApp Tamper-Proof Share Modal */}
       <WhatsAppShareModal

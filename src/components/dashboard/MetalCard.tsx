@@ -116,6 +116,11 @@ export const MetalCard: React.FC<MetalCardProps> = ({
                 value={tempValues[metal.id] ?? metal.value}
                 onChange={(e) => handleValueChange(metal.id, e.target.value)}
                 onBlur={() => handleValueBlur(metal.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.currentTarget.blur();
+                  }
+                }}
                 aria-label={`${translatedName} ${t("concentration")}`}
                 className={`w-full font-mono font-bold text-lg text-slate-900 bg-slate-50 border rounded-lg py-1.5 pl-3 pr-8 focus:bg-white focus:border-slate-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900 ${
                   isEditing ? "border-slate-900 bg-white" : "border-slate-300"

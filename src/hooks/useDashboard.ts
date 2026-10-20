@@ -118,7 +118,21 @@ export const useDashboard = () => {
   const addMetalRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const [rebalanceCountdown, setRebalanceCountdown] = useState<number | null>(null);
   const rebalanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rebalanceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearRebalanceTimers = useCallback(() => {
+    if (rebalanceTimeoutRef.current) {
+      clearTimeout(rebalanceTimeoutRef.current);
+      rebalanceTimeoutRef.current = null;
+    }
+    if (rebalanceIntervalRef.current) {
+      clearInterval(rebalanceIntervalRef.current);
+      rebalanceIntervalRef.current = null;
+    }
+    setRebalanceCountdown(null);
+  }, []);
 
   useEffect(() => {
     const initSettings = async () => {
@@ -843,7 +857,9 @@ export const useDashboard = () => {
 
   const commitValue = (id: string, rawVal: string) => {
     if (rawVal === "" || rawVal === ".") return;
-    const numValue = parseFloat(rawVal);
+    const cleanVal = rawVal.endsWith(".") ? rawVal.slice(0, -1) : rawVal;
+    if (cleanVal === "") return;
+    const numValue = parseFloat(cleanVal);
     if (isNaN(numValue)) return;
     const precision = decimalPrecision === 2 ? 2 : 3;
     let processedValue: string;
@@ -865,6 +881,7 @@ export const useDashboard = () => {
   };
 
   const stepMetalValue = (id: string, delta: number) => {
+    clearRebalanceTimers();
     const metal = metals.find((m) => m.id === id);
     if (!metal) return;
     const current = parseFloat(tempValues[id] ?? metal.value ?? "0") || 0;
@@ -872,6 +889,11 @@ export const useDashboard = () => {
     let next = Math.round((current + delta) * 1000) / 1000;
     if (next < 0) next = 0;
     if (id === "gold" && next > 100) next = 100;
+    setTempValues((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
     commitValue(id, next.toFixed(precision));
   };
 
@@ -906,6 +928,20 @@ export const useDashboard = () => {
     await saveDecimalPrecision(prec);
   };
 
+  const triggerManualBalance = () => {
+    clearRebalanceTimers();
+
+    setMetals((prev) => {
+      const anchorId = lastEditedId || "gold";
+      const anchor = prev.find((m) => m.id === anchorId) || prev[0];
+      const anchorVal = anchor ? (tempValues[anchor.id] ?? anchor.value) : "0";
+      return rebalanceMetals(prev, anchor.id, anchorVal, true, decimalPrecision);
+    });
+
+    setTempValues({});
+    setLastEditedId(null);
+  };
+
   const handleValueChange = (id: string, newValue: string) => {
     if (newValue !== "" && !/^\d*\.?\d*$/.test(newValue)) return;
 
@@ -923,24 +959,53 @@ export const useDashboard = () => {
     setLastEditedId(id);
     setTempValues((prev) => ({ ...prev, [id]: newValue }));
 
-    if (rebalanceTimeoutRef.current) {
-      clearTimeout(rebalanceTimeoutRef.current);
+    clearRebalanceTimers();
+
+    // Only run the 10-second countdown timer when autoBalance is ON.
+    // If autoBalance is OFF, we do not auto-rebalance; user can adjust at their own pace and click "Balance to 100%".
+    if (autoBalance) {
+      setRebalanceCountdown(10);
+
+      rebalanceIntervalRef.current = setInterval(() => {
+        setRebalanceCountdown((prev) => {
+          if (prev === null || prev <= 1) {
+            return 1;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      rebalanceTimeoutRef.current = setTimeout(() => {
+        clearRebalanceTimers();
+        if (newValue === "" || newValue === "." || newValue.endsWith(".")) return;
+
+        commitValue(id, newValue);
+        setTempValues((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setLastEditedId(null);
+      }, 10000);
     }
-
-    rebalanceTimeoutRef.current = setTimeout(() => {
-      if (newValue === "" || newValue === "." || newValue.endsWith(".")) return;
-
-      commitValue(id, newValue);
-      setTempValues((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-      rebalanceTimeoutRef.current = null;
-    }, 1000);
   };
 
-  const handleValueBlur = (_id?: string) => {
+  const handleValueBlur = (id?: string) => {
+    clearRebalanceTimers();
+
+    const targetId = id || lastEditedId;
+    if (targetId && tempValues[targetId] !== undefined) {
+      const val = tempValues[targetId];
+      if (val !== "" && val !== ".") {
+        commitValue(targetId, val);
+      }
+      setTempValues((prev) => {
+        const next = { ...prev };
+        delete next[targetId];
+        return next;
+      });
+    }
+
     setLastEditedId(null);
   };
 
@@ -1154,8 +1219,10 @@ export const useDashboard = () => {
     autoBalance,
     setAutoBalance,
     toggleAutoBalance,
+    triggerManualBalance,
     decimalPrecision,
     setDecimalPrecision,
     stepMetalValue,
+    rebalanceCountdown,
   };
 };
