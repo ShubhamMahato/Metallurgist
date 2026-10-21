@@ -327,6 +327,11 @@ export default function PriceCalculator() {
                     min="0"
                     value={weight}
                     onChange={(e) => setWeight(e.target.value)}
+                    onFocus={(e) => {
+                      const input = e.currentTarget;
+                      input.select();
+                      setTimeout(() => input.select(), 0);
+                    }}
                     placeholder="0.000"
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 pl-8 pr-7 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-slate-900 focus:outline-none"
                   />

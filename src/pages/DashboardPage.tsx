@@ -509,7 +509,6 @@ export default function DashboardPage() {
                     handleValueChange={handleValueChange}
                     handleValueBlur={handleValueBlur}
                     removeMetal={removeMetal}
-                    onStep={stepMetalValue}
                     decimalPrecision={decimalPrecision}
                   />
                 ))}

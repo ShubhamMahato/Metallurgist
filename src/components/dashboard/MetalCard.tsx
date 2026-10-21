@@ -15,7 +15,6 @@ interface MetalCardProps {
   handleValueChange: (id: string, value: string) => void;
   handleValueBlur: (id: string) => void;
   removeMetal: (id: string) => void;
-  onStep?: (id: string, delta: number) => void;
   decimalPrecision?: number;
 }
 
@@ -37,7 +36,6 @@ export const MetalCard: React.FC<MetalCardProps> = ({
   handleValueChange,
   handleValueBlur,
   removeMetal,
-  onStep,
   decimalPrecision = 2,
 }) => {
   const { t } = useLanguage();
@@ -107,50 +105,27 @@ export const MetalCard: React.FC<MetalCardProps> = ({
             {t("concentration")}
           </label>
 
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1 flex items-center">
-              <input
-                id={`input-metal-${metal.id}`}
-                type="text"
-                inputMode="decimal"
-                value={tempValues[metal.id] ?? metal.value}
-                onChange={(e) => handleValueChange(metal.id, e.target.value)}
-                onBlur={() => handleValueBlur(metal.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.currentTarget.blur();
-                  }
-                }}
-                aria-label={`${translatedName} ${t("concentration")}`}
-                className={`w-full font-mono font-bold text-lg text-slate-900 bg-slate-50 border rounded-lg py-1.5 pl-3 pr-8 focus:bg-white focus:border-slate-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900 ${
-                  isEditing ? "border-slate-900 bg-white" : "border-slate-300"
-                }`}
-              />
-              <div className="absolute right-2.5 flex items-center pointer-events-none text-slate-500 font-mono font-bold text-xs">
-                %
-              </div>
+          <div className="relative flex items-center">
+            <input
+              id={`input-metal-${metal.id}`}
+              type="text"
+              inputMode="decimal"
+              value={tempValues[metal.id] ?? metal.value}
+              onChange={(e) => handleValueChange(metal.id, e.target.value)}
+              onBlur={() => handleValueBlur(metal.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.currentTarget.blur();
+                }
+              }}
+              aria-label={`${translatedName} ${t("concentration")}`}
+              className={`w-full font-mono font-bold text-lg text-slate-900 bg-slate-50 border rounded-lg py-1.5 pl-3 pr-8 focus:bg-white focus:border-slate-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900 ${
+                isEditing ? "border-slate-900 bg-white" : "border-slate-300"
+              }`}
+            />
+            <div className="absolute right-2.5 flex items-center pointer-events-none text-slate-500 font-mono font-bold text-xs">
+              %
             </div>
-
-            {onStep && (
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onStep(metal.id, -0.1)}
-                  title={`Decrease ${translatedName} by 0.1%`}
-                  className="w-8 h-9 flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 font-bold text-sm transition-colors cursor-pointer select-none"
-                >
-                  −
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onStep(metal.id, 0.1)}
-                  title={`Increase ${translatedName} by 0.1%`}
-                  className="w-8 h-9 flex items-center justify-center rounded-lg border border-slate-300 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 font-bold text-sm transition-colors cursor-pointer select-none"
-                >
-                  +
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Baseline Comparison Delta */}
