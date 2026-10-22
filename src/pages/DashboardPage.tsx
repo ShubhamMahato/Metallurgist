@@ -509,7 +509,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Right Action Buttons: Aligned in ONE row on mobile! */}
+                {/* Right Action Buttons: Symbol-only on mobile/tablet, names shown on desktop */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <AddMetalModal
                     isAddingMetal={isAddingMetal}
@@ -519,7 +519,6 @@ export default function DashboardPage() {
                     metals={metals}
                     addMetal={addMetal}
                     compact
-                    symbolOnly
                   />
 
                   <Tooltip content={t("resetBaseline")}>
@@ -527,9 +526,10 @@ export default function DashboardPage() {
                       type="button"
                       onClick={resetToOriginal}
                       aria-label={t("resetBaseline")}
-                      className="w-8 h-8 inline-flex items-center justify-center text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
+                      className="w-8 h-8 lg:w-auto lg:h-auto lg:px-2.5 lg:py-1.5 inline-flex items-center justify-center lg:gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs sm:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
                     >
-                      <RotateCcw size={14} />
+                      <RotateCcw size={14} className="sm:w-3.5 sm:h-3.5 shrink-0" />
+                      <span className="hidden lg:inline">{t("resetBaseline")}</span>
                     </button>
                   </Tooltip>
 
@@ -538,9 +538,10 @@ export default function DashboardPage() {
                       type="button"
                       onClick={() => setIsShareModalOpen(true)}
                       aria-label={t("whatsAppShare")}
-                      className="w-8 h-8 inline-flex items-center justify-center text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
+                      className="w-8 h-8 lg:w-auto lg:h-auto lg:px-2.5 lg:py-1.5 inline-flex items-center justify-center lg:gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs sm:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
                     >
-                      <Share2 size={14} />
+                      <Share2 size={14} className="text-emerald-600 sm:w-3.5 sm:h-3.5 shrink-0" />
+                      <span className="hidden lg:inline">{t("whatsAppShare")}</span>
                     </button>
                   </Tooltip>
 
@@ -552,9 +553,10 @@ export default function DashboardPage() {
                         setUploadError(null);
                       }}
                       aria-label={t("newReport")}
-                      className="w-8 h-8 inline-flex items-center justify-center text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
+                      className="w-8 h-8 lg:w-auto lg:h-auto lg:px-2.5 lg:py-1.5 inline-flex items-center justify-center lg:gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs sm:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
                     >
-                      <FilePlus2 size={14} />
+                      <FilePlus2 size={14} className="sm:w-3.5 sm:h-3.5 shrink-0" />
+                      <span className="hidden lg:inline">{t("newReport")}</span>
                     </button>
                   </Tooltip>
                 </div>
