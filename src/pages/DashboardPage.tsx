@@ -175,7 +175,7 @@ export default function DashboardPage() {
         {/* Minimal Header */}
         <section className="bg-white rounded-xl border border-slate-200 p-2 sm:p-4 shadow-xs">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-1.5 sm:gap-4">
-            <div className="space-y-0.5 sm:space-y-1">
+            <div className="space-y-1 sm:space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
                 {fileHandle ? (
                   <span
@@ -204,7 +204,7 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <h1 className="text-base sm:text-2xl font-bold text-slate-900 tracking-tight leading-none sm:leading-normal">
+              <h1 className="text-base sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug sm:leading-normal pt-0.5 sm:pt-1">
                 {t("metalComposition")}
               </h1>
               <p className="hidden sm:block text-xs sm:text-sm text-slate-600 max-w-xl">
@@ -449,61 +449,64 @@ export default function DashboardPage() {
                     </span>
                   </div>
 
-                  {/* View Mode Switcher */}
-                  <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-md border border-slate-300">
-                    <button
-                      type="button"
-                      onClick={() => handleViewModeChange("compact")}
-                      title="Compact List View (Recommended for Mobile/Tablet)"
-                      className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[11px] sm:text-xs font-semibold rounded transition-all cursor-pointer ${
-                        viewMode === "compact"
-                          ? "bg-white text-slate-900 shadow-2xs font-bold"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
+                  {/* Auto & Tab/List View Switcher aligned together */}
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <label
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-md text-[10px] sm:text-xs font-semibold text-slate-700 cursor-pointer transition-colors select-none"
+                      title="Automatically adjust remaining constituents proportionally to 100%"
                     >
-                      <List size={12} className="sm:w-3.5 sm:h-3.5" />
-                      <span className="hidden sm:inline">Compact</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleViewModeChange("cards")}
-                      title="Cards View"
-                      className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[11px] sm:text-xs font-semibold rounded transition-all cursor-pointer ${
-                        viewMode === "cards"
-                          ? "bg-white text-slate-900 shadow-2xs font-bold"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <LayoutGrid size={12} className="sm:w-3.5 sm:h-3.5" />
-                      <span className="hidden sm:inline">Cards</span>
-                    </button>
-                  </div>
+                      <input
+                        type="checkbox"
+                        checked={autoBalance}
+                        onChange={toggleAutoBalance}
+                        className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <span>Auto</span>
+                    </label>
 
-                  <label
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-md text-[10px] sm:text-xs font-semibold text-slate-700 cursor-pointer transition-colors select-none"
-                    title="Automatically adjust remaining constituents proportionally to 100%"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={autoBalance}
-                      onChange={toggleAutoBalance}
-                      className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
-                    />
-                    <span>Auto</span>
-                  </label>
+                    {!autoBalance && (
+                      <Tooltip content={t("balanceNowDesc")}>
+                        <button
+                          type="button"
+                          onClick={triggerManualBalance}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-md shadow-2xs transition-all cursor-pointer animate-in fade-in duration-150"
+                        >
+                          <Scale size={11} className="text-amber-700" />
+                          <span>{t("balanceNow")}</span>
+                        </button>
+                      </Tooltip>
+                    )}
 
-                  {!autoBalance && (
-                    <Tooltip content={t("balanceNowDesc")}>
+                    {/* View Mode Switcher (Tab / List View) */}
+                    <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-md border border-slate-300">
                       <button
                         type="button"
-                        onClick={triggerManualBalance}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-md shadow-2xs transition-all cursor-pointer animate-in fade-in duration-150"
+                        onClick={() => handleViewModeChange("compact")}
+                        title="Compact List View (Recommended for Mobile/Tablet)"
+                        className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[11px] sm:text-xs font-semibold rounded transition-all cursor-pointer ${
+                          viewMode === "compact"
+                            ? "bg-white text-slate-900 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
                       >
-                        <Scale size={11} className="text-amber-700" />
-                        <span>{t("balanceNow")}</span>
+                        <List size={12} className="sm:w-3.5 sm:h-3.5" />
+                        <span className="hidden sm:inline">Compact</span>
                       </button>
-                    </Tooltip>
-                  )}
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange("cards")}
+                        title="Cards View"
+                        className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[11px] sm:text-xs font-semibold rounded transition-all cursor-pointer ${
+                          viewMode === "cards"
+                            ? "bg-white text-slate-900 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <LayoutGrid size={12} className="sm:w-3.5 sm:h-3.5" />
+                        <span className="hidden sm:inline">Cards</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Right Action Buttons: Aligned in ONE row on mobile! */}
