@@ -401,7 +401,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
     >
@@ -412,20 +412,25 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
         aria-hidden="true"
       />
 
-      {/* Modal Dialog */}
-      <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-5 sm:p-6 z-10 flex flex-col my-auto animate-in zoom-in-95 duration-150">
+      {/* Modal Dialog (Bottom-sheet on mobile, centered modal on tablet/desktop) */}
+      <div className="relative bg-white rounded-t-3xl sm:rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[92dvh] sm:max-h-[90vh] z-10 flex flex-col my-0 sm:my-auto animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-150 overflow-hidden">
+        {/* Mobile pull handle indicator */}
+        <div className="pt-2.5 pb-1 flex justify-center sm:hidden shrink-0 bg-white">
+          <div className="w-10 h-1 bg-slate-300 rounded-full" />
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 shrink-0 bg-white">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
               <MessageCircle size={18} />
             </div>
-            <div>
-              <h2 className="font-headline font-bold text-base sm:text-lg text-slate-900 leading-tight">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-headline font-bold text-base sm:text-lg text-slate-900 leading-tight truncate">
                 {t("shareOnWhatsApp")}
               </h2>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-                <span>{t("reportTemplateLabel")}</span>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5 flex-wrap">
+                <span className="shrink-0">{t("reportTemplateLabel")}</span>
                 <select
                   value={activeTemplateId}
                   onChange={(e) => {
@@ -438,7 +443,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                       );
                     } catch {}
                   }}
-                  className="font-semibold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300 text-[11px] cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                  className="font-semibold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300 text-[11px] cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-emerald-500 max-w-[140px] sm:max-w-none truncate"
                 >
                   {REPORT_TEMPLATES.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -453,15 +458,15 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shrink-0 ml-1.5"
             aria-label="Close dialog"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="py-4 space-y-3.5">
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-3.5 space-y-3">
           {/* Mobile Number Input with Auto-Prefixed +91 & Dropdown Autocomplete */}
           <div className="space-y-1.5" ref={dropdownRef}>
             <label
@@ -480,7 +485,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             </label>
 
             <div className="relative flex items-center">
-              <span className="inline-flex items-center px-3 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 text-xs font-mono font-bold select-none shrink-0">
+              <span className="inline-flex items-center px-3 h-11 sm:h-10 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 text-xs font-mono font-bold select-none shrink-0">
                 +91
               </span>
               <div className="relative flex-1">
@@ -497,7 +502,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                   }}
                   onFocus={() => setShowDropdown(true)}
                   placeholder={t("mobilePlaceholder")}
-                  className="w-full text-xs font-mono px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white pr-9 transition-all"
+                  className="w-full text-base sm:text-xs font-mono px-3 h-11 sm:h-10 bg-slate-50 border border-slate-300 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white pr-9 transition-all"
                   autoComplete="off"
                 />
 
@@ -505,7 +510,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowDropdown(!showDropdown)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1.5 rounded cursor-pointer"
                     title={t("viewSavedContacts")}
                   >
                     <ChevronDown size={14} />
@@ -515,7 +520,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                 {/* Autocomplete Dropdown List */}
                 {showDropdown && savedContacts.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-slate-100">
-                    <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0">
                       {t("recentNumbers")}
                     </div>
                     {filteredContacts.length === 0 ? (
@@ -527,7 +532,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                         <div
                           key={contact.phone}
                           onClick={() => handleSelectContact(extractTenDigitNumber(contact.phone))}
-                          className="flex items-center justify-between px-3 py-2 text-xs hover:bg-emerald-50/70 cursor-pointer transition-colors group"
+                          className="flex items-center justify-between px-3 py-2.5 sm:py-2 text-xs hover:bg-emerald-50/70 active:bg-emerald-100 cursor-pointer transition-colors group"
                         >
                           <div className="flex items-center gap-2">
                             <Phone size={12} className="text-emerald-600 shrink-0" />
@@ -544,10 +549,10 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleDeleteContact(e, contact.phone)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-600 rounded transition-opacity"
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded transition-colors"
                             title={t("deleteFromSaved")}
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       ))
@@ -557,14 +562,14 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 leading-tight">
               {t("phoneHelperText")}
             </p>
           </div>
 
           {/* Customization Checkboxes: Report Link & Market Valuation */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 cursor-pointer transition-colors select-none">
+            <label className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 active:bg-slate-100 cursor-pointer transition-colors select-none">
               <input
                 type="checkbox"
                 checked={includeLink}
@@ -575,9 +580,9 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                     localStorage.setItem("metallurgist_wa_include_link", String(val));
                   } catch {}
                 }}
-                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer shrink-0"
               />
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 <span className="text-xs font-bold text-slate-800">
                   {t("includeReportLink")}
                 </span>
@@ -587,7 +592,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               </div>
             </label>
 
-            <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 cursor-pointer transition-colors select-none">
+            <label className="flex items-start gap-2.5 p-2.5 sm:p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 active:bg-slate-100 cursor-pointer transition-colors select-none">
               <input
                 type="checkbox"
                 checked={includeValuation}
@@ -598,9 +603,9 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                     localStorage.setItem("metallurgist_wa_include_valuation", String(val));
                   } catch {}
                 }}
-                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer shrink-0"
               />
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 <span className="text-xs font-bold text-slate-800">
                   {t("includeValuation")}
                 </span>
@@ -611,8 +616,8 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             </label>
           </div>
 
-          {/* Message Preview (Clean and focused) */}
-          <div className="space-y-1.5">
+          {/* Message Preview (Clean, compact and focused) */}
+          <div className="space-y-1">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold uppercase tracking-wider text-slate-700">
                 {t("messagePreview")}
@@ -625,41 +630,41 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             <textarea
               readOnly
               value={whatsAppText}
-              rows={6}
-              className="w-full text-xs font-mono p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none select-all resize-none shadow-2xs leading-relaxed"
+              rows={3}
+              className="w-full text-xs font-mono p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none select-all resize-none shadow-2xs leading-relaxed max-h-28 sm:max-h-36"
             />
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="pt-3.5 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-center justify-between gap-2 shrink-0">
+        {/* Footer Actions (Optimized for thumb reach on mobile/tablet) */}
+        <div className="px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50/90 backdrop-blur-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0">
           <button
             type="button"
-            onClick={handleCopyLink}
-            disabled={isGenerating || !shareUrl}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors cursor-pointer"
+            onClick={handleSendWhatsApp}
+            disabled={isGenerating || !whatsAppText}
+            className="w-full sm:w-auto order-1 sm:order-2 inline-flex items-center justify-center gap-2 px-5 h-11 sm:h-9 text-sm sm:text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 rounded-xl shadow-xs transition-all active:scale-[0.99] cursor-pointer"
           >
-            {isCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-            <span>{isCopied ? t("linkCopied") : t("copyLink")}</span>
+            <MessageCircle size={17} />
+            <span>{t("sendOnWhatsApp")}</span>
           </button>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto order-2 sm:order-1">
             <button
               type="button"
-              onClick={onClose}
-              className="flex-1 sm:flex-initial px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              onClick={handleCopyLink}
+              disabled={isGenerating || !shareUrl}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 h-11 sm:h-9 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 active:bg-slate-200 border border-slate-300 rounded-xl shadow-2xs transition-all active:scale-[0.99] cursor-pointer"
             >
-              {t("cancel")}
+              {isCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              <span>{isCopied ? t("linkCopied") : t("copyLink")}</span>
             </button>
 
             <button
               type="button"
-              onClick={handleSendWhatsApp}
-              disabled={isGenerating || !whatsAppText}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 rounded-xl shadow-xs transition-colors cursor-pointer"
+              onClick={onClose}
+              className="flex-1 sm:flex-initial h-11 sm:h-9 px-3.5 text-xs font-semibold text-slate-600 hover:text-slate-900 active:bg-slate-200 rounded-xl transition-colors cursor-pointer"
             >
-              <MessageCircle size={15} />
-              <span>{t("sendOnWhatsApp")}</span>
+              {t("cancel")}
             </button>
           </div>
         </div>
