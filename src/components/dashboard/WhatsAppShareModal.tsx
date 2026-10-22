@@ -33,6 +33,11 @@ import {
 import { useShopName } from "../../lib/useShopName";
 import { getDecimalPrecision } from "../../lib/settingsStore";
 import { useLanguage } from "../../lib/LanguageContext";
+import {
+  JewellerId,
+  KaratOption,
+  fetchJewellerRates,
+} from "../../services/jewellerRates";
 
 interface WhatsAppShareModalProps {
   isOpen: boolean;
@@ -172,57 +177,38 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch live IBJA rates from snapdata.dev
+  // Fetch live gold rates from preferred jeweller (Joyalukkas / Malabar)
   useEffect(() => {
     let isMounted = true;
-    async function fetchIbja() {
+    async function fetchRate() {
       try {
-        const response = await fetch("https://snapdata.dev/api/v1/gold/in/latest.json");
-        if (response.ok) {
-          const data = await response.json();
-          const obs: any[] = data.observations || [];
-          let targetRate = 0;
+        let preferredJeweller: JewellerId = "joyalukkas";
+        try {
+          const saved = localStorage.getItem("metallurgist_preferred_jeweller");
+          if (saved === "joyalukkas" || saved === "malabar") preferredJeweller = saved;
+        } catch {}
 
-          const purityNum = parseFloat(goldPurity) || 75;
-          const fallbackKarat = calculateKaratFromPurity(purityNum);
-          const targetInst = (
-            karatDisplay && !/\d+\.\d+/.test(karatDisplay)
-              ? (karatDisplay.endsWith("K") ? karatDisplay : `${karatDisplay}K`)
-              : fallbackKarat.karatDisplay
-          ).toUpperCase();
-          for (const item of obs) {
-            if (
-              item.instrument?.includes(targetInst) ||
-              item.instrument_id?.includes(targetInst)
-            ) {
-              const val = typeof item.value === "number" ? item.value : parseFloat(item.value);
-              if (!isNaN(val) && val > 0) {
-                targetRate = val;
-                break;
-              }
-            }
-          }
+        const result = await fetchJewellerRates(preferredJeweller);
+        const purityNum = parseFloat(goldPurity) || 75;
+        const fallbackKarat = calculateKaratFromPurity(purityNum);
+        const targetKarat = (
+          karatDisplay && ["18K", "22K", "24K"].includes(karatDisplay.toUpperCase())
+            ? karatDisplay.toUpperCase()
+            : fallbackKarat.karatDisplay
+        ) as KaratOption;
 
-          if (!targetRate) {
-            for (const item of obs) {
-              if (item.instrument?.includes("24K") || item.instrument_id?.includes("24K")) {
-                const val = typeof item.value === "number" ? item.value : parseFloat(item.value);
-                if (!isNaN(val) && val > 0) {
-                  const purityNum = parseFloat(goldPurity) || 75;
-                  targetRate = Math.round(val * (purityNum / 100));
-                  break;
-                }
-              }
-            }
-          }
+        let targetRate = result.rates[targetKarat]?.perGram;
+        if (!targetRate) {
+          const rate24K = result.rates["24K"]?.perGram || 14438;
+          targetRate = Math.round(rate24K * (purityNum / 100));
+        }
 
-          if (isMounted && targetRate > 0) {
-            setIbjaRate(targetRate);
-          }
+        if (isMounted && targetRate > 0) {
+          setIbjaRate(targetRate);
         }
       } catch (err) {
         const purityNum = parseFloat(goldPurity) || 75;
-        const estimated24K = 14929;
+        const estimated24K = 14438;
         if (isMounted) {
           setIbjaRate(Math.round(estimated24K * (purityNum / 100)));
         }
@@ -230,7 +216,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
     }
 
     if (isOpen) {
-      fetchIbja();
+      fetchRate();
     }
     return () => {
       isMounted = false;
@@ -286,7 +272,11 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
           ibjaRate > 0
             ? {
                 ratePerGram: ibjaRate,
-                rateSource: "IBJA Retail Standard",
+                rateSource: `${
+                  (localStorage.getItem("metallurgist_preferred_jeweller") || "joyalukkas") === "malabar"
+                    ? "Malabar Gold"
+                    : "Joyalukkas"
+                } Daily Rate`,
                 calculatedGoldValue: calculatedGoldVal,
                 fetchedAt: new Date().toISOString(),
                 karatCategory: karatDisplay,

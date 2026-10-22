@@ -25,6 +25,20 @@ export default defineConfig(() => {
       port: 3000,
       allowedHosts: true as const,
       hmr: process.env.DISABLE_HMR !== 'true',
+      proxy: {
+        '/api/joyalukkas': {
+          target: 'https://www.joyalukkas.in',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/joyalukkas/, ''),
+        },
+        '/api/malabar': {
+          target: 'https://www.malabargoldanddiamonds.com',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/malabar/, ''),
+        },
+      },
     },
   };
 });
