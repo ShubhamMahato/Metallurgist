@@ -86,11 +86,11 @@ export const HallmarkOfficialTemplate: React.FC<TemplateProps> = ({ payload, che
         </div>
       </div>
 
-      {/* Jeweller & Sample Particulars */}
+      {/* Customer & Sample Particulars */}
       <div className="border border-slate-200 rounded-xl p-4 mb-6 bg-white shadow-2xs">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div>
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Jeweller</span>
+            <span className="text-[10px] text-slate-400 uppercase font-bold">Customer</span>
             <span className="block font-bold text-slate-900 text-sm mt-0.5 truncate">
               {payload.customerName || "—"}
             </span>

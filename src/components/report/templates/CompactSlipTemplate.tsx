@@ -30,7 +30,7 @@ export const CompactSlipTemplate: React.FC<TemplateProps> = ({ payload, checksum
       {/* Client Particulars */}
       <div className="space-y-1 pb-3 mb-3 border-b border-dashed border-slate-300 text-slate-700">
         <div className="flex justify-between">
-          <span className="text-slate-500">JEWELLER:</span>
+          <span className="text-slate-500">CUSTOMER:</span>
           <span className="font-bold text-slate-900">{payload.customerName || "—"}</span>
         </div>
         <div className="flex justify-between">

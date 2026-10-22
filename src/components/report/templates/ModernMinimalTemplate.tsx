@@ -64,7 +64,7 @@ export const ModernMinimalTemplate: React.FC<TemplateProps> = ({ payload, checks
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col justify-between text-xs space-y-3">
           <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-200">
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400">Jeweller</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Customer</span>
               <span className="block font-bold text-slate-900 text-sm truncate mt-0.5">
                 {payload.customerName || "—"}
               </span>

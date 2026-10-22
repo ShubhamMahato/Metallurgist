@@ -39,12 +39,12 @@ export const LuxuryGoldTemplate: React.FC<TemplateProps> = ({ payload, checksum 
         </div>
       </div>
 
-      {/* Jeweller & Specimen Card */}
+      {/* Customer & Specimen Card */}
       <div className="bg-white/80 backdrop-blur-xs rounded-xl border border-amber-200 p-4 sm:p-5 mb-6 shadow-xs">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
             <div className="text-[10px] uppercase font-bold text-amber-900 tracking-wider">
-              Jeweller
+              Customer
             </div>
             <div className="font-bold text-slate-900 text-sm mt-0.5 truncate">
               {payload.customerName || "—"}

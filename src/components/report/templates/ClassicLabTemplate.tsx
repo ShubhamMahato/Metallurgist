@@ -46,11 +46,11 @@ export const ClassicLabTemplate: React.FC<TemplateProps> = ({ payload, checksum 
         </div>
       </div>
 
-      {/* Sample & Jeweller Metadata Grid */}
+      {/* Sample & Customer Metadata Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 mb-6 text-xs">
         <div>
           <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500 flex items-center gap-1">
-            <User size={11} /> Jeweller Name
+            <User size={11} /> Customer Name
           </span>
           <span className="font-bold text-slate-900 block mt-1 text-sm truncate">
             {payload.customerName || "—"}

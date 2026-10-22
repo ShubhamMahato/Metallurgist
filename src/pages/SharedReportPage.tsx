@@ -115,7 +115,7 @@ export const SharedReportPage: React.FC = () => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Metallurgical Report - ${reportPayload.customerName || "Jeweller"}</title>
+  <title>Metallurgical Report - ${reportPayload.customerName || "Customer"}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; padding: 20px; color: #1e293b; }
     @media print { body { padding: 0; } }
@@ -131,7 +131,7 @@ export const SharedReportPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Metallurgical_Report_${reportPayload.customerName || "Jeweller"}_${reportPayload.karatDisplay}.html`;
+    a.download = `Metallurgical_Report_${reportPayload.customerName || "Customer"}_${reportPayload.karatDisplay}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -210,7 +210,7 @@ export const SharedReportPage: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-500">
-              Please contact the issuing assay laboratory or jeweller to request a valid report link.
+              Please contact the issuing assay laboratory or customer to request a valid report link.
             </p>
           </div>
         )}

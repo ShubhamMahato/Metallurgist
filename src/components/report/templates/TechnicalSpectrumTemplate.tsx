@@ -41,7 +41,7 @@ export const TechnicalSpectrumTemplate: React.FC<TemplateProps> = ({ payload, ch
       {/* Metadata Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 mb-6 text-xs font-mono">
         <div>
-          <span className="text-[10px] text-cyan-500 uppercase block">JEWELLER</span>
+          <span className="text-[10px] text-cyan-500 uppercase block">CUSTOMER</span>
           <span className="font-bold text-white truncate block mt-0.5">
             {payload.customerName || "—"}
           </span>

@@ -255,7 +255,7 @@ export async function verifyAndDecodeReport(
     }
 
     const shopName = paramMap.get("shop") || undefined;
-    const customerName = paramMap.get("cust") || "Jeweller";
+    const customerName = paramMap.get("cust") || "Customer";
     const weight = paramMap.get("wt") || "0.000";
 
     const rawTmpl = paramMap.get("tmpl") || paramMap.get("template");
@@ -466,7 +466,7 @@ export function generateWhatsAppMessage(
   let message =
     `${headerTitle}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `👤 *Jeweller:* ${payload.customerName || "N/A"}\n` +
+    `👤 *Customer:* ${payload.customerName || "N/A"}\n` +
     `⚖️ *Weight:* ${payload.weight}g\n` +
     `🥇 *GOLD PURITY:* ${parseFloat(payload.goldPurity).toFixed(precision)}%\n` +
     `👑 *Karat Rating:* ${exactKarat}K` +

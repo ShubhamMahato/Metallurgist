@@ -262,7 +262,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
         version: "1.0",
         reportId: `AS-${Date.now().toString().slice(-6)}`,
         shopName: shopName.trim() || undefined,
-        customerName: customerName || "Jeweller",
+        customerName: customerName || "Customer",
         sampleType: sampleType || "Gold Sample",
         weight: weight || "0.000",
         timestamp: new Date().toLocaleDateString("en-IN", {
@@ -299,7 +299,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
       try {
         const { url } = await createCompactReportPackage({
           shopName: shopName.trim() || undefined,
-          customerName: customerName || "Jeweller",
+          customerName: customerName || "Customer",
           weight: weight || "0.000",
           goldPurity: goldPurity || metals.find((m) => m.id === "gold")?.value || "0.000",
           metals: metals.map((m) => ({
