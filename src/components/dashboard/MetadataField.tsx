@@ -99,7 +99,7 @@ export const MetadataField: React.FC<MetadataFieldProps> = ({
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           placeholder={placeholder}
-          className="w-full bg-white border-2 border-slate-300 rounded-lg py-2.5 pl-10 pr-3 font-mono text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 transition-colors"
+          className="w-full bg-white border border-slate-300 rounded-lg py-2.5 pl-10 pr-3 font-mono text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100 selection:bg-sky-200 selection:text-slate-900 transition-colors"
         />
       </div>
     </div>

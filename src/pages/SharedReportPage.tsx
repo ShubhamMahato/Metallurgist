@@ -137,7 +137,7 @@ export const SharedReportPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/80 text-slate-900 font-body flex flex-col selection:bg-amber-200">
+    <div className="min-h-screen bg-slate-100/80 text-slate-900 font-body flex flex-col selection:bg-sky-200">
       {/* Top Banner (Hidden in print) */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 print:hidden shadow-xs">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
