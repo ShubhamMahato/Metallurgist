@@ -41,28 +41,28 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
       : (precision === 3 ? "0.000" : "0.00");
 
   return (
-    <div className="grid grid-cols-3 gap-1.5 sm:gap-3 w-full">
+    <div className="grid grid-cols-3 gap-1 sm:gap-2.5 w-full">
       {/* 1. Total Concentration Card */}
       <div
-        className={`flex items-center gap-2 sm:gap-2.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border bg-white shadow-xs min-w-0 ${
+        className={`flex items-center gap-1.5 sm:gap-2 px-1.5 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl border bg-white shadow-2xs sm:shadow-xs min-w-0 ${
           isVerified ? "border-emerald-300" : "border-amber-300"
         }`}
       >
         <div
-          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${
+          className={`w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg flex items-center justify-center shrink-0 ${
             isVerified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
           }`}
         >
           {isVerified ? (
-            <CheckCircle2 size={14} className="sm:w-4 sm:h-4" aria-hidden="true" />
+            <CheckCircle2 size={12} className="sm:w-4 sm:h-4" aria-hidden="true" />
           ) : (
-            <AlertTriangle size={14} className="sm:w-4 sm:h-4" aria-hidden="true" />
+            <AlertTriangle size={12} className="sm:w-4 sm:h-4" aria-hidden="true" />
           )}
         </div>
 
-        <div className="flex flex-col min-w-0">
+        <div className="flex flex-col min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+            <span className="text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
               {t("totalComposition")}
             </span>
             <Tooltip content="Total concentration should equal 100%.">
@@ -76,16 +76,16 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
             </Tooltip>
           </div>
 
-          <div className="flex items-baseline gap-1 sm:gap-1.5 flex-wrap min-w-0">
+          <div className="flex items-baseline gap-1 min-w-0">
             <span
-              className={`text-sm sm:text-base lg:text-lg font-bold font-mono tabular-nums leading-none truncate ${
+              className={`text-xs sm:text-base lg:text-lg font-bold font-mono tabular-nums leading-tight whitespace-nowrap ${
                 isVerified ? "text-emerald-700" : "text-amber-800"
               }`}
             >
               {totalAggregate}%
             </span>
             <span
-              className={`text-[9px] sm:text-[10px] font-semibold px-1 sm:px-1.5 py-0.2 rounded shrink-0 ${
+              className={`text-[8px] sm:text-[10px] font-semibold px-1 py-0.2 rounded shrink-0 hidden xs:inline ${
                 isVerified
                   ? "bg-emerald-100 text-emerald-800"
                   : "bg-amber-100 text-amber-900"
@@ -98,14 +98,14 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
       </div>
 
       {/* 2. Karat Rating Card */}
-      <div className="flex items-center gap-2 sm:gap-2.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border border-slate-200 bg-white shadow-xs min-w-0">
-        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-          <Award size={14} className="sm:w-4 sm:h-4" aria-hidden="true" />
+      <div className="flex items-center gap-1.5 sm:gap-2 px-1.5 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 bg-white shadow-2xs sm:shadow-xs min-w-0">
+        <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+          <Award size={12} className="sm:w-4 sm:h-4" aria-hidden="true" />
         </div>
 
-        <div className="flex flex-col min-w-0">
+        <div className="flex flex-col min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+            <span className="text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
               {t("karatRating")}
             </span>
             <Tooltip content="Calculated from Gold (Au) percentage: (Gold % × 24) / 100.">
@@ -119,8 +119,8 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
             </Tooltip>
           </div>
 
-          <div className="flex items-baseline gap-1 flex-wrap min-w-0">
-            <span className="text-sm sm:text-base lg:text-lg font-bold font-mono tabular-nums text-slate-900 leading-none truncate">
+          <div className="flex items-baseline gap-1 min-w-0">
+            <span className="text-xs sm:text-base lg:text-lg font-bold font-mono tabular-nums text-slate-900 leading-tight whitespace-nowrap">
               {karatDisplay || (karat.endsWith("K") ? karat : `${karat}K`)}
             </span>
             {karatDisplay && (
@@ -133,14 +133,14 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
       </div>
 
       {/* 3. Fine 24K Gold Weight Card */}
-      <div className="flex items-center gap-2 sm:gap-2.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border border-slate-200 bg-white shadow-xs min-w-0">
-        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-          <Coins size={14} className="sm:w-4 sm:h-4" aria-hidden="true" />
+      <div className="flex items-center gap-1.5 sm:gap-2 px-1.5 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 bg-white shadow-2xs sm:shadow-xs min-w-0">
+        <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+          <Coins size={12} className="sm:w-4 sm:h-4" aria-hidden="true" />
         </div>
 
-        <div className="flex flex-col min-w-0">
+        <div className="flex flex-col min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+            <span className="text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
               {t("fineGoldWeight")}
             </span>
             <Tooltip content="Calculated Fine Gold (24K) weight: Total Weight × (Gold % / 100).">
@@ -155,10 +155,10 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
           </div>
 
           <div className="flex items-baseline gap-0.5 min-w-0">
-            <span className="text-sm sm:text-base lg:text-lg font-bold font-mono tabular-nums text-slate-900 leading-none truncate">
+            <span className="text-xs sm:text-base lg:text-lg font-bold font-mono tabular-nums text-slate-900 leading-tight whitespace-nowrap">
               {fineGoldWeight}
             </span>
-            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 shrink-0">
+            <span className="text-[9px] sm:text-[11px] font-semibold text-slate-500 shrink-0">
               g
             </span>
           </div>

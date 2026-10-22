@@ -172,13 +172,13 @@ export default function DashboardPage() {
         />
 
         {/* Minimal Header */}
-        <section className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-4">
+        <section className="bg-white rounded-xl border border-slate-200 p-2 sm:p-4 shadow-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-1.5 sm:gap-4">
             <div className="space-y-0.5 sm:space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 {fileHandle ? (
                   <span
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] sm:text-xs font-semibold ${
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] sm:text-xs font-semibold ${
                       isPersistent
                         ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
                         : "bg-amber-50 text-amber-800 border border-amber-300"
@@ -197,23 +197,23 @@ export default function DashboardPage() {
                     )}
                   </span>
                 ) : (
-                  <span className="text-[11px] sm:text-xs font-medium text-slate-500">
+                  <span className="text-[10px] sm:text-xs font-medium text-slate-500">
                     {t("localMode")}
                   </span>
                 )}
               </div>
 
-              <h1 className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-base sm:text-2xl font-bold text-slate-900 tracking-tight leading-none sm:leading-normal">
                 {t("metalComposition")}
               </h1>
-              <p className="text-xs sm:text-sm text-slate-600 max-w-xl">
+              <p className="hidden sm:block text-xs sm:text-sm text-slate-600 max-w-xl">
                 {t("compositionSubtitle")}
               </p>
             </div>
 
             {/* Header Calculations Readout (stays in header next to Metal Composition) */}
             {isParsed && (
-              <div ref={headerSummaryRef} className="shrink-0 w-full lg:w-auto">
+              <div ref={headerSummaryRef} className="shrink-0 w-full lg:w-auto mt-0.5 lg:mt-0">
                 <CalculationSummary
                   totalAggregate={totalAggregate}
                   isVerified={isVerified}
@@ -339,17 +339,17 @@ export default function DashboardPage() {
             <motion.section
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-4 sm:space-y-5"
+              className="space-y-2 sm:space-y-3.5"
             >
-              {/* Sample Details & Composition Spectrum Breakdown Side-by-Side */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-4">
+              {/* Sample Details (Full width on mobile/tablet, visualizer hidden on mobile/tablet) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-4">
                 {/* Left: Sample Details */}
-                <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-2.5 sm:p-4 shadow-xs flex flex-col justify-between">
-                  <span className="block text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5 sm:mb-2.5">
+                <div className="w-full lg:col-span-7 bg-white rounded-xl border border-slate-200 p-2 sm:p-3 shadow-xs flex flex-col justify-between">
+                  <span className="block text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 sm:mb-1.5">
                     {t("sampleDetails")}
                   </span>
 
-                  <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                  <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5">
                     <MetadataField
                       label={t("customerName")}
                       value={customerName}
@@ -374,8 +374,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Right: Composition Visualizer */}
-                <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-2.5 sm:p-4 shadow-xs flex flex-col justify-between">
+                {/* Right: Composition Visualizer - Desktop Only (Hidden on Mobile & Tablet) */}
+                <div className="hidden lg:flex lg:col-span-5 bg-white rounded-xl border border-slate-200 p-3 sm:p-4 shadow-xs flex-col justify-between">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                       {t("compositionBreakdown")}
@@ -430,62 +430,65 @@ export default function DashboardPage() {
               </div>
 
               {/* Toolbar */}
-              <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-1">
-                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                  <h2 className="text-base font-bold text-slate-900">
-                    {t("constituents")}
-                  </h2>
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                      isVerified
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-amber-100 text-amber-900"
-                    }`}
-                  >
-                    {isVerified ? t("balanced") : t("unbalanced")}
-                  </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3 py-0.5 sm:py-1">
+                {/* Left Controls */}
+                <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                      {t("constituents")}
+                    </h2>
+                    <span
+                      className={`text-[10px] sm:text-xs font-semibold px-1.5 py-0.2 sm:py-0.5 rounded ${
+                        isVerified
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-900"
+                      }`}
+                    >
+                      {isVerified ? t("balanced") : t("unbalanced")}
+                    </span>
+                  </div>
 
                   {/* View Mode Switcher */}
-                  <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-300">
+                  <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-md border border-slate-300">
                     <button
                       type="button"
                       onClick={() => handleViewModeChange("compact")}
                       title="Compact List View (Recommended for Mobile/Tablet)"
-                      className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                      className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[11px] sm:text-xs font-semibold rounded transition-all cursor-pointer ${
                         viewMode === "compact"
                           ? "bg-white text-slate-900 shadow-2xs font-bold"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
-                      <List size={13} />
+                      <List size={12} className="sm:w-3.5 sm:h-3.5" />
                       <span className="hidden sm:inline">Compact</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleViewModeChange("cards")}
                       title="Cards View"
-                      className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                      className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[11px] sm:text-xs font-semibold rounded transition-all cursor-pointer ${
                         viewMode === "cards"
                           ? "bg-white text-slate-900 shadow-2xs font-bold"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
-                      <LayoutGrid size={13} />
+                      <LayoutGrid size={12} className="sm:w-3.5 sm:h-3.5" />
                       <span className="hidden sm:inline">Cards</span>
                     </button>
                   </div>
 
                   <label
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer transition-colors select-none"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-md text-[10px] sm:text-xs font-semibold text-slate-700 cursor-pointer transition-colors select-none"
                     title="Automatically adjust remaining constituents proportionally to 100%"
                   >
                     <input
                       type="checkbox"
                       checked={autoBalance}
                       onChange={toggleAutoBalance}
-                      className="w-3.5 h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                      className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
                     />
-                    <span>{t("autoBalanceLabel")}</span>
+                    <span>Auto</span>
                   </label>
 
                   {!autoBalance && (
@@ -493,16 +496,17 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         onClick={triggerManualBalance}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg shadow-xs transition-all cursor-pointer animate-in fade-in duration-150"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-md shadow-2xs transition-all cursor-pointer animate-in fade-in duration-150"
                       >
-                        <Scale size={13} className="text-amber-700" />
+                        <Scale size={11} className="text-amber-700" />
                         <span>{t("balanceNow")}</span>
                       </button>
                     </Tooltip>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
+                {/* Right Action Buttons: Aligned in ONE row on mobile! */}
+                <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto sm:overflow-visible shrink-0">
                   <AddMetalModal
                     isAddingMetal={isAddingMetal}
                     setIsAddingMetal={setIsAddingMetal}
@@ -510,15 +514,16 @@ export default function DashboardPage() {
                     availableMetals={ALL_AVAILABLE_METALS}
                     metals={metals}
                     addMetal={addMetal}
+                    compact
                   />
 
                   <Tooltip content={t("resetBaseline")}>
                     <button
                       type="button"
                       onClick={resetToOriginal}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0"
                     >
-                      <RotateCcw size={12} />
+                      <RotateCcw size={11} className="sm:w-3 sm:h-3" />
                       <span>{t("resetBaseline")}</span>
                     </button>
                   </Tooltip>
@@ -527,9 +532,9 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => setIsShareModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-xs transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0"
                     >
-                      <Share2 size={12} className="text-emerald-600" />
+                      <Share2 size={11} className="text-emerald-600 sm:w-3 sm:h-3" />
                       <span>{t("whatsAppShare")}</span>
                     </button>
                   </Tooltip>
@@ -540,7 +545,7 @@ export default function DashboardPage() {
                       setIsParsed(false);
                       setUploadError(null);
                     }}
-                    className="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition-colors cursor-pointer"
+                    className="inline-flex items-center px-2 py-1 sm:px-2.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0"
                   >
                     {t("newReport")}
                   </button>

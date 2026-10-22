@@ -11,6 +11,7 @@ interface AddMetalModalProps {
   availableMetals: AvailableMetal[];
   metals: MetalValue[];
   addMetal: (id: string) => void;
+  compact?: boolean;
 }
 
 export const AddMetalModal: React.FC<AddMetalModalProps> = ({
@@ -20,6 +21,7 @@ export const AddMetalModal: React.FC<AddMetalModalProps> = ({
   availableMetals,
   metals,
   addMetal,
+  compact = false,
 }) => {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
@@ -54,9 +56,13 @@ export const AddMetalModal: React.FC<AddMetalModalProps> = ({
         }}
         aria-expanded={isAddingMetal}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition-colors cursor-pointer"
+        className={`inline-flex items-center gap-1 font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0 ${
+          compact
+            ? "px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs"
+            : "px-2.5 py-1.5 text-xs"
+        }`}
       >
-        <Plus size={13} className="text-amber-600" />
+        <Plus size={12} className="text-amber-600 sm:w-3.5 sm:h-3.5" />
         <span>{t("addConstituent")}</span>
       </button>
 
