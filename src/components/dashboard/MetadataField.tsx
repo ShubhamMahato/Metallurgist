@@ -68,25 +68,25 @@ export const MetadataField: React.FC<MetadataFieldProps> = ({
   };
 
   return (
-    <div className="flex flex-col space-y-1.5">
+    <div className="flex flex-col space-y-1 sm:space-y-1.5">
       <div className="flex items-center justify-between">
         <label
           htmlFor={inputId}
-          className="text-xs font-bold text-slate-800 uppercase tracking-wider"
+          className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider truncate"
         >
           {label}
         </label>
         {description && (
-          <span className="text-[11px] text-slate-500">{description}</span>
+          <span className="text-[10px] sm:text-[11px] text-slate-400 hidden sm:inline">{description}</span>
         )}
       </div>
 
       <div className="relative flex items-center">
         <div
-          className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500"
+          className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none text-slate-400"
           aria-hidden="true"
         >
-          <Icon size={16} />
+          <Icon size={14} className="sm:w-4 sm:h-4" />
         </div>
         <input
           id={inputId}
@@ -99,7 +99,7 @@ export const MetadataField: React.FC<MetadataFieldProps> = ({
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           placeholder={placeholder}
-          className="w-full bg-white border border-slate-300 rounded-lg py-2.5 pl-10 pr-3 font-mono text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100 selection:bg-sky-200 selection:text-slate-900 transition-colors"
+          className="w-full bg-white border border-slate-300 rounded-lg py-1.5 sm:py-2.5 pl-7 sm:pl-9 pr-2 sm:pr-3 font-mono text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100 selection:bg-sky-200 selection:text-slate-900 transition-colors"
         />
       </div>
     </div>

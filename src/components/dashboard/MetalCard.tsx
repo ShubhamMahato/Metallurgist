@@ -55,25 +55,34 @@ export const MetalCard: React.FC<MetalCardProps> = ({
 
   const translatedName = t(metal.id as any) || metal.name;
 
+  const selectAll = (el: HTMLInputElement) => {
+    try {
+      el.select();
+      el.setSelectionRange(0, el.value.length);
+    } catch {
+      el.select();
+    }
+  };
+
   return (
     <div
       className={`flex flex-col bg-white rounded-xl border transition-all shadow-xs ${
         isEditing
-          ? "border-slate-900 ring-2 ring-slate-900/10"
+          ? "border-sky-400 ring-2 ring-sky-100"
           : "border-slate-300 hover:border-slate-400"
       }`}
     >
       {/* Header Row */}
-      <div className="flex items-center justify-between p-3 sm:p-3.5 border-b border-slate-200 bg-slate-50 rounded-t-xl">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center justify-between p-2.5 sm:p-3 border-b border-slate-200 bg-slate-50 rounded-t-xl">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <div
-            className={`w-8 h-8 rounded-md ${badgeTheme.bg} ${badgeTheme.text} flex items-center justify-center font-mono font-bold text-xs shadow-xs shrink-0`}
+            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md ${badgeTheme.bg} ${badgeTheme.text} flex items-center justify-center font-mono font-bold text-xs shadow-xs shrink-0 select-none`}
             aria-hidden="true"
           >
             {metal.symbol}
           </div>
 
-          <span className="text-sm font-bold text-slate-900 truncate">
+          <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
             {translatedName}
           </span>
         </div>
@@ -86,9 +95,9 @@ export const MetalCard: React.FC<MetalCardProps> = ({
                 type="button"
                 onClick={() => removeMetal(metal.id)}
                 aria-label={`Remove ${translatedName}`}
-                className="p-1.5 text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 border border-slate-300 rounded-md transition-colors cursor-pointer"
+                className="p-1 sm:p-1.5 text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 border border-slate-300 rounded-md transition-colors cursor-pointer"
               >
-                <Trash2 size={13} />
+                <Trash2 size={12} className="sm:w-3.5 sm:h-3.5" />
               </button>
             </Tooltip>
           </div>
@@ -96,11 +105,11 @@ export const MetalCard: React.FC<MetalCardProps> = ({
       </div>
 
       {/* Value Input Section */}
-      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-2.5 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2 sm:space-y-3">
         <div>
           <label
             htmlFor={`input-metal-${metal.id}`}
-            className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1"
+            className="hidden sm:block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1"
           >
             {t("concentration")}
           </label>
@@ -112,6 +121,8 @@ export const MetalCard: React.FC<MetalCardProps> = ({
               inputMode="decimal"
               value={tempValues[metal.id] ?? metal.value}
               onChange={(e) => handleValueChange(metal.id, e.target.value)}
+              onFocus={(e) => selectAll(e.currentTarget)}
+              onClick={(e) => selectAll(e.currentTarget)}
               onBlur={() => handleValueBlur(metal.id)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -119,40 +130,40 @@ export const MetalCard: React.FC<MetalCardProps> = ({
                 }
               }}
               aria-label={`${translatedName} ${t("concentration")}`}
-              className={`w-full font-mono font-bold text-lg text-slate-900 bg-slate-50 border rounded-lg py-1.5 pl-3 pr-8 focus:bg-white focus:border-slate-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-900 ${
-                isEditing ? "border-slate-900 bg-white" : "border-slate-300"
+              className={`w-full font-mono font-bold text-base sm:text-lg text-slate-900 bg-slate-50 border rounded-lg py-1.5 pl-2.5 pr-7 focus:bg-white focus:border-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-100 selection:bg-sky-200 selection:text-slate-900 transition-colors ${
+                isEditing ? "border-sky-400 bg-white" : "border-slate-300"
               }`}
             />
-            <div className="absolute right-2.5 flex items-center pointer-events-none text-slate-500 font-mono font-bold text-xs">
+            <div className="absolute right-2 flex items-center pointer-events-none text-slate-500 font-mono font-bold text-xs select-none">
               %
             </div>
           </div>
 
           {/* Baseline Comparison Delta */}
           {hasChangedFromBaseline && (
-            <div className="mt-2.5 flex items-center justify-between text-xs bg-slate-100 border border-slate-200 rounded-md p-1.5">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-slate-600 font-medium text-[11px] shrink-0">
-                  Original:{" "}
+            <div className="mt-2 flex items-center justify-between text-xs bg-slate-100 border border-slate-200 rounded-md p-1 sm:p-1.5">
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="text-slate-600 font-medium text-[10px] sm:text-[11px] shrink-0">
+                  Orig:{" "}
                   <span className="font-mono font-semibold text-slate-800">
                     {baseline.toFixed(precision)}%
                   </span>
                 </span>
                 {metal.lastAdjustedBy && metal.lastAdjustedBy !== "User" && (
-                  <span className="text-[10px] text-slate-500 font-medium truncate">
-                    (via {metal.lastAdjustedBy})
+                  <span className="text-[9px] text-slate-500 font-medium truncate hidden sm:inline">
+                    ({metal.lastAdjustedBy})
                   </span>
                 )}
               </div>
               <span
-                className={`font-mono font-bold text-[11px] flex items-center gap-0.5 shrink-0 ${
+                className={`font-mono font-bold text-[10px] sm:text-[11px] flex items-center gap-0.5 shrink-0 ${
                   deltaNum > 0 ? "text-emerald-700" : "text-amber-800"
                 }`}
               >
                 {deltaNum > 0 ? (
-                  <TrendingUp size={12} aria-hidden="true" />
+                  <TrendingUp size={11} aria-hidden="true" />
                 ) : (
-                  <TrendingDown size={12} aria-hidden="true" />
+                  <TrendingDown size={11} aria-hidden="true" />
                 )}
                 {delta}%
               </span>

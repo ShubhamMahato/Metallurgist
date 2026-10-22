@@ -8,6 +8,8 @@ import {
   Sparkles,
   Scale,
   Share2,
+  List,
+  LayoutGrid,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useDashboard } from "../hooks/useDashboard";
@@ -17,6 +19,7 @@ import { AddMetalModal } from "../components/dashboard/AddMetalModal";
 import { WhatsAppShareModal } from "../components/dashboard/WhatsAppShareModal";
 import { CalculationSummary } from "../components/dashboard/CalculationSummary";
 import { MetalCard } from "../components/dashboard/MetalCard";
+import { MetalCompactRow } from "../components/dashboard/MetalCompactRow";
 import { MetadataField } from "../components/dashboard/MetadataField";
 import { Tooltip } from "../components/common/Tooltip";
 import { useLanguage } from "../lib/LanguageContext";
@@ -39,6 +42,22 @@ const SPECTRUM_COLORS: Record<string, string> = {
 export default function DashboardPage() {
   const { t } = useLanguage();
   const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<"compact" | "cards">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("metallurgist_view_mode");
+      if (saved === "compact" || saved === "cards") return saved;
+      return window.innerWidth < 1024 ? "compact" : "cards";
+    }
+    return "compact";
+  });
+
+  const handleViewModeChange = (mode: "compact" | "cards") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("metallurgist_view_mode", mode);
+    } catch {}
+  };
+
   const headerSummaryRef = React.useRef<HTMLDivElement>(null);
   const [isHeaderSummaryVisible, setIsHeaderSummaryVisible] = React.useState(true);
   const dashboard = useDashboard();
@@ -323,14 +342,14 @@ export default function DashboardPage() {
               className="space-y-4 sm:space-y-5"
             >
               {/* Sample Details & Composition Spectrum Breakdown Side-by-Side */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-4">
                 {/* Left: Sample Details */}
-                <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-3.5 sm:p-4 shadow-xs flex flex-col justify-between">
-                  <span className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5">
+                <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-2.5 sm:p-4 shadow-xs flex flex-col justify-between">
+                  <span className="block text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5 sm:mb-2.5">
                     {t("sampleDetails")}
                   </span>
 
-                  <div className="grid gap-2.5 sm:grid-cols-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
                     <MetadataField
                       label={t("customerName")}
                       value={customerName}
@@ -356,7 +375,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right: Composition Visualizer */}
-                <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-3.5 sm:p-4 shadow-xs flex flex-col justify-between">
+                <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-2.5 sm:p-4 shadow-xs flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                       {t("compositionBreakdown")}
@@ -425,6 +444,36 @@ export default function DashboardPage() {
                   >
                     {isVerified ? t("balanced") : t("unbalanced")}
                   </span>
+
+                  {/* View Mode Switcher */}
+                  <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-300">
+                    <button
+                      type="button"
+                      onClick={() => handleViewModeChange("compact")}
+                      title="Compact List View (Recommended for Mobile/Tablet)"
+                      className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                        viewMode === "compact"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <List size={13} />
+                      <span className="hidden sm:inline">Compact</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleViewModeChange("cards")}
+                      title="Cards View"
+                      className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                        viewMode === "cards"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <LayoutGrid size={13} />
+                      <span className="hidden sm:inline">Cards</span>
+                    </button>
+                  </div>
 
                   <label
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer transition-colors select-none"
@@ -498,21 +547,56 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Metal Cards Grid */}
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {visibleMetals.map((metal) => (
-                  <MetalCard
-                    key={metal.id}
-                    metal={metal}
-                    lastEditedId={lastEditedId}
-                    tempValues={tempValues}
-                    handleValueChange={handleValueChange}
-                    handleValueBlur={handleValueBlur}
-                    removeMetal={removeMetal}
-                    decimalPrecision={decimalPrecision}
-                  />
-                ))}
-              </div>
+              {/* Metal Presentation: Compact Thumb-Friendly List OR Cards Grid */}
+              {viewMode === "compact" ? (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                    <div className="divide-y divide-slate-100">
+                      {visibleMetals.slice(0, Math.ceil(visibleMetals.length / 2)).map((metal) => (
+                        <MetalCompactRow
+                          key={metal.id}
+                          metal={metal}
+                          lastEditedId={lastEditedId}
+                          tempValues={tempValues}
+                          handleValueChange={handleValueChange}
+                          handleValueBlur={handleValueBlur}
+                          removeMetal={removeMetal}
+                          decimalPrecision={decimalPrecision}
+                        />
+                      ))}
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {visibleMetals.slice(Math.ceil(visibleMetals.length / 2)).map((metal) => (
+                        <MetalCompactRow
+                          key={metal.id}
+                          metal={metal}
+                          lastEditedId={lastEditedId}
+                          tempValues={tempValues}
+                          handleValueChange={handleValueChange}
+                          handleValueBlur={handleValueBlur}
+                          removeMetal={removeMetal}
+                          decimalPrecision={decimalPrecision}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:gap-3.5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {visibleMetals.map((metal) => (
+                    <MetalCard
+                      key={metal.id}
+                      metal={metal}
+                      lastEditedId={lastEditedId}
+                      tempValues={tempValues}
+                      handleValueChange={handleValueChange}
+                      handleValueBlur={handleValueBlur}
+                      removeMetal={removeMetal}
+                      decimalPrecision={decimalPrecision}
+                    />
+                  ))}
+                </div>
+              )}
             </motion.section>
           )}
         </AnimatePresence>
