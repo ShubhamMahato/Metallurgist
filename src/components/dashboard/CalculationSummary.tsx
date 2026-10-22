@@ -1,5 +1,4 @@
 import React from "react";
-import { CheckCircle2, AlertTriangle, Award, HelpCircle, Coins } from "lucide-react";
 import { Tooltip } from "../common/Tooltip";
 import { useLanguage } from "../../lib/LanguageContext";
 
@@ -38,131 +37,81 @@ export const CalculationSummary: React.FC<CalculationSummaryProps> = ({
   const fineGoldWeight =
     weightNum > 0 && goldPurityNum > 0
       ? ((weightNum * goldPurityNum) / 100).toFixed(precision)
-      : (precision === 3 ? "0.000" : "0.00");
+      : precision === 3 ? "0.000" : "0.00";
 
   return (
-    <div className="grid grid-cols-3 gap-1 sm:gap-2.5 w-full">
-      {/* 1. Total Concentration Card */}
-      <div
-        className={`flex items-center gap-1.5 sm:gap-2 px-1.5 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl border bg-white shadow-2xs sm:shadow-xs min-w-0 ${
-          isVerified ? "border-emerald-300" : "border-amber-300"
-        }`}
-      >
-        <div
-          className={`w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg flex items-center justify-center shrink-0 ${
-            isVerified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-          }`}
-        >
-          {isVerified ? (
-            <CheckCircle2 size={12} className="sm:w-4 sm:h-4" aria-hidden="true" />
-          ) : (
-            <AlertTriangle size={12} className="sm:w-4 sm:h-4" aria-hidden="true" />
-          )}
-        </div>
+    <div className="w-full bg-white rounded-xl border border-slate-200/90 shadow-2xs sm:shadow-xs overflow-hidden">
+      <div className="grid grid-cols-3 divide-x divide-slate-100">
+        {/* 1. Total Concentration */}
+        <Tooltip content={isVerified ? "Total concentration is 100% (Balanced)" : `Needs balance by ${delta}%`}>
+          <div
+            className={`p-2 sm:p-2.5 flex flex-col justify-center min-w-0 transition-colors cursor-default ${
+              !isVerified ? "bg-amber-50/50" : "hover:bg-slate-50/50"
+            }`}
+          >
+            <div className="flex items-center gap-1 mb-0.5">
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  isVerified ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                }`}
+                aria-hidden="true"
+              />
+              <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
+                {t("totalComposition")}
+              </span>
+            </div>
 
-        <div className="flex flex-col min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
-              {t("totalComposition")}
-            </span>
-            <Tooltip content="Total concentration should equal 100%.">
-              <button
-                type="button"
-                className="hidden sm:inline-block text-slate-400 hover:text-slate-600 p-0.5"
-                aria-label="Total concentration info"
+            <div className="flex items-baseline gap-1 min-w-0">
+              <span
+                className={`text-xs sm:text-base lg:text-lg font-mono font-bold tabular-nums whitespace-nowrap leading-tight ${
+                  isVerified ? "text-emerald-700" : "text-amber-800"
+                }`}
               >
-                <HelpCircle size={10} />
-              </button>
-            </Tooltip>
+                {totalAggregate}%
+              </span>
+              <span
+                className={`text-[9px] sm:text-[10px] font-semibold px-1 py-0.2 rounded-xs shrink-0 hidden xs:inline ${
+                  isVerified
+                    ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
+                    : "text-amber-900 bg-amber-100 border border-amber-200"
+                }`}
+              >
+                {isVerified ? t("balanced") : `${deltaNum > 0 ? "+" : ""}${delta}%`}
+              </span>
+            </div>
           </div>
+        </Tooltip>
 
-          <div className="flex items-baseline gap-1 min-w-0">
-            <span
-              className={`text-xs sm:text-base lg:text-lg font-bold font-mono tabular-nums leading-tight whitespace-nowrap ${
-                isVerified ? "text-emerald-700" : "text-amber-800"
-              }`}
-            >
-              {totalAggregate}%
-            </span>
-            <span
-              className={`text-[8px] sm:text-[10px] font-semibold px-1 py-0.2 rounded shrink-0 hidden xs:inline ${
-                isVerified
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-amber-100 text-amber-900"
-              }`}
-            >
-              {isVerified ? t("balanced") : `${deltaNum > 0 ? "+" : ""}${delta}%`}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Karat Rating Card */}
-      <div className="flex items-center gap-1.5 sm:gap-2 px-1.5 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 bg-white shadow-2xs sm:shadow-xs min-w-0">
-        <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-          <Award size={12} className="sm:w-4 sm:h-4" aria-hidden="true" />
-        </div>
-
-        <div className="flex flex-col min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+        {/* 2. Karat Rating */}
+        <Tooltip content="Calculated Karat rating from Gold percentage: (Gold % × 24) / 100">
+          <div className="p-2 sm:p-2.5 flex flex-col justify-center min-w-0 bg-amber-50/20 hover:bg-amber-50/40 transition-colors cursor-default">
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-900/80 uppercase tracking-wider truncate mb-0.5">
               {t("karatRating")}
             </span>
-            <Tooltip content="Calculated from Gold (Au) percentage: (Gold % × 24) / 100.">
-              <button
-                type="button"
-                className="hidden sm:inline-block text-slate-400 hover:text-slate-600 p-0.5"
-                aria-label="Karat info"
-              >
-                <HelpCircle size={10} />
-              </button>
-            </Tooltip>
-          </div>
-
-          <div className="flex items-baseline gap-1 min-w-0">
-            <span className="text-xs sm:text-base lg:text-lg font-bold font-mono tabular-nums text-slate-900 leading-tight whitespace-nowrap">
-              {karatDisplay || (karat.endsWith("K") ? karat : `${karat}K`)}
-            </span>
-            {karatDisplay && (
-              <span className="hidden md:inline text-[9px] sm:text-[10px] font-mono text-slate-400 truncate">
-                ({karat.endsWith("K") ? karat : `${karat}K`})
+            <div className="flex items-baseline gap-1 min-w-0">
+              <span className="text-xs sm:text-base lg:text-lg font-mono font-bold tabular-nums text-slate-900 whitespace-nowrap leading-tight">
+                {karatDisplay || (karat.endsWith("K") ? karat : `${karat}K`)}
               </span>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
+        </Tooltip>
 
-      {/* 3. Fine 24K Gold Weight Card */}
-      <div className="flex items-center gap-1.5 sm:gap-2 px-1.5 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl border border-slate-200 bg-white shadow-2xs sm:shadow-xs min-w-0">
-        <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-          <Coins size={12} className="sm:w-4 sm:h-4" aria-hidden="true" />
-        </div>
-
-        <div className="flex flex-col min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">
+        {/* 3. Fine 24K Gold Weight */}
+        <Tooltip content="Calculated Fine Gold (24K) weight: Total Weight × (Gold % / 100)">
+          <div className="p-2 sm:p-2.5 flex flex-col justify-center min-w-0 hover:bg-slate-50/50 transition-colors cursor-default">
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate mb-0.5">
               {t("fineGoldWeight")}
             </span>
-            <Tooltip content="Calculated Fine Gold (24K) weight: Total Weight × (Gold % / 100).">
-              <button
-                type="button"
-                className="hidden sm:inline-block text-slate-400 hover:text-slate-600 p-0.5"
-                aria-label="Fine gold weight info"
-              >
-                <HelpCircle size={10} />
-              </button>
-            </Tooltip>
+            <div className="flex items-baseline gap-0.5 min-w-0">
+              <span className="text-xs sm:text-base lg:text-lg font-mono font-bold tabular-nums text-slate-900 whitespace-nowrap leading-tight">
+                {fineGoldWeight}
+              </span>
+              <span className="text-[10px] sm:text-xs font-semibold text-slate-400 shrink-0">
+                g
+              </span>
+            </div>
           </div>
-
-          <div className="flex items-baseline gap-0.5 min-w-0">
-            <span className="text-xs sm:text-base lg:text-lg font-bold font-mono tabular-nums text-slate-900 leading-tight whitespace-nowrap">
-              {fineGoldWeight}
-            </span>
-            <span className="text-[9px] sm:text-[11px] font-semibold text-slate-500 shrink-0">
-              g
-            </span>
-          </div>
-        </div>
+        </Tooltip>
       </div>
     </div>
   );

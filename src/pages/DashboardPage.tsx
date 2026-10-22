@@ -10,6 +10,7 @@ import {
   Share2,
   List,
   LayoutGrid,
+  FilePlus2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useDashboard } from "../hooks/useDashboard";
@@ -506,7 +507,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right Action Buttons: Aligned in ONE row on mobile! */}
-                <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto sm:overflow-visible shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <AddMetalModal
                     isAddingMetal={isAddingMetal}
                     setIsAddingMetal={setIsAddingMetal}
@@ -515,40 +516,44 @@ export default function DashboardPage() {
                     metals={metals}
                     addMetal={addMetal}
                     compact
+                    symbolOnly
                   />
 
                   <Tooltip content={t("resetBaseline")}>
                     <button
                       type="button"
                       onClick={resetToOriginal}
-                      className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0"
+                      aria-label={t("resetBaseline")}
+                      className="w-8 h-8 inline-flex items-center justify-center text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
                     >
-                      <RotateCcw size={11} className="sm:w-3 sm:h-3" />
-                      <span>{t("resetBaseline")}</span>
+                      <RotateCcw size={14} />
                     </button>
                   </Tooltip>
 
-                  <Tooltip content="Share report via WhatsApp">
+                  <Tooltip content={t("whatsAppShare") || "Share report via WhatsApp"}>
                     <button
                       type="button"
                       onClick={() => setIsShareModalOpen(true)}
-                      className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0"
+                      aria-label={t("whatsAppShare")}
+                      className="w-8 h-8 inline-flex items-center justify-center text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
                     >
-                      <Share2 size={11} className="text-emerald-600 sm:w-3 sm:h-3" />
-                      <span>{t("whatsAppShare")}</span>
+                      <Share2 size={14} />
                     </button>
                   </Tooltip>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsParsed(false);
-                      setUploadError(null);
-                    }}
-                    className="inline-flex items-center px-2 py-1 sm:px-2.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0"
-                  >
-                    {t("newReport")}
-                  </button>
+                  <Tooltip content={t("newReport")}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsParsed(false);
+                        setUploadError(null);
+                      }}
+                      aria-label={t("newReport")}
+                      className="w-8 h-8 inline-flex items-center justify-center text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0"
+                    >
+                      <FilePlus2 size={14} />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 

@@ -3,6 +3,7 @@ import { Plus, Search, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { AvailableMetal, MetalValue } from "../../types/dashboard";
 import { useLanguage } from "../../lib/LanguageContext";
+import { Tooltip } from "../common/Tooltip";
 
 interface AddMetalModalProps {
   isAddingMetal: boolean;
@@ -12,6 +13,7 @@ interface AddMetalModalProps {
   metals: MetalValue[];
   addMetal: (id: string) => void;
   compact?: boolean;
+  symbolOnly?: boolean;
 }
 
 export const AddMetalModal: React.FC<AddMetalModalProps> = ({
@@ -22,6 +24,7 @@ export const AddMetalModal: React.FC<AddMetalModalProps> = ({
   metals,
   addMetal,
   compact = false,
+  symbolOnly = false,
 }) => {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
@@ -48,23 +51,41 @@ export const AddMetalModal: React.FC<AddMetalModalProps> = ({
 
   return (
     <div className="relative" ref={addMetalRef as any}>
-      <button
-        type="button"
-        onClick={() => {
-          setIsAddingMetal(!isAddingMetal);
-          setSearch("");
-        }}
-        aria-expanded={isAddingMetal}
-        aria-haspopup="dialog"
-        className={`inline-flex items-center gap-1 font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0 ${
-          compact
-            ? "px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs"
-            : "px-2.5 py-1.5 text-xs"
-        }`}
-      >
-        <Plus size={12} className="text-amber-600 sm:w-3.5 sm:h-3.5" />
-        <span>{t("addConstituent")}</span>
-      </button>
+      {symbolOnly ? (
+        <Tooltip content={t("addConstituent")}>
+          <button
+            type="button"
+            onClick={() => {
+              setIsAddingMetal(!isAddingMetal);
+              setSearch("");
+            }}
+            aria-expanded={isAddingMetal}
+            aria-haspopup="dialog"
+            aria-label={t("addConstituent")}
+            className="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-amber-500 hover:bg-amber-600 active:scale-95 text-white shadow-2xs border border-amber-600/30 transition-all cursor-pointer shrink-0"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
+        </Tooltip>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setIsAddingMetal(!isAddingMetal);
+            setSearch("");
+          }}
+          aria-expanded={isAddingMetal}
+          aria-haspopup="dialog"
+          className={`inline-flex items-center gap-1 font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 rounded-md sm:rounded-lg shadow-2xs sm:shadow-xs transition-colors cursor-pointer shrink-0 ${
+            compact
+              ? "px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs"
+              : "px-2.5 py-1.5 text-xs"
+          }`}
+        >
+          <Plus size={12} className="text-amber-600 sm:w-3.5 sm:h-3.5" />
+          <span>{t("addConstituent")}</span>
+        </button>
+      )}
 
       <AnimatePresence>
         {isAddingMetal && (
