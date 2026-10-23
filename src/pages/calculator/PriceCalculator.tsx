@@ -15,27 +15,24 @@ import {
 import { useLanguage } from "../../lib/LanguageContext";
 import { AppLayout } from "../../components/layout/AppLayout";
 import { Tooltip } from "../../components/common/Tooltip";
-import {
-  JewellerId,
-  KaratOption,
-  KaratRateData,
-  JEWELLERS,
-  DEFAULT_JEWELLER_RATES,
-  fetchJewellerRates,
-  getCachedJewellerRates,
-} from "../../services/jewellerRates";
+
+type KaratOption = "22K" | "24K" | "18K";
+
+interface KaratRateData {
+  perGram: number;
+  per10Gram: number;
+  close: number;
+  changePct?: number;
+}
+
+const DEFAULT_RATES: Record<KaratOption, KaratRateData> = {
+  "22K": { perGram: 13685, per10Gram: 136850, close: 13685 },
+  "24K": { perGram: 14929, per10Gram: 149290, close: 14929 },
+  "18K": { perGram: 11197, per10Gram: 111970, close: 11197 },
+};
 
 export default function PriceCalculator() {
   const { t } = useLanguage();
-
-  // Selected Jeweller: Joyalukkas by default
-  const [selectedJeweller, setSelectedJeweller] = useState<JewellerId>(() => {
-    try {
-      const saved = localStorage.getItem("metallurgist_preferred_jeweller");
-      if (saved === "joyalukkas" || saved === "malabar") return saved;
-    } catch {}
-    return "joyalukkas";
-  });
 
   // Selected Karat: 22K by default
   const [selectedKarat, setSelectedKarat] = useState<KaratOption>("22K");
@@ -43,7 +40,7 @@ export default function PriceCalculator() {
   // Core Inputs
   const [weight, setWeight] = useState<string>("10.000");
   const [rateType, setRateType] = useState<"gram" | "10gram">("10gram");
-  const [rate, setRate] = useState<string>("132350"); // default 22K 10g rate for Joyalukkas
+  const [rate, setRate] = useState<string>("136850"); // default 22K 10g rate
   const [makingType, setMakingType] = useState<"percent" | "amount">("percent");
   const [makingValue, setMakingValue] = useState<string>("12");
 
@@ -55,10 +52,9 @@ export default function PriceCalculator() {
   // Taxes: default to "unified" (3%)
   const [gstType, setGstType] = useState<"unified" | "split" | "none">("unified");
 
-  // Live Rates from selected Jeweller
-  const [liveKaratRates, setLiveKaratRates] = useState<Record<KaratOption, KaratRateData>>(() =>
-    getCachedJewellerRates(selectedJeweller)
-  );
+  // Live Rates from SnapData / IBJA
+  const [liveKaratRates, setLiveKaratRates] =
+    useState<Record<KaratOption, KaratRateData>>(DEFAULT_RATES);
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
@@ -67,29 +63,61 @@ export default function PriceCalculator() {
   const makingId = useId();
   const discountId = useId();
 
-  // Fetch live gold rates from selected jeweller (Joyalukkas / Malabar)
-  const fetchLiveRates = async (jewellerToFetch: JewellerId = selectedJeweller) => {
+  // Fetch official retail gold rates from snapdata.dev
+  const fetchLiveRates = async () => {
     setIsLoadingLive(true);
     try {
-      const result = await fetchJewellerRates(jewellerToFetch);
-      setLiveKaratRates(result.rates);
-      if (result.updatedAt) {
-        setLastUpdated(result.updatedAt);
-      } else {
-        setLastUpdated(
-          new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        );
+      const response = await fetch(
+        "https://snapdata.dev/api/v1/gold/in/latest.json"
+      );
+      if (!response.ok) throw new Error("Failed to fetch IBJA retail rate");
+      const data = await response.json();
+
+      const observations: any[] = data.observations || [];
+      const newRates: Record<KaratOption, KaratRateData> = { ...DEFAULT_RATES };
+
+      for (const obs of observations) {
+        const val = typeof obs.value === "number" ? obs.value : parseFloat(obs.value);
+        if (isNaN(val) || val <= 0) continue;
+
+        if (obs.instrument === "XAU.22K" || obs.instrument_id?.includes("22K")) {
+          newRates["22K"] = {
+            perGram: val,
+            per10Gram: val * 10,
+            close: obs.close ?? val,
+            changePct: obs.change_pct,
+          };
+        } else if (obs.instrument === "XAU.24K" || obs.instrument_id?.includes("24K")) {
+          newRates["24K"] = {
+            perGram: val,
+            per10Gram: val * 10,
+            close: obs.close ?? val,
+            changePct: obs.change_pct,
+          };
+        } else if (obs.instrument === "XAU.18K" || obs.instrument_id?.includes("18K")) {
+          newRates["18K"] = {
+            perGram: val,
+            per10Gram: val * 10,
+            close: obs.close ?? val,
+            changePct: obs.change_pct,
+          };
+        }
       }
 
+      setLiveKaratRates(newRates);
+      setLastUpdated(
+        new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      );
+
       // Automatically update the rate field based on currently selected karat and rateType
-      const activeData = result.rates[selectedKarat];
+      const activeData = newRates[selectedKarat];
       if (activeData) {
         setRate(
           String(rateType === "10gram" ? activeData.per10Gram : activeData.perGram)
         );
       }
     } catch (err) {
-      console.warn("Could not fetch jeweller rates:", err);
+      console.warn("Could not fetch IBJA retail rate from snapdata.dev:", err);
     } finally {
       setIsLoadingLive(false);
     }
@@ -97,30 +125,13 @@ export default function PriceCalculator() {
 
   // Fetch on mount
   useEffect(() => {
-    fetchLiveRates(selectedJeweller);
+    fetchLiveRates();
   }, []);
-
-  // When user switches jeweller from the dropdown
-  const handleJewellerChange = (newJeweller: JewellerId) => {
-    setSelectedJeweller(newJeweller);
-    try {
-      localStorage.setItem("metallurgist_preferred_jeweller", newJeweller);
-    } catch {}
-    const cached = getCachedJewellerRates(newJeweller);
-    setLiveKaratRates(cached);
-    const activeData = cached[selectedKarat];
-    if (activeData) {
-      setRate(
-        String(rateType === "10gram" ? activeData.per10Gram : activeData.perGram)
-      );
-    }
-    fetchLiveRates(newJeweller);
-  };
 
   // When user selects a Karat option (22K, 24K, 18K)
   const handleKaratChange = (newKarat: KaratOption) => {
     setSelectedKarat(newKarat);
-    const targetData = liveKaratRates[newKarat] || DEFAULT_JEWELLER_RATES[selectedJeweller][newKarat];
+    const targetData = liveKaratRates[newKarat] || DEFAULT_RATES[newKarat];
     if (targetData) {
       setRate(
         String(rateType === "10gram" ? targetData.per10Gram : targetData.perGram)
@@ -336,9 +347,19 @@ export default function PriceCalculator() {
                   <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider block">
                     {t("selectKarat")}
                   </label>
-                  <span className="text-[10px] font-semibold text-slate-500">
-                    {selectedJeweller === "joyalukkas" ? "Joyalukkas" : "Malabar Gold"}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={fetchLiveRates}
+                    disabled={isLoadingLive}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 hover:text-amber-900 cursor-pointer disabled:opacity-60"
+                    title="Refresh live retail IBJA rates"
+                  >
+                    <RefreshCw
+                      size={10}
+                      className={isLoadingLive ? "animate-spin" : ""}
+                    />
+                    <span>{isLoadingLive ? "..." : "IBJA"}</span>
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-3 gap-1">
@@ -357,7 +378,7 @@ export default function PriceCalculator() {
                         {k}
                       </div>
                       <div className="text-[9px] font-mono text-slate-600 mt-0.5 truncate">
-                        ₹{liveKaratRates[k]?.perGram ?? DEFAULT_JEWELLER_RATES[selectedJeweller][k].perGram}
+                        ₹{liveKaratRates[k]?.perGram ?? DEFAULT_RATES[k].perGram}
                       </div>
                     </button>
                   ))}
@@ -365,52 +386,20 @@ export default function PriceCalculator() {
               </div>
             </div>
 
-            {/* Row 2: Gold Rate with integrated 10g / 1g toggle and Jeweller Dropdown */}
+            {/* Row 2: Gold Rate with integrated 10g / 1g toggle */}
             <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <label
-                    htmlFor={rateId}
-                    className="text-xs font-semibold text-slate-700 uppercase tracking-wider block"
-                  >
-                    {t("goldRate")} ({selectedKarat})
-                  </label>
-
-                  {/* Jeweller Dropdown styled like template selector in share whatsapp */}
-                  <select
-                    value={selectedJeweller}
-                    onChange={(e) => handleJewellerChange(e.target.value as JewellerId)}
-                    aria-label="Select Jeweller"
-                    className="font-semibold text-amber-950 bg-amber-50 px-2 py-0.5 rounded border border-amber-300 text-[11px] cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-amber-500 shadow-2xs"
-                  >
-                    {JEWELLERS.map((j) => (
-                      <option key={j.id} value={j.id}>
-                        {j.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {lastUpdated && (
-                    <span className="text-[10px] text-slate-400">
-                      Live · {lastUpdated}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => fetchLiveRates(selectedJeweller)}
-                    disabled={isLoadingLive}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 hover:text-amber-900 cursor-pointer disabled:opacity-60"
-                    title={`Refresh live rates from ${selectedJeweller === "joyalukkas" ? "Joyalukkas" : "Malabar Gold"}`}
-                  >
-                    <RefreshCw
-                      size={10}
-                      className={isLoadingLive ? "animate-spin" : ""}
-                    />
-                    <span>{isLoadingLive ? "..." : "Refresh"}</span>
-                  </button>
-                </div>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor={rateId}
+                  className="text-xs font-semibold text-slate-700 uppercase tracking-wider block"
+                >
+                  {t("goldRate")} ({selectedKarat})
+                </label>
+                {lastUpdated && (
+                  <span className="text-[10px] text-slate-400">
+                    Live · {lastUpdated}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -425,7 +414,7 @@ export default function PriceCalculator() {
                     min="0"
                     value={rate}
                     onChange={(e) => setRate(e.target.value)}
-                    placeholder="e.g. 132350"
+                    placeholder="e.g. 136850"
                     aria-label={t("goldRate")}
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg py-1.5 pl-8 pr-16 font-mono text-sm font-bold text-slate-900 focus:bg-white focus:border-slate-900 focus:outline-none"
                   />
