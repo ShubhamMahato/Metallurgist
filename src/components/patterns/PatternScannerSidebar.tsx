@@ -101,11 +101,16 @@ export const PatternScannerSidebar: React.FC<PatternScannerSidebarProps> = ({
             <Sparkles size={9} /> Completed
           </span>
         );
-      case "DEVELOPING":
       case "FORMING":
         return (
-          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/30 animate-pulse">
-            <Clock size={9} /> {state}
+          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 animate-pulse">
+            <Clock size={9} /> Forming
+          </span>
+        );
+      case "DEVELOPING":
+        return (
+          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse">
+            <Compass size={9} /> Developing
           </span>
         );
       case "INVALIDATED":
@@ -259,6 +264,38 @@ export const PatternScannerSidebar: React.FC<PatternScannerSidebarProps> = ({
                   <div>{getStateBadge(pat.state)}</div>
                 </div>
 
+                {/* Completeness Progress Bar for forming/developing patterns */}
+                {pat.completenessScore !== undefined && pat.state !== "CONFIRMED" && pat.state !== "INVALIDATED" && (
+                  <div className="mt-1.5 space-y-0.5">
+                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400">
+                      <span>Formation Progress</span>
+                      <span className="font-bold text-amber-400">{pat.completenessScore}%</span>
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          pat.state === "DEVELOPING" ? "bg-cyan-400" : "bg-purple-400"
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(5, pat.completenessScore))}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Forward Projection Strip */}
+                {pat.projection && (
+                  <div className="mt-1.5 flex items-center justify-between gap-1 px-1.5 py-1 rounded bg-slate-950/70 border border-slate-800 font-mono text-[9px]">
+                    <span className="text-slate-400 truncate">
+                      Breakout: <strong className="text-amber-400">${pat.projection.breakoutLevel.toFixed(2)}</strong>
+                    </span>
+                    {pat.projection.targetZone && (
+                      <span className="text-emerald-400 shrink-0 font-semibold">
+                        Target: ${pat.projection.targetZone.price.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Prominent "WHERE WILL IT GO?" Box */}
                 <div
                   className={`mt-2 p-1.5 rounded border text-[11px] leading-tight ${
@@ -354,6 +391,39 @@ export const PatternScannerSidebar: React.FC<PatternScannerSidebarProps> = ({
                   {activeExpl.expectedSummary}
                 </div>
               </div>
+
+              {/* FORWARD PROJECTION & TARGETS */}
+              {activeDetailPattern.projection && (
+                <div className="p-2 rounded bg-cyan-950/20 border border-cyan-800/50 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+                      <Compass size={11} /> Forward Projection
+                    </span>
+                    {activeDetailPattern.completenessScore !== undefined && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold">
+                        {activeDetailPattern.completenessScore}% Complete
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-300 leading-normal">
+                    {activeDetailPattern.projection.description}
+                  </p>
+                  {activeDetailPattern.projection.completionZone && (
+                    <div className="text-[10px] font-mono text-cyan-300 flex items-center justify-between bg-cyan-950/40 p-1 rounded border border-cyan-900/60">
+                      <span>{activeDetailPattern.projection.completionZone.label || "Completion Zone"}:</span>
+                      <strong className="text-slate-100">
+                        ${activeDetailPattern.projection.completionZone.min.toFixed(2)} - ${activeDetailPattern.projection.completionZone.max.toFixed(2)}
+                      </strong>
+                    </div>
+                  )}
+                  {activeDetailPattern.projection.estimatedTimeToCompletion && (
+                    <div className="text-[9px] text-slate-400 flex items-center justify-between font-mono">
+                      <span>Est. Completion:</span>
+                      <span className="text-amber-300">{activeDetailPattern.projection.estimatedTimeToCompletion}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* WHAT THIS PATTERN MEANS */}
               <div className="px-2 py-1.5 rounded bg-slate-900/50 border border-slate-800/60 space-y-0.5">

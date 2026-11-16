@@ -4,6 +4,7 @@ import { SupportedTimeframe, OHLCV } from "../../services/patternEngine/types/ca
 import { DetectedPattern } from "../../services/patternEngine/types/pattern";
 import { CandleStore } from "../../services/patternEngine/data/candleStore";
 import { BiquoteDataProvider, ProviderStatus } from "../../services/patternEngine/data/biquoteProvider";
+import { BiquoteSocketProvider, SocketProviderStatus } from "../../services/patternEngine/data/biquoteSocketProvider";
 import { PatternEngine } from "../../services/patternEngine/engine/PatternEngine";
 import { CandlestickChart } from "../../components/patterns/CandlestickChart";
 import { PatternScannerSidebar } from "../../components/patterns/PatternScannerSidebar";
@@ -12,6 +13,7 @@ import { AlertCircle, Sliders, LineChart } from "lucide-react";
 
 export default function PatternScannerPage() {
   const [timeframe, setTimeframe] = useState<SupportedTimeframe>("5m");
+  const [dataSourceMode, setDataSourceMode] = useState<"api" | "socket">("api");
   const [pollIntervalMs, setPollIntervalMs] = useState<number>(10000);
   const [candles, setCandles] = useState<readonly OHLCV[]>([]);
   const [patterns, setPatterns] = useState<DetectedPattern[]>([]);
@@ -23,22 +25,29 @@ export default function PatternScannerPage() {
   const timeframeRef = useRef<SupportedTimeframe>(timeframe);
   timeframeRef.current = timeframe;
 
-  // Instances preserved across re-renders
+  // Single shared normalized candle store & pattern engine
   const storeRef = useRef<CandleStore>(new CandleStore("XAUUSD", timeframe));
   const engineRef = useRef<PatternEngine>(new PatternEngine());
-  const providerRef = useRef<BiquoteDataProvider>(new BiquoteDataProvider(storeRef.current));
+
+  // Independent data providers feeding the exact same store
+  const restProviderRef = useRef<BiquoteDataProvider>(new BiquoteDataProvider(storeRef.current));
+  const socketProviderRef = useRef<BiquoteSocketProvider>(new BiquoteSocketProvider(storeRef.current));
 
   const [providerStatus, setProviderStatus] = useState<ProviderStatus>(
-    providerRef.current.getStatus()
+    restProviderRef.current.getStatus()
+  );
+  const [socketStatus, setSocketStatus] = useState<SocketProviderStatus>(
+    socketProviderRef.current.getStatus()
   );
 
-  // Lifecycle: Initialize store, engine, and polling data provider
+  // Lifecycle: Subscribe store, engine, and active data providers
   useEffect(() => {
     const store = storeRef.current;
     const engine = engineRef.current;
-    const provider = providerRef.current;
+    const restProvider = restProviderRef.current;
+    const socketProvider = socketProviderRef.current;
 
-    // Subscribe to store updates -> run detection engine scan using active timeframe
+    // Subscribe to store updates -> run pattern engine scan using active timeframe
     const unsubscribeStore = store.subscribe((updatedCandles) => {
       setCandles([...updatedCandles]);
       const currentTf = timeframeRef.current;
@@ -46,38 +55,76 @@ export default function PatternScannerPage() {
       setPatterns(result.patterns);
     });
 
-    // Subscribe to provider status
-    const unsubscribeStatus = provider.subscribeStatus((st) => {
+    // Subscribe to REST provider status
+    const unsubscribeRestStatus = restProvider.subscribeStatus((st) => {
       setProviderStatus(st);
     });
 
-    // Start live REST polling
-    provider.start();
+    // Subscribe to Socket provider status
+    const unsubscribeSocketStatus = socketProvider.subscribeStatus((st) => {
+      setSocketStatus(st);
+    });
+
+    // Start initial default mode (REST API)
+    restProvider.start();
 
     return () => {
-      provider.stop();
+      restProvider.stop();
+      socketProvider.stop();
       unsubscribeStore();
-      unsubscribeStatus();
+      unsubscribeRestStatus();
+      unsubscribeSocketStatus();
     };
   }, []);
 
-  // Handle timeframe change
+  // Handle switching between REST API Mode and Live Socket Mode
+  const handleDataSourceModeChange = async (newMode: "api" | "socket") => {
+    if (newMode === dataSourceMode) return;
+    setDataSourceMode(newMode);
+
+    const currentTf = timeframeRef.current;
+
+    if (newMode === "socket") {
+      // 1. Immediately stop REST polling to prevent competing updates
+      restProviderRef.current.stop();
+      // 2. Start Live Socket provider
+      socketProviderRef.current.setTimeframe(currentTf);
+      await socketProviderRef.current.start();
+    } else {
+      // 1. Immediately stop Live Socket connection
+      await socketProviderRef.current.stop();
+      // 2. Start REST polling provider
+      restProviderRef.current.setTimeframe(currentTf);
+      restProviderRef.current.start();
+    }
+  };
+
+  // Handle timeframe change (applies to active provider)
   const handleTimeframeChange = (newTf: SupportedTimeframe) => {
     if (newTf === timeframe) return;
     setTimeframe(newTf);
-    setSelectedPatternIds([]); // Clear selection when changing timeframes
-    providerRef.current.setTimeframe(newTf);
+    setSelectedPatternIds([]); // Clear active overlays on timeframe switch
+
+    if (dataSourceMode === "socket") {
+      socketProviderRef.current.setTimeframe(newTf);
+    } else {
+      restProviderRef.current.setTimeframe(newTf);
+    }
   };
 
-  // Handle polling interval change
+  // Handle polling interval change (API mode only)
   const handlePollIntervalChange = (ms: number) => {
     setPollIntervalMs(ms);
-    providerRef.current.setPollInterval(ms);
+    restProviderRef.current.setPollInterval(ms);
   };
 
-  // Force manual refresh
+  // Force manual refresh / catch-up
   const handleRefresh = async () => {
-    await providerRef.current.refreshNow();
+    if (dataSourceMode === "socket") {
+      await socketProviderRef.current.refreshNow();
+    } else {
+      await restProviderRef.current.refreshNow();
+    }
   };
 
   // Pattern selection toggle (single-select by default to prevent overlap)
@@ -100,11 +147,14 @@ export default function PatternScannerPage() {
     return patterns.filter((p) => selectedPatternIds.includes(p.id));
   }, [patterns, selectedPatternIds]);
 
+  // Active error message depending on mode
+  const activeError = dataSourceMode === "socket" ? socketStatus.error : providerStatus.error;
+
   return (
     <AppLayout>
       {/* Full-height Trading Terminal Container */}
       <div className="flex-1 flex flex-col bg-[#070a12] text-slate-100 h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)] max-h-[calc(100dvh-3.5rem)] sm:max-h-[calc(100dvh-4rem)] min-h-0 overflow-hidden">
-        {/* 1. Header Toolbar */}
+        {/* 1. Header Toolbar with Data Source Selector & Timeframes */}
         <TimeframeSelector
           activeTimeframe={timeframe}
           onChangeTimeframe={handleTimeframeChange}
@@ -112,14 +162,17 @@ export default function PatternScannerPage() {
           pollIntervalMs={pollIntervalMs}
           onChangePollInterval={handlePollIntervalChange}
           onRefresh={handleRefresh}
+          dataSourceMode={dataSourceMode}
+          onChangeDataSourceMode={handleDataSourceModeChange}
+          socketStatus={socketStatus}
         />
 
-        {/* API Error Notification Banner */}
-        {providerStatus.error && (
+        {/* Error Notification Banner */}
+        {activeError && (
           <div className="bg-rose-950/80 border-b border-rose-800 px-3 py-1 flex items-center justify-between text-xs text-rose-200 shrink-0">
             <div className="flex items-center gap-1.5">
               <AlertCircle size={13} className="text-rose-400 shrink-0" />
-              <span>{providerStatus.error}</span>
+              <span>{activeError}</span>
             </div>
             <button
               type="button"
@@ -180,7 +233,7 @@ export default function PatternScannerPage() {
               selectedPatterns={selectedPatterns}
               timeframe={timeframe}
               symbol="XAUUSD"
-              isLoading={providerStatus.isLoading}
+              isLoading={dataSourceMode === "api" ? providerStatus.isLoading : socketStatus.state === "connecting"}
               onRefresh={handleRefresh}
             />
           </div>

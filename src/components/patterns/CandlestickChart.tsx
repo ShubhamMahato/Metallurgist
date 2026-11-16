@@ -9,7 +9,7 @@ import {
   TickMarkType,
   Time,
 } from "lightweight-charts";
-import { OHLCV } from "../../services/patternEngine/types/candle";
+import { OHLCV, TIMEFRAMES } from "../../services/patternEngine/types/candle";
 import { DetectedPattern } from "../../services/patternEngine/types/pattern";
 import { PatternOverlayRenderer } from "./PatternOverlayRenderer";
 import { Maximize2, RefreshCw, Clock, Globe, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
@@ -104,7 +104,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         secondsVisible: false,
         borderVisible: true,
         borderColor: "#334155",
-        rightOffset: 6,
+        rightOffset: 18,
         barSpacing: 18,
         minBarSpacing: 0.5, // Allows zooming all the way out to see the full historical dataset
         maxBarSpacing: 50,  // Allows zooming in for deep candle inspection
@@ -226,18 +226,43 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     setCoordinateVersion((v) => v + 1);
   }, [candles, timeframe, zoomToGoodView]);
 
-  // Coordinate converter function for SVG overlay
+  // Coordinate converter function for SVG overlay (supports historical and future timestamps)
   const timeToX = useCallback(
     (time: number): number | null => {
-      if (!chartRef.current) return null;
+      if (!chartRef.current || candles.length === 0) return null;
       try {
-        const coord = chartRef.current.timeScale().timeToCoordinate(time as UTCTimestamp);
-        return coord !== null ? coord : null;
+        const timeScale = chartRef.current.timeScale();
+        const direct = timeScale.timeToCoordinate(time as UTCTimestamp);
+        if (direct !== null) return direct;
+
+        // If future timestamp beyond the latest candle: project into the right-side whitespace
+        const lastCandle = candles[candles.length - 1];
+        if (time > lastCandle.timestamp) {
+          const lastX = timeScale.timeToCoordinate(lastCandle.timestamp as UTCTimestamp);
+          if (lastX === null) return null;
+
+          const tfDef = TIMEFRAMES.find((t) => t.id === timeframe);
+          const stepSec = (tfDef ? tfDef.minutes : 5) * 60;
+          const barsAhead = (time - lastCandle.timestamp) / stepSec;
+
+          // Compute pixel width of 1 candle based on latest candles
+          let barSpacing = 14;
+          if (candles.length > 1) {
+            const prevCandle = candles[candles.length - 2];
+            const prevX = timeScale.timeToCoordinate(prevCandle.timestamp as UTCTimestamp);
+            if (prevX !== null && lastX > prevX) {
+              const diffBars = Math.max(1, (lastCandle.timestamp - prevCandle.timestamp) / stepSec);
+              barSpacing = (lastX - prevX) / diffBars;
+            }
+          }
+          return lastX + barsAhead * barSpacing;
+        }
+        return null;
       } catch {
         return null;
       }
     },
-    [chartRef]
+    [candles, timeframe]
   );
 
   const priceToY = useCallback(

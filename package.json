@@ -11,6 +11,7 @@
     "lint": "node --stack_size=8192 ./node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
+    "@microsoft/signalr": "^11.0.0",
     "@tabler/icons-react": "^3.41.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",

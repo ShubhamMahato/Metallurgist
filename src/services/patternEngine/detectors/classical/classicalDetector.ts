@@ -1,6 +1,12 @@
-import { OHLCV, SupportedTimeframe } from "../../types/candle";
+import { OHLCV, SupportedTimeframe, TIMEFRAMES } from "../../types/candle";
 import { SwingPoint } from "../../core/swingDetector";
-import { DetectedPattern, PatternLifecycleState } from "../../types/pattern";
+import {
+  DetectedPattern,
+  FutureProjection,
+  PatternLifecycleState,
+  ProjectedLine,
+  ProjectedPoint,
+} from "../../types/pattern";
 
 export class ClassicalPatternDetector {
   public detect(
@@ -11,392 +17,671 @@ export class ClassicalPatternDetector {
     activeOnly: boolean = true
   ): DetectedPattern[] {
     const patterns: DetectedPattern[] = [];
-    if (swings.length < 3 || candles.length < 10) return patterns;
+    if (candles.length < 5) return patterns;
 
-    const currentPrice = candles[candles.length - 1].close;
-    const currentHigh = candles[candles.length - 1].high;
-    const currentLow = candles[candles.length - 1].low;
+    const currentCandle = candles[candles.length - 1];
+    const currentPrice = currentCandle.close;
+    const currentHigh = currentCandle.high;
+    const currentLow = currentCandle.low;
 
-    // In live scanner (activeOnly = true), focus only on the current market structure (last 2 swings)
-    const minSwingStart = activeOnly ? Math.max(0, swings.length - 6) : 0;
+    // Helper for timeframe bar duration
+    const tfDef = TIMEFRAMES.find((t) => t.id === timeframe);
+    const stepSec = (tfDef ? tfDef.minutes : 5) * 60;
 
-    // Scan through sliding windows of swings
-    for (let i = minSwingStart; i <= swings.length - 5; i++) {
-      const window = swings.slice(i, i + 7); // 5 to 7 swings
-      if (activeOnly) {
-        const lastInWindow = window[Math.min(4, window.length - 1)];
-        // Must touch recent swing structure
-        if (swings.indexOf(lastInWindow) < swings.length - 3) continue;
+    // 1. Cup and Handle (Forward-looking: Forming -> Developing -> Confirmed -> Invalidated)
+    const cupPatterns = this.checkCupAndHandle(candles, swings, currentPrice, currentHigh, currentLow, symbol, timeframe, stepSec);
+    patterns.push(...cupPatterns);
+
+    // 2. Head and Shoulders & Inverse H&S (Forming -> Developing -> Confirmed)
+    if (swings.length >= 3) {
+      const minSwing = activeOnly ? Math.max(0, swings.length - 6) : 0;
+      for (let i = minSwing; i <= swings.length - 3; i++) {
+        const window = swings.slice(i, i + 5);
+        const hs = this.checkHeadAndShoulders(window, currentCandle, symbol, timeframe, stepSec);
+        if (hs) patterns.push(hs);
+
+        const ihs = this.checkInverseHeadAndShoulders(window, currentCandle, symbol, timeframe, stepSec);
+        if (ihs) patterns.push(ihs);
       }
-
-      // 1. Head and Shoulders (High, Low, High, Low, High)
-      const hs = this.checkHeadAndShoulders(window, currentPrice, currentHigh, currentLow, symbol, timeframe);
-      if (hs) patterns.push(hs);
-
-      // 2. Inverse Head and Shoulders (Low, High, Low, High, Low)
-      const ihs = this.checkInverseHeadAndShoulders(window, currentPrice, currentHigh, currentLow, symbol, timeframe);
-      if (ihs) patterns.push(ihs);
-
-      // 3. Triangles & Wedges (Ascending, Descending, Symmetrical, Wedges)
-      const triangle = this.checkTrianglesAndWedges(window, currentPrice, symbol, timeframe);
-      if (triangle) patterns.push(triangle);
-
-      // 4. Broadening Formation
-      const broadening = this.checkBroadeningFormation(window, currentPrice, symbol, timeframe);
-      if (broadening) patterns.push(broadening);
     }
 
-    // Double & Triple Tops/Bottoms (using 3 to 5 swings)
-    const minDoubleStart = activeOnly ? Math.max(0, swings.length - 4) : 0;
-    for (let i = minDoubleStart; i <= swings.length - 3; i++) {
-      const window = swings.slice(i, i + 5);
-      if (activeOnly) {
-        const lastInWindow = window[Math.min(2, window.length - 1)];
-        if (swings.indexOf(lastInWindow) < swings.length - 3) continue;
+    // 3. Double Tops & Bottoms (Forming Retest -> Developing -> Confirmed)
+    if (swings.length >= 2) {
+      const minDoubleStart = activeOnly ? Math.max(0, swings.length - 4) : 0;
+      for (let i = minDoubleStart; i <= swings.length - 2; i++) {
+        const window = swings.slice(i, i + 4);
+        const dt = this.checkDoubleTop(window, currentCandle, symbol, timeframe, stepSec);
+        if (dt) patterns.push(dt);
+
+        const db = this.checkDoubleBottom(window, currentCandle, symbol, timeframe, stepSec);
+        if (db) patterns.push(db);
       }
-      const dt = this.checkDoubleTop(window, currentPrice, currentHigh, symbol, timeframe);
-      if (dt) patterns.push(dt);
-
-      const db = this.checkDoubleBottom(window, currentPrice, currentLow, symbol, timeframe);
-      if (db) patterns.push(db);
-
-      const tt = this.checkTripleTop(window, currentPrice, currentHigh, symbol, timeframe);
-      if (tt) patterns.push(tt);
-
-      const tb = this.checkTripleBottom(window, currentPrice, currentLow, symbol, timeframe);
-      if (tb) patterns.push(tb);
     }
 
-    // Flags, Pennants, and Cup & Handle
-    const flag = this.checkFlagAndPennants(candles, swings, currentPrice, symbol, timeframe);
-    if (flag) patterns.push(...flag);
+    // 4. Triangles & Wedges (Trendline Projections)
+    if (swings.length >= 4) {
+      const minTriStart = activeOnly ? Math.max(0, swings.length - 5) : 0;
+      for (let i = minTriStart; i <= swings.length - 4; i++) {
+        const window = swings.slice(i, i + 6);
+        const tri = this.checkTrianglesAndWedges(window, currentCandle, symbol, timeframe, stepSec);
+        if (tri) patterns.push(tri);
+      }
+    }
 
-    const cup = this.checkCupAndHandle(candles, swings, currentPrice, symbol, timeframe);
-    if (cup) patterns.push(...cup);
+    // 5. Flags & Pennants (Impulse + Consolidation + Continuation Projection)
+    const flags = this.checkFlagAndPennants(candles, swings, currentPrice, symbol, timeframe, stepSec);
+    patterns.push(...flags);
 
     return patterns;
   }
 
-  // --- Head and Shoulders ---
+  // =========================================================================
+  // 1. CUP AND HANDLE (Comprehensive Lifecycle & Forward Projections)
+  // =========================================================================
+  private checkCupAndHandle(
+    candles: readonly OHLCV[],
+    swings: SwingPoint[],
+    currentPrice: number,
+    currentHigh: number,
+    currentLow: number,
+    symbol: string,
+    timeframe: SupportedTimeframe,
+    stepSec: number
+  ): DetectedPattern[] {
+    const list: DetectedPattern[] = [];
+    if (swings.length < 2) return list;
+
+    const latestCandle = candles[candles.length - 1];
+    const latestTs = latestCandle.timestamp;
+
+    // Scan each candidate Left Rim swing
+    for (let i = 0; i < swings.length - 1; i++) {
+      const s1 = swings[i]; // Left Rim (HIGH)
+      if (s1.type !== "HIGH") continue;
+
+      // Look for confirmed Right Rim s3 (HIGH after s1 with price near s1)
+      const candidateRims = swings.slice(i + 1).filter(
+        (s) =>
+          s.type === "HIGH" &&
+          !s.isProvisional &&
+          Math.abs(s1.price - s.price) / s1.price <= 0.035
+      );
+      const s3 = candidateRims.length > 0 ? candidateRims[0] : undefined;
+
+      // Cup Bottom s2 is the lowest LOW between s1 and (s3 or end)
+      const searchEndTs = s3 ? s3.timestamp : Infinity;
+      const intermediateLows = swings.filter(
+        (s) => s.type === "LOW" && s.timestamp > s1.timestamp && s.timestamp < searchEndTs
+      );
+      if (intermediateLows.length === 0) continue;
+
+      // The deepest trough is the true cup bottom
+      let s2 = intermediateLows[0];
+      for (const low of intermediateLows) {
+        if (low.price < s2.price) s2 = low;
+      }
+
+      const cupDepth = s1.price - s2.price;
+      if (cupDepth <= 0 || cupDepth / s1.price < 0.004) continue;
+
+      // If s3 was found, verify it recovered at least 80% of cupDepth from s2
+      if (s3 && s3.price - s2.price < 0.8 * cupDepth) continue;
+
+      // Check if handle trough (s4) has registered after s3
+      const s4 = s3
+        ? swings.find((s) => s.type === "LOW" && !s.isProvisional && s.timestamp > s3.timestamp)
+        : undefined;
+
+        // ---------------------------------------------------------------
+        // STAGE 1: FORMING (Left Rim and Rounded Bottom formed; price rising back toward Left Rim)
+        // ---------------------------------------------------------------
+        if (!s3) {
+          // Has price started recovering out of the bottom? (e.g. >= 30% recovery of cup depth)
+          const recovery = currentPrice - s2.price;
+          if (recovery >= 0.3 * cupDepth && currentLow >= s2.price * 0.998) {
+            // Price is currently climbing to complete the cup right rim
+            const completeness = Math.min(65, Math.round(30 + (recovery / cupDepth) * 35));
+
+            // Forward projections into future space
+            const estRightRimTs = latestTs + 4 * stepSec;
+            const estHandleTs = latestTs + 8 * stepSec;
+            const estBreakoutTs = latestTs + 12 * stepSec;
+            const estTargetTs = latestTs + 18 * stepSec;
+
+            const handleSupportMin = s1.price - 0.5 * cupDepth;
+            const handleSupportMax = s1.price - 0.382 * cupDepth;
+            const targetPrice = s1.price + cupDepth;
+
+            const projectedPoints: ProjectedPoint[] = [
+              { label: "Est. Right Rim", timestamp: estRightRimTs, price: s1.price, type: "ESTIMATED_POINT", isProjected: true },
+              { label: "Est. Handle Low", timestamp: estHandleTs, price: (handleSupportMin + handleSupportMax) / 2, type: "COMPLETION_ZONE", isProjected: true },
+              { label: "Breakout Level", timestamp: estBreakoutTs, price: s1.price, type: "BREAKOUT", isProjected: true },
+              { label: "Measured Target", timestamp: estTargetTs, price: targetPrice, type: "TARGET", isProjected: true },
+            ];
+
+            const projectedLines: ProjectedLine[] = [
+              { from: { timestamp: latestTs, price: currentPrice }, to: { timestamp: estRightRimTs, price: s1.price }, style: "dashed", label: "Cup Completion" },
+              { from: { timestamp: estRightRimTs, price: s1.price }, to: { timestamp: estHandleTs, price: (handleSupportMin + handleSupportMax) / 2 }, style: "dashed", label: "Handle Pullback" },
+              { from: { timestamp: estHandleTs, price: (handleSupportMin + handleSupportMax) / 2 }, to: { timestamp: estBreakoutTs, price: s1.price }, style: "dashed", label: "Breakout" },
+              { from: { timestamp: estBreakoutTs, price: s1.price }, to: { timestamp: estTargetTs, price: targetPrice }, style: "dotted", label: "Target Projection" },
+            ];
+
+            const projection: FutureProjection = {
+              projectedPoints,
+              projectedLines,
+              completionZone: {
+                min: handleSupportMin,
+                max: handleSupportMax,
+                startTs: estRightRimTs,
+                endTs: estBreakoutTs,
+                label: "Handle Pullback Zone (38.2% - 50%)",
+              },
+              targetZone: { price: targetPrice, startTs: estBreakoutTs, endTs: estTargetTs + 4 * stepSec, label: `Measured Move: +$${cupDepth.toFixed(1)}` },
+              breakoutLevel: s1.price,
+              invalidationLevel: s2.price,
+              expectedBreakoutDirection: "BULLISH",
+              estimatedTimeToCompletion: "~8-12 bars",
+              description: "Forming rounded cup bottom. Expecting right rim retest followed by handle consolidation.",
+            };
+
+            list.push({
+              id: `${symbol}-${timeframe}-CUP_AND_HANDLE-${s1.timestamp}`,
+              instrument: symbol,
+              timeframe,
+              family: "CLASSICAL_CHART",
+              pattern: "CUP_AND_HANDLE",
+              name: "Cup and Handle",
+              direction: "BULLISH",
+              state: "FORMING",
+              firstDetectedAt: s1.isoTime,
+              lastUpdatedAt: latestCandle.isoTime,
+              startTime: s1.timestamp,
+              endTime: latestTs,
+              keyPoints: [
+                { label: "Left Rim", timestamp: s1.timestamp, price: s1.price },
+                { label: "Cup Bottom", timestamp: s2.timestamp, price: s2.price },
+              ],
+              projection,
+              completenessScore: completeness,
+              isDeveloping: true,
+              levels: {
+                entry: s1.price,
+                neckline: s1.price,
+                breakoutLevel: s1.price,
+                invalidationLevel: s2.price,
+                target1: targetPrice,
+                stopLoss: s2.price,
+              },
+              progress: {
+                percentage: completeness,
+                description: `Cup rounding up (${Math.round((recovery / cupDepth) * 100)}% of rim recovery)`,
+              },
+              confirmationCondition: {
+                description: `Breakout and close above Left Rim resistance at $${s1.price.toFixed(2)}`,
+                priceLevel: s1.price,
+                operator: ">",
+                isMet: currentPrice > s1.price,
+              },
+              invalidationCondition: {
+                description: `Price breaks below cup bottom floor at $${s2.price.toFixed(2)}`,
+                priceLevel: s2.price,
+                operator: "<",
+                isMet: currentLow < s2.price,
+              },
+            });
+          }
+          continue;
+        }
+
+        // ---------------------------------------------------------------
+        // STAGE 2: DEVELOPING, CONFIRMED, or INVALIDATED
+        // (Right Rim s3 has formed)
+        // ---------------------------------------------------------------
+        const rimDiff = Math.abs(s1.price - s3.price) / s1.price;
+        if (rimDiff <= 0.035) {
+          const rimPrice = Math.max(s1.price, s3.price);
+          const handleLowPrice = Math.min(s4 ? s4.price : currentLow, currentLow);
+          const handleDepth = rimPrice - handleLowPrice;
+
+          // Invalidation: handle drops > 55% of cup depth or below bottom
+          const isInvalid = currentLow < s2.price || handleLowPrice < s2.price || handleDepth > 0.55 * cupDepth;
+          // Confirmation: breakout above rim
+          const isConfirmed = currentPrice > rimPrice && !isInvalid;
+
+          const state: PatternLifecycleState = isInvalid
+            ? "INVALIDATED"
+            : isConfirmed
+            ? "CONFIRMED"
+            : "DEVELOPING";
+
+          const completeness = isConfirmed ? 100 : isInvalid ? 0 : s4 ? 85 : 75;
+
+          const estBreakoutTs = s4 ? latestTs + 4 * stepSec : latestTs + 6 * stepSec;
+          const estTargetTs = estBreakoutTs + 8 * stepSec;
+          const targetPrice = rimPrice + cupDepth;
+
+          const projectedPoints: ProjectedPoint[] = [];
+          const projectedLines: ProjectedLine[] = [];
+
+          if (state !== "INVALIDATED") {
+            projectedPoints.push(
+              { label: "Breakout", timestamp: estBreakoutTs, price: rimPrice, type: "BREAKOUT", isProjected: true },
+              { label: "Target 1", timestamp: estTargetTs, price: targetPrice, type: "TARGET", isProjected: true }
+            );
+
+            projectedLines.push(
+              { from: { timestamp: latestTs, price: currentPrice }, to: { timestamp: estBreakoutTs, price: rimPrice }, style: "dashed", label: "Breakout Path" },
+              { from: { timestamp: estBreakoutTs, price: rimPrice }, to: { timestamp: estTargetTs, price: targetPrice }, style: "dotted", label: "Target Path" }
+            );
+          }
+
+          const projection: FutureProjection = {
+            projectedPoints,
+            projectedLines,
+            completionZone: {
+              min: rimPrice - 0.5 * cupDepth,
+              max: rimPrice - 0.25 * cupDepth,
+              startTs: s3.timestamp,
+              endTs: estBreakoutTs,
+              label: "Handle Consolidation Zone",
+            },
+            targetZone: { price: targetPrice, startTs: estBreakoutTs, endTs: estTargetTs + 4 * stepSec, label: `Target: +$${cupDepth.toFixed(1)}` },
+            breakoutLevel: rimPrice,
+            invalidationLevel: rimPrice - 0.55 * cupDepth,
+            expectedBreakoutDirection: "BULLISH",
+            estimatedTimeToCompletion: state === "CONFIRMED" ? "Target in progress" : "~4-6 bars",
+            description:
+              state === "CONFIRMED"
+                ? "Confirmed breakout above cup rim! Target projection active."
+                : state === "INVALIDATED"
+                ? "Pattern invalidated: Handle retraced too deeply or violated cup floor."
+                : "Handle consolidation underway. Awaiting volume-backed breakout above rim.",
+          };
+
+          const keyPoints: any[] = [
+            { label: "Left Rim", timestamp: s1.timestamp, price: s1.price },
+            { label: "Cup Bottom", timestamp: s2.timestamp, price: s2.price },
+            { label: "Right Rim", timestamp: s3.timestamp, price: s3.price },
+          ];
+          if (s4) {
+            keyPoints.push({ label: "Handle Trough", timestamp: s4.timestamp, price: s4.price, isProvisional: s4.isProvisional });
+          }
+
+          list.push({
+            id: `${symbol}-${timeframe}-CUP_AND_HANDLE-${s1.timestamp}`,
+            instrument: symbol,
+            timeframe,
+            family: "CLASSICAL_CHART",
+            pattern: "CUP_AND_HANDLE",
+            name: "Cup and Handle",
+            direction: "BULLISH",
+            state,
+            firstDetectedAt: s1.isoTime,
+            lastUpdatedAt: latestCandle.isoTime,
+            startTime: s1.timestamp,
+            endTime: s4 ? s4.timestamp : s3.timestamp,
+            keyPoints,
+            projection,
+            completenessScore: completeness,
+            isDeveloping: state === "DEVELOPING" || state === "FORMING",
+            levels: {
+              entry: rimPrice,
+              neckline: rimPrice,
+              breakoutLevel: rimPrice,
+              invalidationLevel: rimPrice - 0.55 * cupDepth,
+              target1: targetPrice,
+              stopLoss: handleLowPrice,
+            },
+            progress: {
+              percentage: completeness,
+              description:
+                state === "CONFIRMED"
+                  ? "Confirmed: Bullish breakout above rim resistance"
+                  : state === "INVALIDATED"
+                  ? "Invalidated: Handle retracement violated structure"
+                  : "Right rim formed; handle consolidation developing",
+            },
+            confirmationCondition: {
+              description: `Breakout and close above rim resistance at $${rimPrice.toFixed(2)}`,
+              priceLevel: rimPrice,
+              operator: ">",
+              isMet: currentPrice > rimPrice,
+            },
+            invalidationCondition: {
+              description: `Handle drops below invalidation level $${(rimPrice - 0.55 * cupDepth).toFixed(2)}`,
+              priceLevel: rimPrice - 0.55 * cupDepth,
+              operator: "<",
+              isMet: isInvalid,
+            },
+          });
+        }
+      }
+
+    return list;
+  }
+
+  // =========================================================================
+  // 2. HEAD AND SHOULDERS (Forward Projection of Right Shoulder & Breakdown)
+  // =========================================================================
   private checkHeadAndShoulders(
     w: SwingPoint[],
-    currentPrice: number,
-    currentHigh: number,
-    currentLow: number,
+    currentCandle: OHLCV,
     symbol: string,
-    timeframe: SupportedTimeframe
+    timeframe: SupportedTimeframe,
+    stepSec: number
   ): DetectedPattern | null {
-    if (w.length < 5) return null;
-    const [p1, p2, p3, p4, p5] = w; // Expected: High, Low, High, Low, High
+    if (w.length < 3) return null;
 
-    if (p1.type !== "HIGH" || p2.type !== "LOW" || p3.type !== "HIGH" || p4.type !== "LOW" || p5.type !== "HIGH") {
-      return null;
+    const currentPrice = currentCandle.close;
+    const currentHigh = currentCandle.high;
+    const latestTs = currentCandle.timestamp;
+
+    // A. 5-point H&S (Left Shoulder, Neckline 1, Head, Neckline 2, Right Shoulder)
+    if (w.length >= 5) {
+      const [p1, p2, p3, p4, p5] = w;
+      if (p1.type === "HIGH" && p2.type === "LOW" && p3.type === "HIGH" && p4.type === "LOW" && p5.type === "HIGH") {
+        if (p3.price > p1.price && p3.price > p5.price) {
+          const shoulderDiff = Math.abs(p1.price - p5.price) / p1.price;
+          if (shoulderDiff <= 0.06) {
+            const necklinePrice = (p2.price + p4.price) / 2;
+            const patternHeight = p3.price - necklinePrice;
+            const targetPrice = necklinePrice - patternHeight;
+
+            let state: PatternLifecycleState = "DEVELOPING";
+            if (currentPrice < necklinePrice) state = "CONFIRMED";
+            if (currentHigh > p3.price) state = "INVALIDATED";
+
+            const estBreakdownTs = latestTs + 4 * stepSec;
+            const estTargetTs = estBreakdownTs + 8 * stepSec;
+
+            const projection: FutureProjection = {
+              projectedPoints: [
+                { label: "Neckline Breakdown", timestamp: estBreakdownTs, price: necklinePrice, type: "BREAKOUT", isProjected: true },
+                { label: "Target (H-Depth)", timestamp: estTargetTs, price: targetPrice, type: "TARGET", isProjected: true },
+              ],
+              projectedLines: [
+                { from: { timestamp: p4.timestamp, price: necklinePrice }, to: { timestamp: estBreakdownTs + 6 * stepSec, price: necklinePrice }, style: "dashed", label: "Neckline" },
+                { from: { timestamp: latestTs, price: currentPrice }, to: { timestamp: estBreakdownTs, price: necklinePrice }, style: "dashed" },
+                { from: { timestamp: estBreakdownTs, price: necklinePrice }, to: { timestamp: estTargetTs, price: targetPrice }, style: "dotted", label: "Target Move" },
+              ],
+              targetZone: { price: targetPrice, startTs: estBreakdownTs, endTs: estTargetTs + 4 * stepSec, label: `Measured Move: -$${patternHeight.toFixed(1)}` },
+              breakoutLevel: necklinePrice,
+              invalidationLevel: p3.price,
+              expectedBreakoutDirection: "BEARISH",
+              estimatedTimeToCompletion: state === "CONFIRMED" ? "Target underway" : "~4-6 bars",
+              description: state === "CONFIRMED" ? "Confirmed breakdown below neckline!" : "Right shoulder completed. Awaiting neckline breakdown.",
+            };
+
+            return {
+              id: `${symbol}-${timeframe}-HS-${p1.timestamp}`,
+              instrument: symbol,
+              timeframe,
+              family: "CLASSICAL_CHART",
+              pattern: "HEAD_AND_SHOULDERS",
+              name: "Head and Shoulders",
+              direction: "BEARISH",
+              state,
+              firstDetectedAt: p1.isoTime,
+              lastUpdatedAt: currentCandle.isoTime,
+              startTime: p1.timestamp,
+              endTime: p5.timestamp,
+              keyPoints: [
+                { label: "Left Shoulder", timestamp: p1.timestamp, price: p1.price },
+                { label: "Neckline 1", timestamp: p2.timestamp, price: p2.price },
+                { label: "Head", timestamp: p3.timestamp, price: p3.price },
+                { label: "Neckline 2", timestamp: p4.timestamp, price: p4.price },
+                { label: "Right Shoulder", timestamp: p5.timestamp, price: p5.price, isProvisional: p5.isProvisional },
+              ],
+              projection,
+              completenessScore: state === "CONFIRMED" ? 100 : 80,
+              isDeveloping: state === "DEVELOPING",
+              levels: {
+                entry: necklinePrice,
+                neckline: necklinePrice,
+                breakoutLevel: necklinePrice,
+                target1: targetPrice,
+                stopLoss: p3.price,
+                invalidationLevel: p3.price,
+              },
+              progress: {
+                percentage: state === "CONFIRMED" ? 100 : 80,
+                description: state === "CONFIRMED" ? "Confirmed: Neckline breakdown" : "Right shoulder formed, awaiting breakdown",
+              },
+            };
+          }
+        }
+      }
     }
 
-    const leftShoulder = p1.price;
-    const head = p3.price;
-    const rightShoulder = p5.price;
-    const trough1 = p2.price;
-    const trough2 = p4.price;
+    // B. FORMING (4 swings: p1=Left Shoulder, p2=Neckline, p3=Head, p4=Neckline Trough; right shoulder currently developing)
+    if (w.length >= 4) {
+      const [p1, p2, p3, p4] = w;
+      if (p1.type === "HIGH" && p2.type === "LOW" && p3.type === "HIGH" && p4.type === "LOW") {
+        if (p3.price > p1.price && currentPrice < p3.price) {
+          const estRightShoulderPrice = p1.price;
+          const necklinePrice = (p2.price + p4.price) / 2;
+          const patternHeight = p3.price - necklinePrice;
+          const targetPrice = necklinePrice - patternHeight;
 
-    // Head must be strictly higher than both shoulders
-    if (head <= leftShoulder || head <= rightShoulder) return null;
+          const estRightShoulderTs = latestTs + 4 * stepSec;
+          const estBreakdownTs = latestTs + 8 * stepSec;
+          const estTargetTs = latestTs + 14 * stepSec;
 
-    // Shoulders should be roughly comparable (within 4% of each other)
-    const shoulderDiff = Math.abs(leftShoulder - rightShoulder) / leftShoulder;
-    if (shoulderDiff > 0.05) return null;
+          const projection: FutureProjection = {
+            projectedPoints: [
+              { label: "Est. Right Shoulder", timestamp: estRightShoulderTs, price: estRightShoulderPrice, type: "ESTIMATED_POINT", isProjected: true },
+              { label: "Projected Neckline", timestamp: estBreakdownTs, price: necklinePrice, type: "BREAKOUT", isProjected: true },
+              { label: "Target (H-Depth)", timestamp: estTargetTs, price: targetPrice, type: "TARGET", isProjected: true },
+            ],
+            projectedLines: [
+              { from: { timestamp: latestTs, price: currentPrice }, to: { timestamp: estRightShoulderTs, price: estRightShoulderPrice }, style: "dashed", label: "Right Shoulder Rally" },
+              { from: { timestamp: estRightShoulderTs, price: estRightShoulderPrice }, to: { timestamp: estBreakdownTs, price: necklinePrice }, style: "dashed", label: "Neckline Retest" },
+              { from: { timestamp: p2.timestamp, price: p2.price }, to: { timestamp: estBreakdownTs + 6 * stepSec, price: necklinePrice }, style: "dotted", label: "Neckline Extension" },
+              { from: { timestamp: estBreakdownTs, price: necklinePrice }, to: { timestamp: estTargetTs, price: targetPrice }, style: "dotted", label: "Breakdown Target" },
+            ],
+            breakoutLevel: necklinePrice,
+            invalidationLevel: p3.price,
+            expectedBreakoutDirection: "BEARISH",
+            estimatedTimeToCompletion: "~8-12 bars",
+            description: "Forming Head & Shoulders. Head and neckline established; right shoulder rally developing.",
+          };
 
-    // Neckline slope
-    const necklinePrice = (trough1 + trough2) / 2;
-
-    // Lifecycle state determination
-    let state: PatternLifecycleState = "COMPLETED";
-    let progressPct = 80;
-    let progressDesc = "Right shoulder formed, awaiting neckline break";
-
-    if (p5.isProvisional) {
-      state = "DEVELOPING";
-      progressPct = 65;
-      progressDesc = "Right shoulder still developing";
-    } else if (currentPrice < necklinePrice) {
-      state = "CONFIRMED";
-      progressPct = 100;
-      progressDesc = "Confirmed: Price broke below the neckline";
+          return {
+            id: `${symbol}-${timeframe}-HS-${p1.timestamp}`,
+            instrument: symbol,
+            timeframe,
+            family: "CLASSICAL_CHART",
+            pattern: "HEAD_AND_SHOULDERS",
+            name: "Head and Shoulders",
+            direction: "BEARISH",
+            state: "FORMING",
+            firstDetectedAt: p1.isoTime,
+            lastUpdatedAt: currentCandle.isoTime,
+            startTime: p1.timestamp,
+            endTime: p4.timestamp,
+            keyPoints: [
+              { label: "Left Shoulder", timestamp: p1.timestamp, price: p1.price },
+              { label: "Neckline 1", timestamp: p2.timestamp, price: p2.price },
+              { label: "Head", timestamp: p3.timestamp, price: p3.price },
+              { label: "Neckline 2", timestamp: p4.timestamp, price: p4.price },
+            ],
+            projection,
+            completenessScore: 60,
+            isDeveloping: true,
+            levels: {
+              entry: necklinePrice,
+              neckline: necklinePrice,
+              breakoutLevel: necklinePrice,
+              target1: targetPrice,
+              stopLoss: p3.price,
+              invalidationLevel: p3.price,
+            },
+            progress: {
+              percentage: 60,
+              description: "Forming: Right shoulder rally in progress",
+            },
+          };
+        }
+      }
     }
 
-    if (currentHigh > head) {
-      state = "INVALIDATED";
-      progressPct = 0;
-      progressDesc = "Invalidated: Price broke above the Head peak";
-    }
-
-    const patternHeight = head - necklinePrice;
-    const targetPrice = necklinePrice - patternHeight;
-
-    return {
-      id: `${symbol}-${timeframe}-HS-${p1.timestamp}`,
-      instrument: symbol,
-      timeframe,
-      family: "CLASSICAL_CHART",
-      pattern: "HEAD_AND_SHOULDERS",
-      name: "Head and Shoulders",
-      direction: "BEARISH",
-      state,
-      firstDetectedAt: p1.isoTime,
-      lastUpdatedAt: p5.isoTime,
-      startTime: p1.timestamp,
-      endTime: p5.timestamp,
-      keyPoints: [
-        { label: "Left Shoulder", timestamp: p1.timestamp, price: p1.price },
-        { label: "Neckline 1", timestamp: p2.timestamp, price: p2.price },
-        { label: "Head", timestamp: p3.timestamp, price: p3.price },
-        { label: "Neckline 2", timestamp: p4.timestamp, price: p4.price },
-        { label: "Right Shoulder", timestamp: p5.timestamp, price: p5.price, isProvisional: p5.isProvisional },
-      ],
-      levels: {
-        entry: necklinePrice,
-        neckline: necklinePrice,
-        target1: targetPrice,
-        stopLoss: head,
-        invalidationLevel: head,
-      },
-      progress: {
-        percentage: progressPct,
-        description: progressDesc,
-      },
-      confirmationCondition: {
-        description: `Break below neckline level of ${necklinePrice.toFixed(2)}`,
-        priceLevel: necklinePrice,
-        operator: "<",
-        isMet: currentPrice < necklinePrice,
-      },
-      invalidationCondition: {
-        description: `Price exceeds Head peak at ${head.toFixed(2)}`,
-        priceLevel: head,
-        operator: ">",
-        isMet: currentHigh > head,
-      },
-    };
+    return null;
   }
 
-  // --- Inverse Head and Shoulders ---
+  // =========================================================================
+  // 3. INVERSE HEAD AND SHOULDERS
+  // =========================================================================
   private checkInverseHeadAndShoulders(
     w: SwingPoint[],
-    currentPrice: number,
-    currentHigh: number,
-    currentLow: number,
+    currentCandle: OHLCV,
     symbol: string,
-    timeframe: SupportedTimeframe
+    timeframe: SupportedTimeframe,
+    stepSec: number
   ): DetectedPattern | null {
-    if (w.length < 5) return null;
-    const [p1, p2, p3, p4, p5] = w; // Expected: Low, High, Low, High, Low
+    if (w.length < 4) return null;
+    const currentPrice = currentCandle.close;
+    const latestTs = currentCandle.timestamp;
 
-    if (p1.type !== "LOW" || p2.type !== "HIGH" || p3.type !== "LOW" || p4.type !== "HIGH" || p5.type !== "LOW") {
-      return null;
+    if (w.length >= 5) {
+      const [p1, p2, p3, p4, p5] = w;
+      if (p1.type === "LOW" && p2.type === "HIGH" && p3.type === "LOW" && p4.type === "HIGH" && p5.type === "LOW") {
+        if (p3.price < p1.price && p3.price < p5.price) {
+          const necklinePrice = (p2.price + p4.price) / 2;
+          const patternHeight = necklinePrice - p3.price;
+          const targetPrice = necklinePrice + patternHeight;
+
+          let state: PatternLifecycleState = "DEVELOPING";
+          if (currentPrice > necklinePrice) state = "CONFIRMED";
+          if (currentPrice < p3.price) state = "INVALIDATED";
+
+          const estBreakoutTs = latestTs + 4 * stepSec;
+          const estTargetTs = estBreakoutTs + 8 * stepSec;
+
+          const projection: FutureProjection = {
+            projectedPoints: [
+              { label: "Neckline Breakout", timestamp: estBreakoutTs, price: necklinePrice, type: "BREAKOUT", isProjected: true },
+              { label: "Target (H-Depth)", timestamp: estTargetTs, price: targetPrice, type: "TARGET", isProjected: true },
+            ],
+            projectedLines: [
+              { from: { timestamp: latestTs, price: currentPrice }, to: { timestamp: estBreakoutTs, price: necklinePrice }, style: "dashed" },
+              { from: { timestamp: estBreakoutTs, price: necklinePrice }, to: { timestamp: estTargetTs, price: targetPrice }, style: "dotted", label: "Breakout Target" },
+            ],
+            targetZone: { price: targetPrice, startTs: estBreakoutTs, endTs: estTargetTs + 4 * stepSec },
+            breakoutLevel: necklinePrice,
+            invalidationLevel: p3.price,
+            expectedBreakoutDirection: "BULLISH",
+            estimatedTimeToCompletion: state === "CONFIRMED" ? "Target underway" : "~4-6 bars",
+            description: "Inverse Head & Shoulders right shoulder formed. Awaiting neckline breakout.",
+          };
+
+          return {
+            id: `${symbol}-${timeframe}-IHS-${p1.timestamp}`,
+            instrument: symbol,
+            timeframe,
+            family: "CLASSICAL_CHART",
+            pattern: "INVERSE_HEAD_AND_SHOULDERS",
+            name: "Inverse Head and Shoulders",
+            direction: "BULLISH",
+            state,
+            firstDetectedAt: p1.isoTime,
+            lastUpdatedAt: currentCandle.isoTime,
+            startTime: p1.timestamp,
+            endTime: p5.timestamp,
+            keyPoints: [
+              { label: "Left Shoulder", timestamp: p1.timestamp, price: p1.price },
+              { label: "Neckline 1", timestamp: p2.timestamp, price: p2.price },
+              { label: "Head", timestamp: p3.timestamp, price: p3.price },
+              { label: "Neckline 2", timestamp: p4.timestamp, price: p4.price },
+              { label: "Right Shoulder", timestamp: p5.timestamp, price: p5.price, isProvisional: p5.isProvisional },
+            ],
+            projection,
+            completenessScore: state === "CONFIRMED" ? 100 : 80,
+            isDeveloping: state === "DEVELOPING",
+            levels: {
+              entry: necklinePrice,
+              neckline: necklinePrice,
+              breakoutLevel: necklinePrice,
+              target1: targetPrice,
+              stopLoss: p3.price,
+              invalidationLevel: p3.price,
+            },
+            progress: {
+              percentage: state === "CONFIRMED" ? 100 : 80,
+              description: state === "CONFIRMED" ? "Confirmed: Bullish breakout above neckline" : "Right shoulder completed",
+            },
+          };
+        }
+      }
     }
-
-    const leftShoulder = p1.price;
-    const head = p3.price;
-    const rightShoulder = p5.price;
-    const peak1 = p2.price;
-    const peak2 = p4.price;
-
-    if (head >= leftShoulder || head >= rightShoulder) return null;
-    if (Math.abs(leftShoulder - rightShoulder) / leftShoulder > 0.05) return null;
-
-    const necklinePrice = (peak1 + peak2) / 2;
-    let state: PatternLifecycleState = "COMPLETED";
-    let progressPct = 80;
-    let progressDesc = "Right shoulder formed, awaiting neckline breakout";
-
-    if (p5.isProvisional) {
-      state = "DEVELOPING";
-      progressPct = 65;
-      progressDesc = "Right shoulder trough developing";
-    } else if (currentPrice > necklinePrice) {
-      state = "CONFIRMED";
-      progressPct = 100;
-      progressDesc = "Confirmed: Price broke above the neckline";
-    }
-
-    if (currentLow < head) {
-      state = "INVALIDATED";
-      progressPct = 0;
-      progressDesc = "Invalidated: Price fell below the Head trough";
-    }
-
-    const patternHeight = necklinePrice - head;
-    const targetPrice = necklinePrice + patternHeight;
-
-    return {
-      id: `${symbol}-${timeframe}-INVERSE_HS-${p1.timestamp}`,
-      instrument: symbol,
-      timeframe,
-      family: "CLASSICAL_CHART",
-      pattern: "INVERSE_HEAD_AND_SHOULDERS",
-      name: "Inverse Head and Shoulders",
-      direction: "BULLISH",
-      state,
-      firstDetectedAt: p1.isoTime,
-      lastUpdatedAt: p5.isoTime,
-      startTime: p1.timestamp,
-      endTime: p5.timestamp,
-      keyPoints: [
-        { label: "Left Shoulder", timestamp: p1.timestamp, price: p1.price },
-        { label: "Neckline 1", timestamp: p2.timestamp, price: p2.price },
-        { label: "Head", timestamp: p3.timestamp, price: p3.price },
-        { label: "Neckline 2", timestamp: p4.timestamp, price: p4.price },
-        { label: "Right Shoulder", timestamp: p5.timestamp, price: p5.price, isProvisional: p5.isProvisional },
-      ],
-      levels: {
-        entry: necklinePrice,
-        neckline: necklinePrice,
-        target1: targetPrice,
-        stopLoss: head,
-        invalidationLevel: head,
-      },
-      progress: {
-        percentage: progressPct,
-        description: progressDesc,
-      },
-      confirmationCondition: {
-        description: `Break above neckline level of ${necklinePrice.toFixed(2)}`,
-        priceLevel: necklinePrice,
-        operator: ">",
-        isMet: currentPrice > necklinePrice,
-      },
-      invalidationCondition: {
-        description: `Price breaks below Head trough at ${head.toFixed(2)}`,
-        priceLevel: head,
-        operator: "<",
-        isMet: currentLow < head,
-      },
-    };
+    return null;
   }
 
-  // --- Double Top ---
-  private checkDoubleTop(
-    w: SwingPoint[],
-    currentPrice: number,
-    currentHigh: number,
-    symbol: string,
-    timeframe: SupportedTimeframe
-  ): DetectedPattern | null {
-    if (w.length < 3) return null;
-    const [p1, p2, p3] = w; // High 1, Trough, High 2
-    if (p1.type !== "HIGH" || p2.type !== "LOW" || p3.type !== "HIGH") return null;
-
-    const topDiff = Math.abs(p1.price - p3.price) / p1.price;
-    if (topDiff > 0.02) return null; // within 2%
-
-    const neckline = p2.price;
-    const peakPrice = Math.max(p1.price, p3.price);
-
-    let state: PatternLifecycleState = "COMPLETED";
-    let progressPct = 80;
-    let progressDesc = "Second peak completed, testing neckline";
-
-    if (p3.isProvisional) {
-      state = "DEVELOPING";
-      progressPct = 60;
-      progressDesc = "Second peak currently developing";
-    } else if (currentPrice < neckline) {
-      state = "CONFIRMED";
-      progressPct = 100;
-      progressDesc = "Confirmed: Breakout below the neckline";
-    }
-
-    if (currentHigh > peakPrice * 1.008) {
-      state = "INVALIDATED";
-      progressPct = 0;
-      progressDesc = "Invalidated: Price exceeded peak resistance";
-    }
-
-    const height = peakPrice - neckline;
-
-    return {
-      id: `${symbol}-${timeframe}-DOUBLE_TOP-${p1.timestamp}`,
-      instrument: symbol,
-      timeframe,
-      family: "CLASSICAL_CHART",
-      pattern: "DOUBLE_TOP",
-      name: "Double Top",
-      direction: "BEARISH",
-      state,
-      firstDetectedAt: p1.isoTime,
-      lastUpdatedAt: p3.isoTime,
-      startTime: p1.timestamp,
-      endTime: p3.timestamp,
-      keyPoints: [
-        { label: "Peak 1", timestamp: p1.timestamp, price: p1.price },
-        { label: "Neckline", timestamp: p2.timestamp, price: p2.price },
-        { label: "Peak 2", timestamp: p3.timestamp, price: p3.price, isProvisional: p3.isProvisional },
-      ],
-      levels: {
-        entry: neckline,
-        neckline,
-        target1: neckline - height,
-        stopLoss: peakPrice,
-        invalidationLevel: peakPrice,
-      },
-      progress: {
-        percentage: progressPct,
-        description: progressDesc,
-      },
-      confirmationCondition: {
-        description: `Break below neckline level of ${neckline.toFixed(2)}`,
-        priceLevel: neckline,
-        operator: "<",
-        isMet: currentPrice < neckline,
-      },
-      invalidationCondition: {
-        description: `Price exceeds peak level ${peakPrice.toFixed(2)}`,
-        priceLevel: peakPrice,
-        operator: ">",
-        isMet: currentHigh > peakPrice,
-      },
-    };
-  }
-
-  // --- Double Bottom ---
+  // =========================================================================
+  // 4. DOUBLE BOTTOM (Retest Formation -> Developing Rebound -> Confirmed Breakout)
+  // =========================================================================
   private checkDoubleBottom(
     w: SwingPoint[],
-    currentPrice: number,
-    currentLow: number,
+    currentCandle: OHLCV,
     symbol: string,
-    timeframe: SupportedTimeframe
+    timeframe: SupportedTimeframe,
+    stepSec: number
   ): DetectedPattern | null {
-    if (w.length < 3) return null;
-    const [p1, p2, p3] = w; // Low 1, Peak, Low 2
-    if (p1.type !== "LOW" || p2.type !== "HIGH" || p3.type !== "LOW") return null;
+    if (w.length < 2) return null;
 
-    const bottomDiff = Math.abs(p1.price - p3.price) / p1.price;
-    if (bottomDiff > 0.02) return null;
+    const currentPrice = currentCandle.close;
+    const latestTs = currentCandle.timestamp;
+
+    // We look for: Trough 1 (LOW), Peak (HIGH), and either Trough 2 (LOW) or price currently retesting Trough 1
+    const p1 = w[0]; // Trough 1
+    const p2 = w[1]; // Peak / Neckline
+    if (p1.type !== "LOW" || p2.type !== "HIGH") return null;
+
+    const troughDiff = p2.price - p1.price;
+    if (troughDiff <= 0) return null;
+
+    const p3 = w[2]?.type === "LOW" ? w[2] : null;
+
+    // Case A: Trough 2 formed or current price retesting Trough 1 (within 1.8% of Trough 1)
+    const retestPrice = p3 ? p3.price : currentPrice;
+    const diff = Math.abs(retestPrice - p1.price) / p1.price;
+    if (diff > 0.02) return null;
 
     const neckline = p2.price;
-    const troughPrice = Math.min(p1.price, p3.price);
+    const floor = Math.min(p1.price, retestPrice);
+    const target = neckline + (neckline - floor);
 
-    let state: PatternLifecycleState = "COMPLETED";
-    let progressPct = 80;
-    let progressDesc = "Second trough completed, testing neckline";
+    let state: PatternLifecycleState = p3 ? (p3.isProvisional ? "DEVELOPING" : "COMPLETED") : "FORMING";
+    if (currentPrice > neckline) state = "CONFIRMED";
+    if (currentPrice < floor * 0.995) state = "INVALIDATED";
 
-    if (p3.isProvisional) {
-      state = "DEVELOPING";
-      progressPct = 60;
-      progressDesc = "Second bottom trough developing";
-    } else if (currentPrice > neckline) {
-      state = "CONFIRMED";
-      progressPct = 100;
-      progressDesc = "Confirmed: Breakout above the neckline";
+    const estBreakoutTs = latestTs + 4 * stepSec;
+    const estTargetTs = estBreakoutTs + 8 * stepSec;
+
+    const projection: FutureProjection = {
+      projectedPoints: [
+        { label: "Neckline Breakout", timestamp: estBreakoutTs, price: neckline, type: "BREAKOUT", isProjected: true },
+        { label: "Measured Target", timestamp: estTargetTs, price: target, type: "TARGET", isProjected: true },
+      ],
+      projectedLines: [
+        { from: { timestamp: latestTs, price: currentPrice }, to: { timestamp: estBreakoutTs, price: neckline }, style: "dashed", label: "Breakout Path" },
+        { from: { timestamp: p2.timestamp, price: neckline }, to: { timestamp: estBreakoutTs + 6 * stepSec, price: neckline }, style: "dotted", label: "Neckline Level" },
+        { from: { timestamp: estBreakoutTs, price: neckline }, to: { timestamp: estTargetTs, price: target }, style: "dotted", label: "Target" },
+      ],
+      targetZone: { price: target, startTs: estBreakoutTs, endTs: estTargetTs + 4 * stepSec },
+      breakoutLevel: neckline,
+      invalidationLevel: floor,
+      expectedBreakoutDirection: "BULLISH",
+      estimatedTimeToCompletion: state === "CONFIRMED" ? "Target active" : "~4-8 bars",
+      description: state === "CONFIRMED" ? "Confirmed: Double bottom neckline breakout!" : "Double bottom support retest underway. Projecting rally toward neckline.",
+    };
+
+    const keyPoints: any[] = [
+      { label: "Trough 1", timestamp: p1.timestamp, price: p1.price },
+      { label: "Neckline", timestamp: p2.timestamp, price: p2.price },
+    ];
+    if (p3) {
+      keyPoints.push({ label: "Trough 2", timestamp: p3.timestamp, price: p3.price, isProvisional: p3.isProvisional });
     }
-
-    if (currentLow < troughPrice * 0.992) {
-      state = "INVALIDATED";
-      progressPct = 0;
-      progressDesc = "Invalidated: Price fell below double bottom floor";
-    }
-
-    const height = neckline - troughPrice;
 
     return {
       id: `${symbol}-${timeframe}-DOUBLE_BOTTOM-${p1.timestamp}`,
@@ -408,161 +693,129 @@ export class ClassicalPatternDetector {
       direction: "BULLISH",
       state,
       firstDetectedAt: p1.isoTime,
-      lastUpdatedAt: p3.isoTime,
+      lastUpdatedAt: currentCandle.isoTime,
       startTime: p1.timestamp,
-      endTime: p3.timestamp,
-      keyPoints: [
-        { label: "Trough 1", timestamp: p1.timestamp, price: p1.price },
-        { label: "Neckline", timestamp: p2.timestamp, price: p2.price },
-        { label: "Trough 2", timestamp: p3.timestamp, price: p3.price, isProvisional: p3.isProvisional },
-      ],
-      levels: {
-        entry: neckline,
-        neckline,
-        target1: neckline + height,
-        stopLoss: troughPrice,
-        invalidationLevel: troughPrice,
-      },
+      endTime: p3 ? p3.timestamp : latestTs,
+      keyPoints,
+      projection,
+      completenessScore: state === "CONFIRMED" ? 100 : p3 ? 80 : 60,
+      isDeveloping: state === "FORMING" || state === "DEVELOPING",
+      levels: { entry: neckline, neckline, breakoutLevel: neckline, target1: target, stopLoss: floor, invalidationLevel: floor },
       progress: {
-        percentage: progressPct,
-        description: progressDesc,
-      },
-      confirmationCondition: {
-        description: `Break above neckline level of ${neckline.toFixed(2)}`,
-        priceLevel: neckline,
-        operator: ">",
-        isMet: currentPrice > neckline,
-      },
-      invalidationCondition: {
-        description: `Price falls below trough level ${troughPrice.toFixed(2)}`,
-        priceLevel: troughPrice,
-        operator: "<",
-        isMet: currentLow < troughPrice,
+        percentage: state === "CONFIRMED" ? 100 : p3 ? 80 : 60,
+        description: state === "CONFIRMED" ? "Confirmed: Breakout above neckline" : "Second trough retesting support level",
       },
     };
   }
 
-  // --- Triple Top & Triple Bottom ---
-  private checkTripleTop(
+  // =========================================================================
+  // 5. DOUBLE TOP
+  // =========================================================================
+  private checkDoubleTop(
     w: SwingPoint[],
-    currentPrice: number,
-    currentHigh: number,
+    currentCandle: OHLCV,
     symbol: string,
-    timeframe: SupportedTimeframe
+    timeframe: SupportedTimeframe,
+    stepSec: number
   ): DetectedPattern | null {
-    if (w.length < 5) return null;
-    const [p1, p2, p3, p4, p5] = w; // High, Low, High, Low, High
-    if (p1.type !== "HIGH" || p2.type !== "LOW" || p3.type !== "HIGH" || p4.type !== "LOW" || p5.type !== "HIGH") return null;
+    if (w.length < 2) return null;
+    const currentPrice = currentCandle.close;
+    const latestTs = currentCandle.timestamp;
 
-    const diff1 = Math.abs(p1.price - p3.price) / p1.price;
-    const diff2 = Math.abs(p3.price - p5.price) / p3.price;
-    if (diff1 > 0.02 || diff2 > 0.02) return null;
+    const p1 = w[0]; // Peak 1
+    const p2 = w[1]; // Trough / Neckline
+    if (p1.type !== "HIGH" || p2.type !== "LOW") return null;
 
-    const neckline = Math.min(p2.price, p4.price);
-    const peak = Math.max(p1.price, p3.price, p5.price);
+    const p3 = w[2]?.type === "HIGH" ? w[2] : null;
+    const retestPrice = p3 ? p3.price : currentPrice;
+    const diff = Math.abs(retestPrice - p1.price) / p1.price;
+    if (diff > 0.02) return null;
 
-    let state: PatternLifecycleState = p5.isProvisional ? "DEVELOPING" : "COMPLETED";
+    const neckline = p2.price;
+    const ceiling = Math.max(p1.price, retestPrice);
+    const target = neckline - (ceiling - neckline);
+
+    let state: PatternLifecycleState = p3 ? (p3.isProvisional ? "DEVELOPING" : "COMPLETED") : "FORMING";
     if (currentPrice < neckline) state = "CONFIRMED";
-    if (currentHigh > peak * 1.01) state = "INVALIDATED";
+    if (currentPrice > ceiling * 1.005) state = "INVALIDATED";
+
+    const estBreakdownTs = latestTs + 4 * stepSec;
+    const estTargetTs = estBreakdownTs + 8 * stepSec;
+
+    const projection: FutureProjection = {
+      projectedPoints: [
+        { label: "Neckline Breakdown", timestamp: estBreakdownTs, price: neckline, type: "BREAKOUT", isProjected: true },
+        { label: "Target", timestamp: estTargetTs, price: target, type: "TARGET", isProjected: true },
+      ],
+      projectedLines: [
+        { from: { timestamp: latestTs, price: currentPrice }, to: { timestamp: estBreakdownTs, price: neckline }, style: "dashed" },
+        { from: { timestamp: estBreakdownTs, price: neckline }, to: { timestamp: estTargetTs, price: target }, style: "dotted", label: "Breakdown" },
+      ],
+      targetZone: { price: target, startTs: estBreakdownTs, endTs: estTargetTs + 4 * stepSec },
+      breakoutLevel: neckline,
+      invalidationLevel: ceiling,
+      expectedBreakoutDirection: "BEARISH",
+      estimatedTimeToCompletion: state === "CONFIRMED" ? "Target active" : "~4-8 bars",
+      description: state === "CONFIRMED" ? "Confirmed: Double top neckline breakdown!" : "Double top resistance retest. Projecting breakdown.",
+    };
+
+    const keyPoints: any[] = [
+      { label: "Peak 1", timestamp: p1.timestamp, price: p1.price },
+      { label: "Neckline", timestamp: p2.timestamp, price: p2.price },
+    ];
+    if (p3) {
+      keyPoints.push({ label: "Peak 2", timestamp: p3.timestamp, price: p3.price, isProvisional: p3.isProvisional });
+    }
 
     return {
-      id: `${symbol}-${timeframe}-TRIPLE_TOP-${p1.timestamp}`,
+      id: `${symbol}-${timeframe}-DOUBLE_TOP-${p1.timestamp}`,
       instrument: symbol,
       timeframe,
       family: "CLASSICAL_CHART",
-      pattern: "TRIPLE_TOP",
-      name: "Triple Top",
+      pattern: "DOUBLE_TOP",
+      name: "Double Top",
       direction: "BEARISH",
       state,
       firstDetectedAt: p1.isoTime,
-      lastUpdatedAt: p5.isoTime,
+      lastUpdatedAt: currentCandle.isoTime,
       startTime: p1.timestamp,
-      endTime: p5.timestamp,
-      keyPoints: [
-        { label: "Peak 1", timestamp: p1.timestamp, price: p1.price },
-        { label: "Valley 1", timestamp: p2.timestamp, price: p2.price },
-        { label: "Peak 2", timestamp: p3.timestamp, price: p3.price },
-        { label: "Valley 2", timestamp: p4.timestamp, price: p4.price },
-        { label: "Peak 3", timestamp: p5.timestamp, price: p5.price, isProvisional: p5.isProvisional },
-      ],
-      levels: { entry: neckline, neckline, target1: neckline - (peak - neckline), stopLoss: peak },
+      endTime: p3 ? p3.timestamp : latestTs,
+      keyPoints,
+      projection,
+      completenessScore: state === "CONFIRMED" ? 100 : p3 ? 80 : 60,
+      isDeveloping: state === "FORMING" || state === "DEVELOPING",
+      levels: { entry: neckline, neckline, breakoutLevel: neckline, target1: target, stopLoss: ceiling, invalidationLevel: ceiling },
       progress: {
-        percentage: state === "CONFIRMED" ? 100 : state === "COMPLETED" ? 85 : 65,
-        description: state === "CONFIRMED" ? "Confirmed: Breakout below baseline" : "Third peak testing resistance",
+        percentage: state === "CONFIRMED" ? 100 : p3 ? 80 : 60,
+        description: state === "CONFIRMED" ? "Confirmed: Breakdown below neckline" : "Second peak retesting resistance",
       },
     };
   }
 
-  private checkTripleBottom(
-    w: SwingPoint[],
-    currentPrice: number,
-    currentLow: number,
-    symbol: string,
-    timeframe: SupportedTimeframe
-  ): DetectedPattern | null {
-    if (w.length < 5) return null;
-    const [p1, p2, p3, p4, p5] = w; // Low, High, Low, High, Low
-    if (p1.type !== "LOW" || p2.type !== "HIGH" || p3.type !== "LOW" || p4.type !== "HIGH" || p5.type !== "LOW") return null;
-
-    const diff1 = Math.abs(p1.price - p3.price) / p1.price;
-    const diff2 = Math.abs(p3.price - p5.price) / p3.price;
-    if (diff1 > 0.02 || diff2 > 0.02) return null;
-
-    const neckline = Math.max(p2.price, p4.price);
-    const floor = Math.min(p1.price, p3.price, p5.price);
-
-    let state: PatternLifecycleState = p5.isProvisional ? "DEVELOPING" : "COMPLETED";
-    if (currentPrice > neckline) state = "CONFIRMED";
-    if (currentLow < floor * 0.99) state = "INVALIDATED";
-
-    return {
-      id: `${symbol}-${timeframe}-TRIPLE_BOTTOM-${p1.timestamp}`,
-      instrument: symbol,
-      timeframe,
-      family: "CLASSICAL_CHART",
-      pattern: "TRIPLE_BOTTOM",
-      name: "Triple Bottom",
-      direction: "BULLISH",
-      state,
-      firstDetectedAt: p1.isoTime,
-      lastUpdatedAt: p5.isoTime,
-      startTime: p1.timestamp,
-      endTime: p5.timestamp,
-      keyPoints: [
-        { label: "Trough 1", timestamp: p1.timestamp, price: p1.price },
-        { label: "Peak 1", timestamp: p2.timestamp, price: p2.price },
-        { label: "Trough 2", timestamp: p3.timestamp, price: p3.price },
-        { label: "Peak 2", timestamp: p4.timestamp, price: p4.price },
-        { label: "Trough 3", timestamp: p5.timestamp, price: p5.price, isProvisional: p5.isProvisional },
-      ],
-      levels: { entry: neckline, neckline, target1: neckline + (neckline - floor), stopLoss: floor },
-      progress: {
-        percentage: state === "CONFIRMED" ? 100 : state === "COMPLETED" ? 85 : 65,
-        description: state === "CONFIRMED" ? "Confirmed: Breakout above resistance" : "Third bottom testing support",
-      },
-    };
-  }
-
-  // --- Triangles & Wedges ---
+  // =========================================================================
+  // 6. TRIANGLES & WEDGES (Projected Converging Trendlines into Future Space)
+  // =========================================================================
   private checkTrianglesAndWedges(
     w: SwingPoint[],
-    currentPrice: number,
+    currentCandle: OHLCV,
     symbol: string,
-    timeframe: SupportedTimeframe
+    timeframe: SupportedTimeframe,
+    stepSec: number
   ): DetectedPattern | null {
     if (w.length < 4) return null;
     const highs = w.filter((p) => p.type === "HIGH");
     const lows = w.filter((p) => p.type === "LOW");
-
     if (highs.length < 2 || lows.length < 2) return null;
 
     const [h1, h2] = highs.slice(-2);
     const [l1, l2] = lows.slice(-2);
+    const currentPrice = currentCandle.close;
+    const latestTs = currentCandle.timestamp;
 
     const highSlope = (h2.price - h1.price) / (h2.timestamp - h1.timestamp);
     const lowSlope = (l2.price - l1.price) / (l2.timestamp - l1.timestamp);
 
-    const flatThreshold = 0.008; // 0.8% price flat
+    const flatThreshold = 0.008;
     const isHighFlat = Math.abs(h2.price - h1.price) / h1.price < flatThreshold;
     const isLowFlat = Math.abs(l2.price - l1.price) / l1.price < flatThreshold;
 
@@ -581,34 +834,47 @@ export class ClassicalPatternDetector {
     } else if (highSlope < 0 && lowSlope > 0) {
       patternCode = "SYMMETRICAL_TRIANGLE";
       name = "Symmetrical Triangle";
-      direction = "NEUTRAL";
-    } else if (highSlope > 0 && lowSlope > 0 && highSlope < lowSlope) {
-      patternCode = "RISING_WEDGE";
-      name = "Rising Wedge";
-      direction = "BEARISH";
-    } else if (highSlope < 0 && lowSlope < 0 && Math.abs(highSlope) > Math.abs(lowSlope)) {
-      patternCode = "FALLING_WEDGE";
-      name = "Falling Wedge";
-      direction = "BULLISH";
+      direction = currentPrice > (h2.price + l2.price) / 2 ? "BULLISH" : "BEARISH";
     } else {
       return null;
     }
 
-    const lastPoint = w[w.length - 1];
-    let state: PatternLifecycleState = lastPoint.isProvisional ? "DEVELOPING" : "COMPLETED";
-
-    // Breakout check
-    if (direction === "BULLISH" && currentPrice > h2.price) {
-      state = "CONFIRMED";
-    } else if (direction === "BEARISH" && currentPrice < l2.price) {
-      state = "CONFIRMED";
-    }
-
+    const isBull = direction === "BULLISH";
     const height = Math.abs(h1.price - l1.price);
-    const target1 = direction === "BULLISH" ? h2.price + height : l2.price - height;
+    const breakoutLevel = isBull ? h2.price : l2.price;
+    const targetPrice = isBull ? breakoutLevel + height : breakoutLevel - height;
+
+    let state: PatternLifecycleState = "DEVELOPING";
+    if (isBull && currentPrice > breakoutLevel) state = "CONFIRMED";
+    else if (!isBull && currentPrice < breakoutLevel) state = "CONFIRMED";
+
+    const estBreakoutTs = latestTs + 5 * stepSec;
+    const estTargetTs = estBreakoutTs + 10 * stepSec;
+
+    // Future trendline extensions
+    const futureHighPrice = h2.price + highSlope * (estBreakoutTs - h2.timestamp);
+    const futureLowPrice = l2.price + lowSlope * (estBreakoutTs - l2.timestamp);
+
+    const projection: FutureProjection = {
+      projectedPoints: [
+        { label: "Breakout Zone", timestamp: estBreakoutTs, price: breakoutLevel, type: "BREAKOUT", isProjected: true },
+        { label: "Target (Base Height)", timestamp: estTargetTs, price: targetPrice, type: "TARGET", isProjected: true },
+      ],
+      projectedLines: [
+        { from: { timestamp: h2.timestamp, price: h2.price }, to: { timestamp: estBreakoutTs, price: futureHighPrice }, style: "dashed", label: "Upper Boundary" },
+        { from: { timestamp: l2.timestamp, price: l2.price }, to: { timestamp: estBreakoutTs, price: futureLowPrice }, style: "dashed", label: "Lower Boundary" },
+        { from: { timestamp: estBreakoutTs, price: breakoutLevel }, to: { timestamp: estTargetTs, price: targetPrice }, style: "dotted", label: "Breakout Move" },
+      ],
+      targetZone: { price: targetPrice, startTs: estBreakoutTs, endTs: estTargetTs + 4 * stepSec },
+      breakoutLevel,
+      invalidationLevel: isBull ? l2.price : h2.price,
+      expectedBreakoutDirection: direction,
+      estimatedTimeToCompletion: state === "CONFIRMED" ? "Target active" : "~5-8 bars",
+      description: `${name} converging into future space. Projecting continuation breakout.`,
+    };
 
     return {
-      id: `${symbol}-${timeframe}-${patternCode}-${w[0].timestamp}`,
+      id: `${symbol}-${timeframe}-${patternCode}-${h1.timestamp}`,
       instrument: symbol,
       timeframe,
       family: "CLASSICAL_CHART",
@@ -616,91 +882,47 @@ export class ClassicalPatternDetector {
       name,
       direction,
       state,
-      firstDetectedAt: w[0].isoTime,
-      lastUpdatedAt: lastPoint.isoTime,
-      startTime: w[0].timestamp,
-      endTime: lastPoint.timestamp,
+      firstDetectedAt: h1.isoTime,
+      lastUpdatedAt: currentCandle.isoTime,
+      startTime: Math.min(h1.timestamp, l1.timestamp),
+      endTime: Math.max(h2.timestamp, l2.timestamp),
       keyPoints: [
-        { label: "Upper 1", timestamp: h1.timestamp, price: h1.price },
-        { label: "Lower 1", timestamp: l1.timestamp, price: l1.price },
-        { label: "Upper 2", timestamp: h2.timestamp, price: h2.price, isProvisional: h2.isProvisional },
-        { label: "Lower 2", timestamp: l2.timestamp, price: l2.price, isProvisional: l2.isProvisional },
+        { label: "High 1", timestamp: h1.timestamp, price: h1.price },
+        { label: "Low 1", timestamp: l1.timestamp, price: l1.price },
+        { label: "High 2", timestamp: h2.timestamp, price: h2.price },
+        { label: "Low 2", timestamp: l2.timestamp, price: l2.price },
       ],
+      projection,
+      completenessScore: state === "CONFIRMED" ? 100 : 75,
+      isDeveloping: state === "DEVELOPING",
       levels: {
-        upperBoundary: h2.price,
-        lowerBoundary: l2.price,
-        target1,
-        stopLoss: direction === "BULLISH" ? l2.price : h2.price,
+        entry: breakoutLevel,
+        breakoutLevel,
+        target1: targetPrice,
+        stopLoss: isBull ? l2.price : h2.price,
+        invalidationLevel: isBull ? l2.price : h2.price,
       },
       progress: {
         percentage: state === "CONFIRMED" ? 100 : 75,
-        description: state === "CONFIRMED" ? "Confirmed: Breakout from apex" : "Consolidating inside pattern boundaries",
+        description: state === "CONFIRMED" ? `Confirmed: Breakout from ${name}` : `Converging in ${name}`,
       },
     };
   }
 
-  // --- Broadening Formation ---
-  private checkBroadeningFormation(
-    w: SwingPoint[],
-    currentPrice: number,
-    symbol: string,
-    timeframe: SupportedTimeframe
-  ): DetectedPattern | null {
-    if (w.length < 4) return null;
-    const highs = w.filter((p) => p.type === "HIGH");
-    const lows = w.filter((p) => p.type === "LOW");
-    if (highs.length < 2 || lows.length < 2) return null;
-
-    const [h1, h2] = highs.slice(-2);
-    const [l1, l2] = lows.slice(-2);
-
-    // Higher high and lower low -> broadening
-    if (h2.price > h1.price && l2.price < l1.price) {
-      const lastPoint = w[w.length - 1];
-      return {
-        id: `${symbol}-${timeframe}-BROADENING-${w[0].timestamp}`,
-        instrument: symbol,
-        timeframe,
-        family: "CLASSICAL_CHART",
-        pattern: "BROADENING_FORMATION",
-        name: "Broadening Formation",
-        direction: "NEUTRAL",
-        state: lastPoint.isProvisional ? "DEVELOPING" : "COMPLETED",
-        firstDetectedAt: w[0].isoTime,
-        lastUpdatedAt: lastPoint.isoTime,
-        startTime: w[0].timestamp,
-        endTime: lastPoint.timestamp,
-        keyPoints: [
-          { label: "High 1", timestamp: h1.timestamp, price: h1.price },
-          { label: "Low 1", timestamp: l1.timestamp, price: l1.price },
-          { label: "High 2", timestamp: h2.timestamp, price: h2.price },
-          { label: "Low 2", timestamp: l2.timestamp, price: l2.price },
-        ],
-        levels: {
-          upperBoundary: h2.price,
-          lowerBoundary: l2.price,
-        },
-        progress: {
-          percentage: 70,
-          description: "Expanding volatility with divergent highs and lows",
-        },
-      };
-    }
-    return null;
-  }
-
-  // --- Flags & Pennants ---
+  // =========================================================================
+  // 7. FLAGS & PENNANTS
+  // =========================================================================
   private checkFlagAndPennants(
     candles: readonly OHLCV[],
     swings: SwingPoint[],
     currentPrice: number,
     symbol: string,
-    timeframe: SupportedTimeframe
+    timeframe: SupportedTimeframe,
+    stepSec: number
   ): DetectedPattern[] {
     const list: DetectedPattern[] = [];
-    if (candles.length < 25 || swings.length < 3) return list;
+    if (candles.length < 20) return list;
 
-    // Check last 20 candles for a sharp impulse pole followed by small consolidation
     const poleLength = 8;
     const flagLength = 8;
     const startIdx = candles.length - (poleLength + flagLength);
@@ -713,24 +935,39 @@ export class ClassicalPatternDetector {
     const poleHeight = poleEnd.close - poleStart.open;
     const polePct = Math.abs(poleHeight) / poleStart.open;
 
-    // Need significant pole (e.g. >= 0.8% move in gold)
-    if (polePct >= 0.008) {
+    if (polePct >= 0.006) {
       const isBull = poleHeight > 0;
-      // Consolidation should retrace no more than 50% of the pole
-      const consolidationDiff = isBull
-        ? poleEnd.high - flagEnd.low
-        : flagEnd.high - poleEnd.low;
+      const consolidationDiff = isBull ? poleEnd.high - flagEnd.low : flagEnd.high - poleEnd.low;
 
       if (consolidationDiff <= 0.5 * Math.abs(poleHeight)) {
         const patternCode = isBull ? "BULLISH_FLAG" : "BEARISH_FLAG";
         const name = isBull ? "Bullish Flag" : "Bearish Flag";
+        const breakoutLevel = isBull ? poleEnd.high : poleEnd.low;
+        const targetPrice = isBull ? breakoutLevel + Math.abs(poleHeight) : breakoutLevel - Math.abs(poleHeight);
+
         const state: PatternLifecycleState = isBull
-          ? currentPrice > poleEnd.high
-            ? "CONFIRMED"
-            : "DEVELOPING"
-          : currentPrice < poleEnd.low
-          ? "CONFIRMED"
-          : "DEVELOPING";
+          ? currentPrice > breakoutLevel ? "CONFIRMED" : "DEVELOPING"
+          : currentPrice < breakoutLevel ? "CONFIRMED" : "DEVELOPING";
+
+        const estBreakoutTs = flagEnd.timestamp + 3 * stepSec;
+        const estTargetTs = estBreakoutTs + 8 * stepSec;
+
+        const projection: FutureProjection = {
+          projectedPoints: [
+            { label: "Continuation Breakout", timestamp: estBreakoutTs, price: breakoutLevel, type: "BREAKOUT", isProjected: true },
+            { label: "Measured Pole Target", timestamp: estTargetTs, price: targetPrice, type: "TARGET", isProjected: true },
+          ],
+          projectedLines: [
+            { from: { timestamp: flagEnd.timestamp, price: currentPrice }, to: { timestamp: estBreakoutTs, price: breakoutLevel }, style: "dashed" },
+            { from: { timestamp: estBreakoutTs, price: breakoutLevel }, to: { timestamp: estTargetTs, price: targetPrice }, style: "dotted", label: "Pole Run" },
+          ],
+          targetZone: { price: targetPrice, startTs: estBreakoutTs, endTs: estTargetTs + 4 * stepSec },
+          breakoutLevel,
+          invalidationLevel: isBull ? flagEnd.low : flagEnd.high,
+          expectedBreakoutDirection: isBull ? "BULLISH" : "BEARISH",
+          estimatedTimeToCompletion: state === "CONFIRMED" ? "Target active" : "~3-5 bars",
+          description: "Flag consolidation following impulse flagpole. Projecting continuation move.",
+        };
 
         list.push({
           id: `${symbol}-${timeframe}-${patternCode}-${poleStart.timestamp}`,
@@ -750,81 +987,24 @@ export class ClassicalPatternDetector {
             { label: "Flagpole Top", timestamp: poleEnd.timestamp, price: poleEnd.high },
             { label: "Consolidation End", timestamp: flagEnd.timestamp, price: flagEnd.close },
           ],
+          projection,
+          completenessScore: state === "CONFIRMED" ? 100 : 70,
+          isDeveloping: state === "DEVELOPING",
           levels: {
-            entry: isBull ? poleEnd.high : poleEnd.low,
-            target1: isBull ? poleEnd.high + Math.abs(poleHeight) : poleEnd.low - Math.abs(poleHeight),
+            entry: breakoutLevel,
+            breakoutLevel,
+            target1: targetPrice,
             stopLoss: isBull ? flagEnd.low : flagEnd.high,
+            invalidationLevel: isBull ? flagEnd.low : flagEnd.high,
           },
           progress: {
             percentage: state === "CONFIRMED" ? 100 : 70,
-            description: state === "CONFIRMED" ? "Confirmed: Breakout from flag consolidation" : "Flag consolidation forming after impulse",
+            description: state === "CONFIRMED" ? "Confirmed: Breakout from consolidation" : "Flag consolidation forming after impulse",
           },
         });
       }
     }
 
-    return list;
-  }
-
-  // --- Cup and Handle ---
-  private checkCupAndHandle(
-    candles: readonly OHLCV[],
-    swings: SwingPoint[],
-    currentPrice: number,
-    symbol: string,
-    timeframe: SupportedTimeframe
-  ): DetectedPattern[] {
-    const list: DetectedPattern[] = [];
-    if (swings.length < 4) return list;
-
-    // Look for Rim Left (High), Bottom (Low), Rim Right (High), Handle (Low)
-    for (let i = 0; i <= swings.length - 4; i++) {
-      const [s1, s2, s3, s4] = swings.slice(i, i + 4);
-      if (s1.type === "HIGH" && s2.type === "LOW" && s3.type === "HIGH" && s4.type === "LOW") {
-        const rimDiff = Math.abs(s1.price - s3.price) / s1.price;
-        if (rimDiff <= 0.02) {
-          // Both rims comparable
-          const cupDepth = s1.price - s2.price;
-          const handleDepth = s3.price - s4.price;
-          // Handle must be shallow (less than half cup depth)
-          if (handleDepth > 0 && handleDepth <= 0.5 * cupDepth) {
-            const rim = Math.max(s1.price, s3.price);
-            const state: PatternLifecycleState = currentPrice > rim ? "CONFIRMED" : "DEVELOPING";
-
-            list.push({
-              id: `${symbol}-${timeframe}-CUP_AND_HANDLE-${s1.timestamp}`,
-              instrument: symbol,
-              timeframe,
-              family: "CLASSICAL_CHART",
-              pattern: "CUP_AND_HANDLE",
-              name: "Cup and Handle",
-              direction: "BULLISH",
-              state,
-              firstDetectedAt: s1.isoTime,
-              lastUpdatedAt: s4.isoTime,
-              startTime: s1.timestamp,
-              endTime: s4.timestamp,
-              keyPoints: [
-                { label: "Left Rim", timestamp: s1.timestamp, price: s1.price },
-                { label: "Cup Bottom", timestamp: s2.timestamp, price: s2.price },
-                { label: "Right Rim", timestamp: s3.timestamp, price: s3.price },
-                { label: "Handle Trough", timestamp: s4.timestamp, price: s4.price, isProvisional: s4.isProvisional },
-              ],
-              levels: {
-                entry: rim,
-                neckline: rim,
-                target1: rim + cupDepth,
-                stopLoss: s4.price,
-              },
-              progress: {
-                percentage: state === "CONFIRMED" ? 100 : 80,
-                description: state === "CONFIRMED" ? "Confirmed: Breakout above cup rim" : "Handle consolidation formed, testing rim resistance",
-              },
-            });
-          }
-        }
-      }
-    }
     return list;
   }
 }

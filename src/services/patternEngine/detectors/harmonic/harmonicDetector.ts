@@ -1,6 +1,12 @@
-import { OHLCV, SupportedTimeframe } from "../../types/candle";
+import { OHLCV, SupportedTimeframe, TIMEFRAMES } from "../../types/candle";
 import { SwingPoint } from "../../core/swingDetector";
-import { DetectedPattern, PatternLifecycleState } from "../../types/pattern";
+import {
+  DetectedPattern,
+  FutureProjection,
+  PatternLifecycleState,
+  ProjectedPoint,
+  ProjectedLine,
+} from "../../types/pattern";
 import { calculateProjection, calculateRetracement, isWithinRatio } from "../../core/fibonacci";
 
 interface HarmonicRule {
@@ -33,17 +39,21 @@ export class HarmonicPatternDetector {
     activeOnly: boolean = true
   ): DetectedPattern[] {
     const patterns: DetectedPattern[] = [];
-    if (swings.length < 4) return patterns;
+    if (swings.length < 4 || candles.length < 5) return patterns;
 
-    const currentPrice = candles[candles.length - 1].close;
+    const currentCandle = candles[candles.length - 1];
+    const currentPrice = currentCandle.close;
+    const latestTs = currentCandle.timestamp;
 
-    // 1. Five-point XABCD Harmonics (focus on active formation if activeOnly is true)
+    const tfDef = TIMEFRAMES.find((t) => t.id === timeframe);
+    const stepSec = (tfDef ? tfDef.minutes : 5) * 60;
+
+    // 1. Five-point XABCD Harmonics (Formed D point)
     const minHarmonicStart = activeOnly ? Math.max(0, swings.length - 5) : 0;
     for (let i = minHarmonicStart; i <= swings.length - 5; i++) {
       const window = swings.slice(i, i + 5);
       const [pX, pA, pB, pC, pD] = window;
 
-      // Must strictly alternate
       if (pX.type === pA.type || pA.type === pB.type || pB.type === pC.type || pC.type === pD.type) {
         continue;
       }
@@ -66,15 +76,11 @@ export class HarmonicPatternDetector {
             const direction = isBullish ? "BULLISH" : "BEARISH";
             let state: PatternLifecycleState = pD.isProvisional ? "DEVELOPING" : "COMPLETED";
 
-            // PRZ (Potential Reversal Zone)
             const przLevel = pD.price;
             const stopLoss = isBullish ? przLevel * 0.992 : przLevel * 1.008;
 
-            if (isBullish && currentPrice > pD.price * 1.003) {
-              state = "CONFIRMED";
-            } else if (isBearish && currentPrice < pD.price * 0.997) {
-              state = "CONFIRMED";
-            }
+            if (isBullish && currentPrice > pD.price * 1.003) state = "CONFIRMED";
+            else if (isBearish && currentPrice < pD.price * 0.997) state = "CONFIRMED";
 
             if ((isBullish && currentPrice < stopLoss) || (isBearish && currentPrice > stopLoss)) {
               state = "INVALIDATED";
@@ -82,6 +88,23 @@ export class HarmonicPatternDetector {
 
             const target1 = pD.price + (isBullish ? 0.382 * Math.abs(pC.price - pD.price) : -0.382 * Math.abs(pC.price - pD.price));
             const target2 = pD.price + (isBullish ? 0.618 * Math.abs(pC.price - pD.price) : -0.618 * Math.abs(pC.price - pD.price));
+
+            const estTargetTs = latestTs + 8 * stepSec;
+
+            const projection: FutureProjection = {
+              projectedPoints: [
+                { label: "Target 1 (38.2% CD)", timestamp: estTargetTs, price: target1, type: "TARGET", isProjected: true },
+              ],
+              projectedLines: [
+                { from: { timestamp: latestTs, price: currentPrice }, to: { timestamp: estTargetTs, price: target1 }, style: "dashed", label: "Reversal Target" },
+              ],
+              targetZone: { price: target1, startTs: latestTs, endTs: estTargetTs + 4 * stepSec },
+              breakoutLevel: przLevel,
+              invalidationLevel: stopLoss,
+              expectedBreakoutDirection: direction,
+              estimatedTimeToCompletion: state === "CONFIRMED" ? "Target active" : "~4-6 bars",
+              description: `${direction === "BULLISH" ? "Bullish" : "Bearish"} ${rule.name} D-point confirmed at ${rule.dTarget} PRZ level.`,
+            };
 
             patterns.push({
               id: `${symbol}-${timeframe}-${rule.code}-${pX.timestamp}`,
@@ -103,6 +126,9 @@ export class HarmonicPatternDetector {
                 { label: "C", timestamp: pC.timestamp, price: pC.price },
                 { label: "D", timestamp: pD.timestamp, price: pD.price, isProvisional: pD.isProvisional },
               ],
+              projection,
+              completenessScore: state === "CONFIRMED" ? 100 : 85,
+              isDeveloping: state === "DEVELOPING",
               levels: {
                 entry: przLevel,
                 stopLoss,
@@ -111,74 +137,110 @@ export class HarmonicPatternDetector {
                 invalidationLevel: stopLoss,
               },
               progress: {
-                percentage: state === "CONFIRMED" ? 100 : state === "COMPLETED" ? 85 : 65,
-                description:
-                  state === "CONFIRMED"
-                    ? "Confirmed: Reversal impulse validated off PRZ"
-                    : `D-point formed at ${rule.dTarget} Fibonacci level`,
+                percentage: state === "CONFIRMED" ? 100 : 85,
+                description: state === "CONFIRMED" ? "Confirmed: Reversal impulse off PRZ" : `D-point formed at ${rule.dTarget} Fibonacci level`,
               },
-              metadata: {
-                ratioB: Number(ratioB.toFixed(3)),
-                ratioC: Number(ratioC.toFixed(3)),
-                ratioD: Number(ratioD.toFixed(3)),
-                targetRatioD: rule.dTarget,
-              },
-              explanation: `Fibonacci Ratios: B retraced ${(ratioB * 100).toFixed(1)}% of XA, C reached ${(ratioC * 100).toFixed(1)}% of AB, D projected at ${ratioD.toFixed(3)} XA.`,
             });
-            break; // Matched harmonic rule
           }
         }
       }
     }
 
-    // 2. AB=CD Pattern (4 points: A, B, C, D)
-    const minAbcdStart = activeOnly ? Math.max(0, swings.length - 4) : 0;
-    for (let i = minAbcdStart; i <= swings.length - 4; i++) {
-      const [pA, pB, pC, pD] = swings.slice(i, i + 4);
-      if (pA.type === pB.type || pB.type === pC.type || pC.type === pD.type) continue;
+    // 2. Developing XABC Incomplete Harmonics (Projecting Point D into Future Space)
+    const min4Start = activeOnly ? Math.max(0, swings.length - 4) : 0;
+    for (let i = min4Start; i <= swings.length - 4; i++) {
+      const window4 = swings.slice(i, i + 4);
+      const [pX, pA, pB, pC] = window4;
 
-      const legAB = Math.abs(pB.price - pA.price);
-      const legCD = Math.abs(pD.price - pC.price);
-      if (legAB === 0) continue;
+      if (pX.type === pA.type || pA.type === pB.type || pB.type === pC.type) continue;
 
-      const equalityRatio = legCD / legAB;
-      if (isWithinRatio(equalityRatio, 1.0, 0.12)) {
-        const isBullish = pD.type === "LOW";
-        const direction = isBullish ? "BULLISH" : "BEARISH";
-        const state: PatternLifecycleState = pD.isProvisional ? "DEVELOPING" : "COMPLETED";
+      const isBullish = pX.type === "LOW" && pA.type === "HIGH" && pB.type === "LOW" && pC.type === "HIGH";
+      const isBearish = pX.type === "HIGH" && pA.type === "LOW" && pB.type === "HIGH" && pC.type === "LOW";
+      if (!isBullish && !isBearish) continue;
 
-        patterns.push({
-          id: `${symbol}-${timeframe}-ABCD-${pA.timestamp}`,
-          instrument: symbol,
-          timeframe,
-          family: "HARMONIC",
-          pattern: "AB_CD",
-          name: `${direction === "BULLISH" ? "Bullish" : "Bearish"} AB=CD`,
-          direction,
-          state,
-          firstDetectedAt: pA.isoTime,
-          lastUpdatedAt: pD.isoTime,
-          startTime: pA.timestamp,
-          endTime: pD.timestamp,
-          keyPoints: [
-            { label: "A", timestamp: pA.timestamp, price: pA.price },
-            { label: "B", timestamp: pB.timestamp, price: pB.price },
-            { label: "C", timestamp: pC.timestamp, price: pC.price },
-            { label: "D", timestamp: pD.timestamp, price: pD.price, isProvisional: pD.isProvisional },
-          ],
-          levels: {
-            entry: pD.price,
-            target1: pD.price + (isBullish ? 0.618 * legCD : -0.618 * legCD),
-            stopLoss: isBullish ? pD.price * 0.993 : pD.price * 1.007,
-          },
-          progress: {
-            percentage: state === "COMPLETED" ? 85 : 65,
-            description: `Leg CD reached ${(equalityRatio * 100).toFixed(1)}% of Leg AB symmetry`,
-          },
-          metadata: {
-            equalityRatio: Number(equalityRatio.toFixed(3)),
-          },
-        });
+      const legXA = Math.abs(pA.price - pX.price);
+      if (legXA === 0) continue;
+
+      const ratioB = calculateRetracement(pX.price, pA.price, pB.price);
+      const ratioC = calculateRetracement(pA.price, pB.price, pC.price);
+
+      for (const rule of HARMONIC_RULES) {
+        if (ratioB >= rule.bMin && ratioB <= rule.bMax && ratioC >= rule.cMin && ratioC <= rule.cMax) {
+          const direction = isBullish ? "BULLISH" : "BEARISH";
+
+          // Calculate projected D price
+          let projectedDPrice = 0;
+          if (rule.dIsExtension) {
+            projectedDPrice = isBullish ? pX.price - (rule.dTarget - 1) * legXA : pX.price + (rule.dTarget - 1) * legXA;
+          } else {
+            projectedDPrice = isBullish ? pA.price - rule.dTarget * legXA : pA.price + rule.dTarget * legXA;
+          }
+
+          const estDTs = latestTs + Math.max(4 * stepSec, pC.timestamp - pB.timestamp);
+          const estTargetTs = estDTs + 6 * stepSec;
+          const targetPrice = isBullish ? projectedDPrice + 0.382 * legXA : projectedDPrice - 0.382 * legXA;
+
+          const przMin = isBullish ? projectedDPrice * 0.998 : projectedDPrice * 0.995;
+          const przMax = isBullish ? projectedDPrice * 1.005 : projectedDPrice * 1.002;
+
+          const projection: FutureProjection = {
+            projectedPoints: [
+              { label: `Proj. D PRZ (${rule.dTarget})`, timestamp: estDTs, price: projectedDPrice, type: "COMPLETION_ZONE", isProjected: true },
+              { label: "Projected Target 1", timestamp: estTargetTs, price: targetPrice, type: "TARGET", isProjected: true },
+            ],
+            projectedLines: [
+              { from: { timestamp: pC.timestamp, price: pC.price }, to: { timestamp: estDTs, price: projectedDPrice }, style: "dashed", label: "CD Leg Projection" },
+              { from: { timestamp: estDTs, price: projectedDPrice }, to: { timestamp: estTargetTs, price: targetPrice }, style: "dotted", label: "Expected Reversal" },
+            ],
+            completionZone: {
+              min: przMin,
+              max: przMax,
+              startTs: estDTs - stepSec,
+              endTs: estDTs + stepSec,
+              label: `Projected D PRZ: $${projectedDPrice.toFixed(1)}`,
+            },
+            targetZone: { price: targetPrice, startTs: estDTs, endTs: estTargetTs + 4 * stepSec },
+            breakoutLevel: projectedDPrice,
+            invalidationLevel: isBullish ? projectedDPrice * 0.99 : projectedDPrice * 1.01,
+            expectedBreakoutDirection: direction,
+            estimatedTimeToCompletion: "~4-8 bars",
+            description: `Developing ${rule.name} (X-A-B-C confirmed). Projecting completion at D (${rule.dTarget} XA).`,
+          };
+
+          patterns.push({
+            id: `${symbol}-${timeframe}-${rule.code}-DEV-${pX.timestamp}`,
+            instrument: symbol,
+            timeframe,
+            family: "HARMONIC",
+            pattern: rule.code,
+            name: `${direction === "BULLISH" ? "Bullish" : "Bearish"} ${rule.name}`,
+            direction,
+            state: "DEVELOPING",
+            firstDetectedAt: pX.isoTime,
+            lastUpdatedAt: currentCandle.isoTime,
+            startTime: pX.timestamp,
+            endTime: pC.timestamp,
+            keyPoints: [
+              { label: "X", timestamp: pX.timestamp, price: pX.price },
+              { label: "A", timestamp: pA.timestamp, price: pA.price },
+              { label: "B", timestamp: pB.timestamp, price: pB.price },
+              { label: "C", timestamp: pC.timestamp, price: pC.price },
+            ],
+            projection,
+            completenessScore: 70,
+            isDeveloping: true,
+            levels: {
+              entry: projectedDPrice,
+              stopLoss: isBullish ? projectedDPrice * 0.992 : projectedDPrice * 1.008,
+              target1: targetPrice,
+              invalidationLevel: isBullish ? projectedDPrice * 0.99 : projectedDPrice * 1.01,
+            },
+            progress: {
+              percentage: 70,
+              description: `Developing X-A-B-C; projecting Point D completion at $${projectedDPrice.toFixed(1)}`,
+            },
+          });
+        }
       }
     }
 
