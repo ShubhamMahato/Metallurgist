@@ -21,13 +21,16 @@ interface HarmonicRule {
 }
 
 const HARMONIC_RULES: HarmonicRule[] = [
-  { name: "Gartley", code: "GARTLEY", bMin: 0.58, bMax: 0.65, cMin: 0.382, cMax: 0.886, dTarget: 0.786, dIsExtension: false },
+  { name: "Gartley", code: "GARTLEY", bMin: 0.58, bMax: 0.66, cMin: 0.382, cMax: 0.886, dTarget: 0.786, dIsExtension: false },
   { name: "Bat", code: "BAT", bMin: 0.35, bMax: 0.53, cMin: 0.382, cMax: 0.886, dTarget: 0.886, dIsExtension: false },
   { name: "Butterfly", code: "BUTTERFLY", bMin: 0.75, bMax: 0.82, cMin: 0.382, cMax: 0.886, dTarget: 1.272, dIsExtension: true },
   { name: "Crab", code: "CRAB", bMin: 0.35, bMax: 0.65, cMin: 0.382, cMax: 0.886, dTarget: 1.618, dIsExtension: true },
   { name: "Deep Crab", code: "DEEP_CRAB", bMin: 0.85, bMax: 0.92, cMin: 0.382, cMax: 0.886, dTarget: 1.618, dIsExtension: true },
   { name: "Cypher", code: "CYPHER", bMin: 0.382, bMax: 0.618, cMin: 1.13, cMax: 1.45, dTarget: 0.786, dIsExtension: false },
   { name: "Shark", code: "SHARK", bMin: 1.13, bMax: 1.618, cMin: 1.618, cMax: 2.24, dTarget: 0.886, dIsExtension: false },
+  { name: "5-0", code: "FIVE_ZERO", bMin: 1.13, bMax: 1.618, cMin: 1.618, cMax: 2.24, dTarget: 0.50, dIsExtension: false },
+  { name: "AB=CD", code: "ABCD", bMin: 0.618, bMax: 0.786, cMin: 0.382, cMax: 0.886, dTarget: 1.00, dIsExtension: false },
+  { name: "Alternate AB=CD", code: "ALT_ABCD", bMin: 0.382, bMax: 0.618, cMin: 0.382, cMax: 0.886, dTarget: 1.272, dIsExtension: true },
 ];
 
 export class HarmonicPatternDetector {
@@ -119,6 +122,7 @@ export class HarmonicPatternDetector {
               lastUpdatedAt: pD.isoTime,
               startTime: pX.timestamp,
               endTime: pD.timestamp,
+              latestStructuralTimestamp: pD.timestamp,
               keyPoints: [
                 { label: "X", timestamp: pX.timestamp, price: pX.price },
                 { label: "A", timestamp: pA.timestamp, price: pA.price },
@@ -220,6 +224,7 @@ export class HarmonicPatternDetector {
             lastUpdatedAt: currentCandle.isoTime,
             startTime: pX.timestamp,
             endTime: pC.timestamp,
+            latestStructuralTimestamp: pC.timestamp,
             keyPoints: [
               { label: "X", timestamp: pX.timestamp, price: pX.price },
               { label: "A", timestamp: pA.timestamp, price: pA.price },
@@ -238,6 +243,98 @@ export class HarmonicPatternDetector {
             progress: {
               percentage: 70,
               description: `Developing X-A-B-C; projecting Point D completion at $${projectedDPrice.toFixed(1)}`,
+            },
+          });
+        }
+      }
+    }
+
+    // 3. Early Forming XAB Incomplete Harmonics (Projecting Point C and PRZ Point D)
+    const min3Start = activeOnly ? Math.max(0, swings.length - 3) : 0;
+    for (let i = min3Start; i <= swings.length - 3; i++) {
+      const window3 = swings.slice(i, i + 3);
+      const [pX, pA, pB] = window3;
+
+      if (pX.type === pA.type || pA.type === pB.type) continue;
+      const isBullish = pX.type === "LOW" && pA.type === "HIGH" && pB.type === "LOW";
+      const isBearish = pX.type === "HIGH" && pA.type === "LOW" && pB.type === "HIGH";
+      if (!isBullish && !isBearish) continue;
+
+      const legXA = Math.abs(pA.price - pX.price);
+      if (legXA === 0) continue;
+
+      const ratioB = calculateRetracement(pX.price, pA.price, pB.price);
+
+      for (const rule of HARMONIC_RULES) {
+        if (ratioB >= rule.bMin && ratioB <= rule.bMax) {
+          const direction = isBullish ? "BULLISH" : "BEARISH";
+          const estCTs = latestTs + 4 * stepSec;
+          const estDTs = latestTs + 10 * stepSec;
+
+          // Projected C at 0.618 of AB
+          const legAB = Math.abs(pA.price - pB.price);
+          const estCPrice = isBullish ? pB.price + 0.618 * legAB : pB.price - 0.618 * legAB;
+
+          let projectedDPrice = 0;
+          if (rule.dIsExtension) {
+            projectedDPrice = isBullish ? pX.price - (rule.dTarget - 1) * legXA : pX.price + (rule.dTarget - 1) * legXA;
+          } else {
+            projectedDPrice = isBullish ? pA.price - rule.dTarget * legXA : pA.price + rule.dTarget * legXA;
+          }
+
+          const projection: FutureProjection = {
+            projectedPoints: [
+              { label: "Est. Point C", timestamp: estCTs, price: estCPrice, type: "ESTIMATED_POINT", isProjected: true },
+              { label: `Proj. D PRZ (${rule.dTarget})`, timestamp: estDTs, price: projectedDPrice, type: "COMPLETION_ZONE", isProjected: true },
+            ],
+            projectedLines: [
+              { from: { timestamp: pB.timestamp, price: pB.price }, to: { timestamp: estCTs, price: estCPrice }, style: "dashed", label: "BC Leg" },
+              { from: { timestamp: estCTs, price: estCPrice }, to: { timestamp: estDTs, price: projectedDPrice }, style: "dotted", label: "CD Leg" },
+            ],
+            completionZone: {
+              min: isBullish ? projectedDPrice * 0.998 : projectedDPrice * 0.995,
+              max: isBullish ? projectedDPrice * 1.005 : projectedDPrice * 1.002,
+              startTs: estDTs - stepSec,
+              endTs: estDTs + stepSec,
+              label: `PRZ: $${projectedDPrice.toFixed(1)}`,
+            },
+            breakoutLevel: projectedDPrice,
+            invalidationLevel: isBullish ? pX.price : pX.price,
+            expectedBreakoutDirection: direction,
+            estimatedTimeToCompletion: "~8-14 bars",
+            description: `Forming ${rule.name} (X-A-B confirmed at ${(ratioB * 100).toFixed(0)}% XA). Projecting C and D PRZ.`,
+          };
+
+          patterns.push({
+            id: `${symbol}-${timeframe}-${rule.code}-FORM-${pX.timestamp}`,
+            instrument: symbol,
+            timeframe,
+            family: "HARMONIC",
+            pattern: rule.code,
+            name: `${direction === "BULLISH" ? "Bullish" : "Bearish"} ${rule.name}`,
+            direction,
+            state: "FORMING",
+            firstDetectedAt: pX.isoTime,
+            lastUpdatedAt: currentCandle.isoTime,
+            startTime: pX.timestamp,
+            endTime: pB.timestamp,
+            latestStructuralTimestamp: pB.timestamp,
+            keyPoints: [
+              { label: "X", timestamp: pX.timestamp, price: pX.price },
+              { label: "A", timestamp: pA.timestamp, price: pA.price },
+              { label: "B", timestamp: pB.timestamp, price: pB.price },
+            ],
+            projection,
+            completenessScore: 45,
+            isDeveloping: true,
+            levels: {
+              entry: projectedDPrice,
+              stopLoss: isBullish ? pX.price * 0.995 : pX.price * 1.005,
+              target1: isBullish ? projectedDPrice + 0.382 * legXA : projectedDPrice - 0.382 * legXA,
+            },
+            progress: {
+              percentage: 45,
+              description: `Early formation: Point B confirmed at ${(ratioB * 100).toFixed(0)}% retracement of XA`,
             },
           });
         }

@@ -11,10 +11,54 @@ export class MarketStructureDetector {
     activeOnly: boolean = true
   ): DetectedPattern[] {
     const patterns: DetectedPattern[] = [];
-    if (swings.length < 3 || candles.length < 15) return patterns;
+    if (swings.length < 1 || candles.length < 5) return patterns;
 
     const highs = swings.filter((s) => s.type === "HIGH");
     const lows = swings.filter((s) => s.type === "LOW");
+
+    // Active Swing High & Low Pivots
+    if (highs.length > 0) {
+      const sh = highs[highs.length - 1];
+      patterns.push({
+        id: `${symbol}-${timeframe}-SWING_HIGH-${sh.timestamp}`,
+        instrument: symbol,
+        timeframe,
+        family: "MARKET_STRUCTURE",
+        pattern: "SWING_HIGH",
+        name: "Swing High Resistance",
+        direction: "BEARISH",
+        state: sh.isProvisional ? "DEVELOPING" : "CONFIRMED",
+        firstDetectedAt: sh.isoTime,
+        lastUpdatedAt: sh.isoTime,
+        startTime: sh.timestamp,
+        endTime: sh.timestamp,
+        latestStructuralTimestamp: sh.timestamp,
+        keyPoints: [{ label: "Swing High", timestamp: sh.timestamp, price: sh.price, isProvisional: sh.isProvisional }],
+        levels: { resistanceLevel: sh.price },
+        progress: { percentage: 100, description: "Structural swing high pivot level" },
+      });
+    }
+    if (lows.length > 0) {
+      const sl = lows[lows.length - 1];
+      patterns.push({
+        id: `${symbol}-${timeframe}-SWING_LOW-${sl.timestamp}`,
+        instrument: symbol,
+        timeframe,
+        family: "MARKET_STRUCTURE",
+        pattern: "SWING_LOW",
+        name: "Swing Low Support",
+        direction: "BULLISH",
+        state: sl.isProvisional ? "DEVELOPING" : "CONFIRMED",
+        firstDetectedAt: sl.isoTime,
+        lastUpdatedAt: sl.isoTime,
+        startTime: sl.timestamp,
+        endTime: sl.timestamp,
+        latestStructuralTimestamp: sl.timestamp,
+        keyPoints: [{ label: "Swing Low", timestamp: sl.timestamp, price: sl.price, isProvisional: sl.isProvisional }],
+        levels: { supportLevel: sl.price },
+        progress: { percentage: 100, description: "Structural swing low pivot level" },
+      });
+    }
 
     // 1. Current Active Higher Highs / Lower Highs
     const startHighIdx = activeOnly ? Math.max(1, highs.length - 1) : 1;
@@ -120,6 +164,62 @@ export class MarketStructureDetector {
     const latestCandle = candles[candles.length - 1];
     const recentHigh = highs[highs.length - 1];
     const recentLow = lows[lows.length - 1];
+
+    // CHoCH (Change of Character) & BOS
+    if (highs.length >= 2 && lows.length >= 2) {
+      const prevHigh = highs[highs.length - 2];
+      const prevLow = lows[lows.length - 2];
+
+      // If prior trend was bearish (prevHigh > recentHigh) and latest breaks above recentHigh -> CHoCH
+      if (prevHigh.price > recentHigh.price && latestCandle.close > recentHigh.price) {
+        patterns.push({
+          id: `${symbol}-${timeframe}-BULLISH_CHOCH-${latestCandle.timestamp}`,
+          instrument: symbol,
+          timeframe,
+          family: "MARKET_STRUCTURE",
+          pattern: "BULLISH_CHOCH",
+          name: "Bullish Change of Character (CHoCH)",
+          direction: "BULLISH",
+          state: latestCandle.isOpen ? "DEVELOPING" : "CONFIRMED",
+          firstDetectedAt: latestCandle.isoTime,
+          lastUpdatedAt: latestCandle.isoTime,
+          startTime: recentHigh.timestamp,
+          endTime: latestCandle.timestamp,
+          latestStructuralTimestamp: latestCandle.timestamp,
+          keyPoints: [
+            { label: "Lower High", timestamp: recentHigh.timestamp, price: recentHigh.price },
+            { label: "Breakout", timestamp: latestCandle.timestamp, price: latestCandle.close },
+          ],
+          levels: { breakoutLevel: recentHigh.price, stopLoss: recentLow?.price ?? recentHigh.price * 0.995 },
+          progress: { percentage: 100, description: "Bearish structure broken: Early trend reversal signal" },
+        });
+      }
+
+      // If prior trend was bullish (prevLow < recentLow) and latest breaks below recentLow -> Bearish CHoCH
+      if (prevLow.price < recentLow.price && latestCandle.close < recentLow.price) {
+        patterns.push({
+          id: `${symbol}-${timeframe}-BEARISH_CHOCH-${latestCandle.timestamp}`,
+          instrument: symbol,
+          timeframe,
+          family: "MARKET_STRUCTURE",
+          pattern: "BEARISH_CHOCH",
+          name: "Bearish Change of Character (CHoCH)",
+          direction: "BEARISH",
+          state: latestCandle.isOpen ? "DEVELOPING" : "CONFIRMED",
+          firstDetectedAt: latestCandle.isoTime,
+          lastUpdatedAt: latestCandle.isoTime,
+          startTime: recentLow.timestamp,
+          endTime: latestCandle.timestamp,
+          latestStructuralTimestamp: latestCandle.timestamp,
+          keyPoints: [
+            { label: "Higher Low", timestamp: recentLow.timestamp, price: recentLow.price },
+            { label: "Breakdown", timestamp: latestCandle.timestamp, price: latestCandle.close },
+          ],
+          levels: { breakoutLevel: recentLow.price, stopLoss: recentHigh?.price ?? recentLow.price * 1.005 },
+          progress: { percentage: 100, description: "Bullish structure broken: Early trend reversal signal" },
+        });
+      }
+    }
 
     if (recentHigh && latestCandle.close > recentHigh.price) {
       patterns.push({

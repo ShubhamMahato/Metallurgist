@@ -98,6 +98,7 @@ export interface DetectedPattern {
   lastUpdatedAt: string; // ISO 8601
   startTime: number; // Unix timestamp seconds
   endTime: number; // Unix timestamp seconds
+  latestStructuralTimestamp?: number; // Unix timestamp seconds of latest structural point close to current market edge
   keyPoints: KeyPoint[]; // Actual historical candle points
   projection?: FutureProjection; // Future forward-looking projection
   completenessScore?: number; // 0 - 100 structural completeness

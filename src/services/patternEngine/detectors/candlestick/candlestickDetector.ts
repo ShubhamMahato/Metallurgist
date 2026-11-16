@@ -168,6 +168,39 @@ export class CandlestickPatternDetector {
           patterns.push(this.buildPattern(c, symbol, timeframe, "FALLING_THREE_METHODS", "Falling Three Methods", "BEARISH", [p4, p3, p2, p1, c]));
         }
       }
+
+      // 13. THREE INSIDE UP & THREE INSIDE DOWN
+      const p2BodyForInside = Math.abs(p2.close - p2.open);
+      if (p2.close < p2.open && p1.close > p1.open && p1.open >= p2.close && p1.close <= p2.open && c.close > p2.open) {
+        patterns.push(this.buildPattern(c, symbol, timeframe, "THREE_INSIDE_UP", "Three Inside Up", "BULLISH", [p2, p1, c]));
+      } else if (p2.close > p2.open && p1.close < p1.open && p1.open <= p2.close && p1.close >= p2.open && c.close < p2.open) {
+        patterns.push(this.buildPattern(c, symbol, timeframe, "THREE_INSIDE_DOWN", "Three Inside Down", "BEARISH", [p2, p1, c]));
+      }
+
+      // 14. THREE OUTSIDE UP & THREE OUTSIDE DOWN
+      if (p2.close < p2.open && p1.close > p1.open && p1.open < p2.close && p1.close > p2.open && c.close > p1.close) {
+        patterns.push(this.buildPattern(c, symbol, timeframe, "THREE_OUTSIDE_UP", "Three Outside Up", "BULLISH", [p2, p1, c]));
+      } else if (p2.close > p2.open && p1.close < p1.open && p1.open > p2.close && p1.close < p2.open && c.close < p1.close) {
+        patterns.push(this.buildPattern(c, symbol, timeframe, "THREE_OUTSIDE_DOWN", "Three Outside Down", "BEARISH", [p2, p1, c]));
+      }
+
+      // 15. BULLISH & BEARISH BELT HOLD
+      if (body / range >= 0.75) {
+        if (isBullish && Math.abs(c.open - c.low) / range < 0.03 && p1.close < p1.open) {
+          patterns.push(this.buildPattern(c, symbol, timeframe, "BULLISH_BELT_HOLD", "Bullish Belt Hold", "BULLISH", [p1, c]));
+        } else if (isBearish && Math.abs(c.open - c.high) / range < 0.03 && p1.close > p1.open) {
+          patterns.push(this.buildPattern(c, symbol, timeframe, "BEARISH_BELT_HOLD", "Bearish Belt Hold", "BEARISH", [p1, c]));
+        }
+      }
+
+      // 16. BULLISH & BEARISH KICKER
+      if (p1Body / (p1.high - p1.low || 1) >= 0.6 && body / range >= 0.6) {
+        if (p1.close < p1.open && isBullish && c.open >= p1.open) {
+          patterns.push(this.buildPattern(c, symbol, timeframe, "BULLISH_KICKER", "Bullish Kicker", "BULLISH", [p1, c]));
+        } else if (p1.close > p1.open && isBearish && c.open <= p1.open) {
+          patterns.push(this.buildPattern(c, symbol, timeframe, "BEARISH_KICKER", "Bearish Kicker", "BEARISH", [p1, c]));
+        }
+      }
     }
 
     return patterns;
@@ -202,6 +235,7 @@ export class CandlestickPatternDetector {
       lastUpdatedAt: new Date(lastBar.timestamp * 1000).toISOString(),
       startTime: firstBar.timestamp,
       endTime: lastBar.timestamp,
+      latestStructuralTimestamp: lastBar.timestamp,
       keyPoints: constituentCandles.map((c, idx) => ({
         label: `Bar ${idx + 1}`,
         timestamp: c.timestamp,

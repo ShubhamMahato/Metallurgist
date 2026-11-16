@@ -136,13 +136,46 @@ export class PatternEngine {
       }
     }
 
-    // Filter down to the active timeframe patterns
-    const allPatterns = Array.from(this.patternStore.values()).filter(
-      (p) => p.timeframe === timeframe && p.instrument === symbol
-    );
+    // Filter down to the active timeframe patterns and prioritize market-edge opportunities
+    const latestCandleTs = candles[candles.length - 1]?.timestamp ?? 0;
+    const allPatterns = Array.from(this.patternStore.values()).filter((p) => {
+      if (p.timeframe !== timeframe || p.instrument !== symbol) return false;
+      // In activeOnly mode, filter out stale historical patterns whose latest structural point is far in the past (> 30 bars ago)
+      if (activeOnly && latestCandleTs > 0) {
+        const lastStructuralTs = p.latestStructuralTimestamp ?? p.endTime;
+        const maxStaleSec = 35 * 300; // ~35 bars
+        if (latestCandleTs - lastStructuralTs > maxStaleSec && p.state !== "FORMING" && p.state !== "DEVELOPING") {
+          return false;
+        }
+      }
+      return true;
+    });
 
-    // Sort: newest first
-    allPatterns.sort((a, b) => b.startTime - a.startTime);
+    // Market-Edge Priority Sorting:
+    // 1. Current Opportunities forming or developing right now (FORMING, DEVELOPING)
+    // 2. Freshly confirmed breakouts at the market edge (CONFIRMED)
+    // 3. Recency of latest structural point (closest to latest candle)
+    // 4. Completeness score
+    allPatterns.sort((a, b) => {
+      const getPriority = (state: PatternLifecycleState) => {
+        if (state === "DEVELOPING") return 1;
+        if (state === "FORMING") return 2;
+        if (state === "CONFIRMED") return 3;
+        if (state === "COMPLETED") return 4;
+        if (state === "INVALIDATED") return 5;
+        return 6;
+      };
+
+      const pA = getPriority(a.state);
+      const pB = getPriority(b.state);
+      if (pA !== pB) return pA - pB;
+
+      const structA = a.latestStructuralTimestamp ?? a.endTime;
+      const structB = b.latestStructuralTimestamp ?? b.endTime;
+      if (structA !== structB) return structB - structA; // Most recent structural interaction first
+
+      return (b.completenessScore ?? 0) - (a.completenessScore ?? 0);
+    });
 
     const result: PatternScanResult = {
       patterns: allPatterns,

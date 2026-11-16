@@ -196,6 +196,93 @@ export class StatisticalPatternDetector {
       }
     }
 
+    // 3. MACD Divergence
+    if (swingLows.length >= 2) {
+      const [l1, l2] = swingLows.slice(-2);
+      const macd1 = macd.histogram[l1.index];
+      const macd2 = macd.histogram[l2.index];
+      if (macd1 !== null && macd2 !== null) {
+        if (l2.price < l1.price && macd2 > macd1 && macd1 < 0) {
+          const targetPrice = latest.close + Math.abs(l1.price - l2.price) * 1.5;
+          patterns.push({
+            id: `${symbol}-${timeframe}-BULLISH_MACD_DIV-${l2.timestamp}`,
+            instrument: symbol,
+            timeframe,
+            family: "STATISTICAL",
+            pattern: "BULLISH_MACD_DIVERGENCE",
+            name: "Bullish MACD Divergence",
+            direction: "BULLISH",
+            state: l2.isProvisional ? "DEVELOPING" : "CONFIRMED",
+            firstDetectedAt: l1.isoTime,
+            lastUpdatedAt: l2.isoTime,
+            startTime: l1.timestamp,
+            endTime: l2.timestamp,
+            latestStructuralTimestamp: l2.timestamp,
+            keyPoints: [
+              { label: "Price Low 1", timestamp: l1.timestamp, price: l1.price },
+              { label: "Price Low 2", timestamp: l2.timestamp, price: l2.price, isProvisional: l2.isProvisional },
+            ],
+            projection: {
+              projectedPoints: [
+                { label: "MACD Target", timestamp: latest.timestamp + 6 * 300, price: targetPrice, type: "TARGET", isProjected: true },
+              ],
+              breakoutLevel: latest.close,
+              invalidationLevel: l2.price,
+              expectedBreakoutDirection: "BULLISH",
+              description: "Bullish MACD momentum divergence. Lower price low with higher MACD histogram.",
+            },
+            completenessScore: 85,
+            isDeveloping: l2.isProvisional,
+            levels: { entry: latest.close, stopLoss: l2.price, target1: targetPrice },
+            progress: { percentage: 85, description: "Lower price low with higher MACD momentum" },
+          });
+        }
+      }
+    }
+
+    if (swingHighs.length >= 2) {
+      const [h1, h2] = swingHighs.slice(-2);
+      const macd1 = macd.histogram[h1.index];
+      const macd2 = macd.histogram[h2.index];
+      if (macd1 !== null && macd2 !== null) {
+        if (h2.price > h1.price && macd2 < macd1 && macd1 > 0) {
+          const targetPrice = latest.close - Math.abs(h2.price - h1.price) * 1.5;
+          patterns.push({
+            id: `${symbol}-${timeframe}-BEARISH_MACD_DIV-${h2.timestamp}`,
+            instrument: symbol,
+            timeframe,
+            family: "STATISTICAL",
+            pattern: "BEARISH_MACD_DIVERGENCE",
+            name: "Bearish MACD Divergence",
+            direction: "BEARISH",
+            state: h2.isProvisional ? "DEVELOPING" : "CONFIRMED",
+            firstDetectedAt: h1.isoTime,
+            lastUpdatedAt: h2.isoTime,
+            startTime: h1.timestamp,
+            endTime: h2.timestamp,
+            latestStructuralTimestamp: h2.timestamp,
+            keyPoints: [
+              { label: "Price High 1", timestamp: h1.timestamp, price: h1.price },
+              { label: "Price High 2", timestamp: h2.timestamp, price: h2.price, isProvisional: h2.isProvisional },
+            ],
+            projection: {
+              projectedPoints: [
+                { label: "MACD Target", timestamp: latest.timestamp + 6 * 300, price: targetPrice, type: "TARGET", isProjected: true },
+              ],
+              breakoutLevel: latest.close,
+              invalidationLevel: h2.price,
+              expectedBreakoutDirection: "BEARISH",
+              description: "Bearish MACD momentum divergence. Higher price high with lower MACD histogram.",
+            },
+            completenessScore: 85,
+            isDeveloping: h2.isProvisional,
+            levels: { entry: latest.close, stopLoss: h2.price, target1: targetPrice },
+            progress: { percentage: 85, description: "Higher price high with lower MACD momentum" },
+          });
+        }
+      }
+    }
+
     // 4. Mean Reversion Extremes
     const currentRsi = rsi[n - 1];
     if (currentRsi !== null) {
