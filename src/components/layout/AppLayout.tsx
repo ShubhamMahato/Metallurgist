@@ -79,7 +79,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       />
 
       {/* Main Content Workspace */}
-      <div className="flex-1 w-full flex flex-col">
+      <div className="flex-1 w-full flex flex-col min-h-0">
         {children}
       </div>
     </div>

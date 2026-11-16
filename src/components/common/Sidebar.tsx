@@ -10,6 +10,7 @@ import {
   Eye,
   Store,
   Check,
+  TrendingUp,
 } from "lucide-react";
 import { useLanguage } from "../../lib/LanguageContext";
 import { ReportTemplateId, REPORT_TEMPLATES } from "../../types/report";
@@ -85,6 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
 
   const isDashboard = location.pathname === "/";
   const isCalculator = location.pathname === "/calculator";
+  const isPatterns = location.pathname === "/patterns";
 
   const [activeTemplate, setActiveTemplate] = useState<ReportTemplateId>(() => {
     try {
@@ -261,6 +263,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobile = false, onClose }) =
               }`}
             >
               Retail & GST billing
+            </span>
+          </div>
+        </Link>
+
+        {/* 3. Pattern Scanner */}
+        <Link
+          to="/patterns"
+          onClick={handleLinkClick}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all group ${
+            isPatterns
+              ? "bg-slate-900 text-white shadow-xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
+          }`}
+          title="Pattern Scanner"
+        >
+          <div
+            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+              isPatterns
+                ? "bg-white/10 text-amber-400"
+                : "bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-slate-900 border border-slate-200/60"
+            }`}
+          >
+            <TrendingUp size={16} />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="truncate leading-tight">Pattern Scanner</span>
+            <span
+              className={`text-[11px] truncate font-normal ${
+                isPatterns ? "text-slate-300" : "text-slate-400"
+              }`}
+            >
+              Live Gold & Harmonic Engine
             </span>
           </div>
         </Link>

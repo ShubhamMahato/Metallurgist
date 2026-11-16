@@ -76,13 +76,21 @@ div.font-mono {
   letter-spacing: 0.025em;
 }
 
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #475569 transparent;
+}
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+  height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(15, 23, 42, 0.4);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #3f484c;
-  border-radius: 10px;
+  background: #334155;
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }

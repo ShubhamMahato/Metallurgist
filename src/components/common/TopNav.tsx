@@ -8,6 +8,7 @@ import {
   SlidersHorizontal,
   Globe,
   Menu,
+  TrendingUp,
 } from "lucide-react";
 import { Tooltip } from "./Tooltip";
 import { useLanguage } from "../../lib/LanguageContext";
@@ -32,6 +33,7 @@ export const TopNav: React.FC<TopNavProps> = ({
 
   const isDashboard = location.pathname === "/";
   const isCalculator = location.pathname === "/calculator";
+  const isPatterns = location.pathname === "/patterns";
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-slate-200 w-full max-w-full overflow-x-clip">
@@ -71,10 +73,12 @@ export const TopNav: React.FC<TopNavProps> = ({
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
                 {isDashboard ? (
                   <SlidersHorizontal size={13} className="text-amber-600" />
-                ) : (
+                ) : isCalculator ? (
                   <Calculator size={13} className="text-amber-600" />
+                ) : (
+                  <TrendingUp size={13} className="text-amber-600" />
                 )}
-                <span>{isDashboard ? t("dashboard") : t("calculator")}</span>
+                <span>{isDashboard ? t("dashboard") : isCalculator ? t("calculator") : "Pattern Scanner"}</span>
               </div>
             </div>
           </div>
