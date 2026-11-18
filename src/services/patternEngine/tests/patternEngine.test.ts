@@ -124,87 +124,17 @@ export function runAllPatternEngineTests(): { passed: number; failed: number; lo
   const afterScanCount = engine.getAllPatterns().length;
   assert(initialScanCount === afterScanCount, "Re-scanning existing candles does not create duplicates");
 
-  // 7. Test Forward-Looking Lifecycle & Projection Verification (Cup and Handle Sequential Streaming Test)
-  logs.push("\n7. Forward-Looking Lifecycle & Projections (Sequential Cup and Handle Acceptance Test):");
+  // 7. Verify Cup and Handle Detection is Excluded
+  logs.push("\n7. Verify Cup and Handle Detection is Excluded:");
   const chEngine = new PatternEngine();
-
-  // Step 1: Left Rim (2000) + Bottom (1950) + early recovery (1972) -> Should be FORMING
   const step1Prices = [
-    1980, 1985, 1992, 1996, 2000, 1994, 1986, 1978, 1970, 1962, 1955, 1950, 1956, 1962, 1968, 1972
+    1980, 1985, 1992, 1996, 2000, 1994, 1986, 1978, 1970, 1962, 1955, 1950, 1956, 1962, 1968, 1972,
+    1978, 1985, 1992, 1998, 1993, 1988, 1985, 1980, 1978, 1982, 1987, 1992, 1996, 2002, 2008
   ];
   const step1Candles = generateCandlesFromPrices(step1Prices, 1700000000, 300);
   const res1 = chEngine.scan(step1Candles, "5m");
-  const cup1 = res1.patterns.find((p) => p.pattern === "CUP_AND_HANDLE");
-  assert(cup1 !== undefined, "Step 1: Cup and Handle detected while rounding up from bottom");
-  if (cup1) {
-    assert(cup1.state === "FORMING", `Step 1 state is FORMING (actual: ${cup1.state})`);
-    assert(cup1.isDeveloping === true, "Step 1 marked as developing/forward-looking");
-    assert(cup1.projection !== undefined, "Step 1 includes future projection object");
-    assert(Math.abs((cup1.projection?.breakoutLevel ?? 0) - 2000.8) < 0.1, `Step 1 projects breakout level at Left Rim (~2000.8, actual: ${cup1.projection?.breakoutLevel})`);
-    assert(cup1.projection?.completionZone !== undefined, "Step 1 projects handle completion zone");
-    assert((cup1.completenessScore ?? 0) >= 30 && (cup1.completenessScore ?? 0) <= 65, `Step 1 completeness score in forming range (actual: ${cup1.completenessScore}%)`);
-    assert(cup1.keyPoints.length === 2, "Step 1 keyPoints only contains confirmed historical points (Left Rim, Bottom)");
-  }
-
-  // Step 2: Price reaches Right Rim (1998) -> Should transition to DEVELOPING
-  const step2Prices = [
-    ...step1Prices,
-    1978, 1985, 1992, 1998, 1993, 1988, 1985
-  ];
-  const step2Candles = generateCandlesFromPrices(step2Prices, 1700000000, 300);
-  const res2 = chEngine.scan(step2Candles, "5m");
-  const cup2 = res2.patterns.find((p) => p.id === cup1?.id);
-  assert(cup2 !== undefined, "Step 2: Pattern retained on right rim formation");
-  if (cup2) {
-    assert(cup2.state === "DEVELOPING", `Step 2 state transitioned to DEVELOPING (actual: ${cup2.state})`);
-    assert((cup2.completenessScore ?? 0) === 75, `Step 2 completeness score is 75% (actual: ${cup2.completenessScore}%)`);
-  }
-
-  // Step 3: Handle trough forms (1978, 44% pullback) -> Should remain DEVELOPING with handle registered
-  const step3Prices = [
-    ...step2Prices,
-    1980, 1978, 1982, 1987, 1992
-  ];
-  const step3Candles = generateCandlesFromPrices(step3Prices, 1700000000, 300);
-  const res3 = chEngine.scan(step3Candles, "5m");
-  const cup3 = res3.patterns.find((p) => p.id === cup1?.id);
-  assert(cup3 !== undefined, "Step 3: Pattern retained during handle consolidation");
-  if (cup3) {
-    assert(cup3.state === "DEVELOPING", `Step 3 state is DEVELOPING (actual: ${cup3.state})`);
-    assert((cup3.completenessScore ?? 0) === 85, `Step 3 completeness score increased to 85% (actual: ${cup3.completenessScore}%)`);
-    assert(cup3.keyPoints.length === 4, `Step 3 keyPoints contains Left Rim, Bottom, Right Rim, Handle Trough (actual: ${cup3.keyPoints.length})`);
-  }
-
-  // Step 4: Breakout above resistance (close at 2008 > 2000) -> Should transition to CONFIRMED
-  const step4Prices = [
-    ...step3Prices,
-    1996, 2002, 2008
-  ];
-  const step4Candles = generateCandlesFromPrices(step4Prices, 1700000000, 300);
-  const res4 = chEngine.scan(step4Candles, "5m");
-  const cup4 = res4.patterns.find((p) => p.id === cup1?.id);
-  assert(cup4 !== undefined, "Step 4: Pattern detected on breakout");
-  if (cup4) {
-    assert(cup4.state === "CONFIRMED", `Step 4 state transitioned to CONFIRMED (actual: ${cup4.state})`);
-    assert(cup4.completenessScore === 100, `Step 4 completeness score is 100%`);
-  }
-
-  // Step 5: Invalidation branch (handle breaches 55% depth or drops below bottom to 1945) -> Should be INVALIDATED
-  const invalidEngine = new PatternEngine();
-  // Initialize to Step 3 state
-  invalidEngine.scan(step3Candles, "5m");
-  const step5Prices = [
-    ...step3Prices,
-    1970, 1960, 1945
-  ];
-  const step5Candles = generateCandlesFromPrices(step5Prices, 1700000000, 300);
-  const res5 = invalidEngine.scan(step5Candles, "5m");
-  const cup5 = res5.patterns.find((p) => p.id === cup1?.id);
-  assert(cup5 !== undefined, "Step 5: Pattern detected on breakdown");
-  if (cup5) {
-    assert(cup5.state === "INVALIDATED", `Step 5 state transitioned to INVALIDATED (actual: ${cup5.state})`);
-    assert(cup5.completenessScore === 0, `Step 5 completeness score is 0%`);
-  }
+  const cup = res1.patterns.find((p) => p.pattern === "CUP_AND_HANDLE" || p.pattern === "INVERSE_CUP_AND_HANDLE");
+  assert(cup === undefined, "Cup and Handle and Inverse Cup and Handle are completely excluded from detection");
 
   // 8. Test Harmonic Forward Projections (Developing X-A-B-C -> Projected Point D PRZ)
   logs.push("\n8. Harmonic Forward Projections (Developing XABC -> Projected Point D):");
