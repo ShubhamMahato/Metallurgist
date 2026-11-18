@@ -8,6 +8,7 @@ import { PatternEngine } from "../../services/patternEngine/engine/PatternEngine
 import { CandlestickChart } from "../../components/patterns/CandlestickChart";
 import { PatternScannerSidebar } from "../../components/patterns/PatternScannerSidebar";
 import { TimeframeSelector } from "../../components/patterns/TimeframeSelector";
+import { DraggableQuickAction } from "../../components/patterns/DraggableQuickAction";
 import { AlertCircle } from "lucide-react";
 
 export default function PatternScannerPage() {
@@ -17,6 +18,7 @@ export default function PatternScannerPage() {
   const [selectedPatternIds, setSelectedPatternIds] = useState<string[]>([]);
   const [isMultiSelect, setIsMultiSelect] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<"chart" | "scanner">("chart");
+  const [isDesktopScannerOpen, setIsDesktopScannerOpen] = useState<boolean>(true);
 
   // Ref to always access the latest timeframe inside long-lived subscriptions without stale closure
   const timeframeRef = useRef<SupportedTimeframe>(timeframe);
@@ -96,10 +98,19 @@ export default function PatternScannerPage() {
     return patterns.filter((p) => selectedPatternIds.includes(p.id));
   }, [patterns, selectedPatternIds]);
 
+  // Handler for draggable hovering quick action toggle
+  const handleQuickActionToggle = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setMobileTab((prev) => (prev === "chart" ? "scanner" : "chart"));
+    } else {
+      setIsDesktopScannerOpen((prev) => !prev);
+    }
+  };
+
   return (
     <AppLayout>
       {/* Full-height Trading Terminal Container */}
-      <div className="flex-1 flex flex-col bg-[#070a12] text-slate-100 h-[calc(100dvh-3rem)] sm:h-[calc(100dvh-4rem)] max-h-[calc(100dvh-3rem)] sm:max-h-[calc(100dvh-4rem)] min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-[#070a12] text-slate-100 h-[calc(100dvh-3rem)] sm:h-[calc(100dvh-4rem)] max-h-[calc(100dvh-3rem)] sm:max-h-[calc(100dvh-4rem)] min-h-0 overflow-hidden relative">
         {/* 1. Header Toolbar with Timeframe Ribbon & Connection Status */}
         <TimeframeSelector
           activeTimeframe={timeframe}
@@ -131,7 +142,7 @@ export default function PatternScannerPage() {
         )}
 
         {/* 2. Main Terminal Split View: Chart (75-80%) + Scanner (20-25%) */}
-        <div className="flex-1 w-full flex flex-col lg:flex-row min-h-0 overflow-hidden">
+        <div className="flex-1 w-full flex flex-col lg:flex-row min-h-0 overflow-hidden relative">
           {/* Main Candlestick Chart Area */}
           <div
             className={`flex-1 flex flex-col min-h-0 min-w-0 p-2 lg:p-2.5 overflow-hidden ${
@@ -151,7 +162,13 @@ export default function PatternScannerPage() {
           {/* Right-Side Scanner Sidebar */}
           <div
             className={`flex-1 lg:flex-none w-full lg:w-80 xl:w-96 flex flex-col min-h-0 overflow-hidden ${
-              mobileTab === "chart" ? "hidden lg:flex" : "flex"
+              mobileTab === "chart"
+                ? isDesktopScannerOpen
+                  ? "hidden lg:flex"
+                  : "hidden"
+                : isDesktopScannerOpen
+                ? "flex"
+                : "flex lg:hidden"
             }`}
           >
             <PatternScannerSidebar
@@ -163,10 +180,25 @@ export default function PatternScannerPage() {
               onToggleMultiSelect={() => setIsMultiSelect((v) => !v)}
               symbol="XAU/USD"
               timeframe={timeframe}
-              onViewOnChart={() => setMobileTab("chart")}
+              onViewOnChart={() => {
+                setMobileTab("chart");
+                setIsDesktopScannerOpen(true);
+              }}
             />
           </div>
         </div>
+
+        {/* Floating Draggable Quick Action Hovering Button */}
+        <DraggableQuickAction
+          isScannerOpen={
+            typeof window !== "undefined" && window.innerWidth >= 1024
+              ? isDesktopScannerOpen
+              : mobileTab === "scanner"
+          }
+          onToggle={handleQuickActionToggle}
+          patternCount={patterns.length}
+          activeOverlayCount={selectedPatternIds.length}
+        />
       </div>
     </AppLayout>
   );

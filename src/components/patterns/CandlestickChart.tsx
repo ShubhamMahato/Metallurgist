@@ -4,6 +4,7 @@ import {
   IChartApi,
   ISeriesApi,
   CandlestickSeries,
+  HistogramSeries,
   ColorType,
   UTCTimestamp,
   TickMarkType,
@@ -12,7 +13,7 @@ import {
 import { OHLCV, TIMEFRAMES } from "../../services/patternEngine/types/candle";
 import { DetectedPattern } from "../../services/patternEngine/types/pattern";
 import { PatternOverlayRenderer } from "./PatternOverlayRenderer";
-import { Maximize2, RefreshCw, Clock, Globe, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Maximize2, RefreshCw, Clock, Globe, ZoomIn, ZoomOut, RotateCcw, BarChart2 } from "lucide-react";
 
 interface CandlestickChartProps {
   candles: readonly OHLCV[];
@@ -34,9 +35,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
+  const [showVolume, setShowVolume] = useState<boolean>(true);
   const [, setCoordinateVersion] = useState(0);
 
   // Timezone information: Display strictly in Asia/Kolkata (IST)
@@ -160,8 +163,24 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       wickDownColor: "#f43f5e",
     });
 
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      color: "#10b981",
+      priceFormat: {
+        type: "volume",
+      },
+      priceScaleId: "", // Overlay on main chart pane
+    });
+
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.8, // Volume bars occupy bottom 20%
+        bottom: 0,
+      },
+    });
+
     chartRef.current = chart;
     seriesRef.current = series;
+    volumeSeriesRef.current = volumeSeries;
     setDimensions({ width: initialWidth, height: initialHeight });
 
     // Force coordinate re-calculation on chart scroll/zoom
@@ -204,6 +223,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      volumeSeriesRef.current = null;
     };
   }, []);
 
@@ -223,6 +243,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     seriesRef.current.setData(chartData);
 
+    if (volumeSeriesRef.current) {
+      const volumeData = candles.map((c) => {
+        const vol = (c.volume && c.volume > 0) ? c.volume : (c.tickVolume || 0);
+        return {
+          time: c.timestamp as UTCTimestamp,
+          value: vol,
+          color: c.close >= c.open ? "rgba(16, 185, 129, 0.45)" : "rgba(244, 63, 94, 0.45)",
+        };
+      });
+      volumeSeriesRef.current.setData(volumeData);
+    }
+
     // Set normal balanced view whenever timeframe changes or when full dataset arrives
     const tfChanged = lastTfRef.current !== timeframe;
     const historyArrived = tfChanged || (lastCandleCountRef.current < 20 && chartData.length >= 20);
@@ -237,6 +269,13 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     setCoordinateVersion((v) => v + 1);
   }, [candles, timeframe, zoomToGoodView]);
+
+  // Toggle volume visibility
+  useEffect(() => {
+    if (volumeSeriesRef.current) {
+      volumeSeriesRef.current.applyOptions({ visible: showVolume });
+    }
+  }, [showVolume]);
 
   // Coordinate converter function for SVG overlay (supports historical and future timestamps)
   const timeToX = useCallback(
@@ -402,6 +441,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
               <span className={`font-semibold ${isUp ? "text-emerald-400" : "text-rose-400"}`}>
                 {isUp ? "+" : ""}{priceChange.toFixed(2)} ({isUp ? "+" : ""}{priceChangePct.toFixed(2)}%)
               </span>
+              <span className="hidden md:inline text-slate-700">|</span>
+              <span className="hidden md:inline">
+                Vol: <strong className="text-slate-200">{((activeCandle.volume && activeCandle.volume > 0) ? activeCandle.volume : (activeCandle.tickVolume || 0)).toLocaleString()}</strong>
+              </span>
             </div>
           )}
         </div>
@@ -416,6 +459,21 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             <Globe size={11} className="text-slate-500" />
             <span>IST (UTC+05:30)</span>
           </div>
+
+          {/* Volume Series Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowVolume((prev) => !prev)}
+            className={`p-1.5 rounded transition-colors cursor-pointer flex items-center gap-1 ${
+              showVolume
+                ? "text-amber-400 bg-amber-500/10 border border-amber-500/30"
+                : "hover:text-amber-400 hover:bg-slate-800 text-slate-500 border border-transparent"
+            }`}
+            title={showVolume ? "Hide Volume Bars" : "Show Volume Bars"}
+          >
+            <BarChart2 size={13} />
+            <span className="text-[10px] font-mono font-bold hidden xl:inline">VOL</span>
+          </button>
 
           {onRefresh && (
             <button
