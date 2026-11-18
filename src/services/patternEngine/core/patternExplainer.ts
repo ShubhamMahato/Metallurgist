@@ -222,6 +222,79 @@ export function explainPattern(pattern: DetectedPattern, currentPrice?: number):
       howToTrade = `Anticipate a downward correction. Stop placed above the recent high at $${stop.toFixed(2)}.`;
       break;
 
+    // TECHNICAL INDICATOR STRATEGIES
+    case "EMA_9_21_CROSS":
+      meaning = isBull
+        ? "EMA 9 crossed above EMA 21: High-speed dynamic moving average momentum flip indicating bulls taking near-term dominance."
+        : "EMA 9 crossed below EMA 21: High-speed dynamic moving average momentum flip indicating bears taking near-term dominance.";
+      whereItWillGo = isBull
+        ? `Momentum push UPWARD targeting $${target.toFixed(2)}.`
+        : `Momentum push DOWNWARD targeting $${target.toFixed(2)}.`;
+      howToTrade = isBull
+        ? `Enter on 9/21 cross or first retest of 21 EMA. Stop at $${stop.toFixed(2)}.`
+        : `Short on 9/21 cross or first retest of 21 EMA. Stop at $${stop.toFixed(2)}.`;
+      break;
+
+    case "GOLDEN_CROSS":
+      meaning = "Major 50 EMA crossed above 200 EMA: Legendary institutional Golden Cross signaling the start of a multi-week macroeconomic macro bull trend.";
+      whereItWillGo = `Sustained macro expansion UPWARD targeting $${target.toFixed(2)}.`;
+      howToTrade = `Ride trend with trailing stops along the 50 EMA. Invalidation below 200 EMA at $${stop.toFixed(2)}.`;
+      break;
+
+    case "DEATH_CROSS":
+      meaning = "Major 50 EMA crossed below 200 EMA: Major macro Death Cross signaling institutional distribution and prolonged macro downtrend.";
+      whereItWillGo = `Sustained macro decline DOWNWARD targeting $${target.toFixed(2)}.`;
+      howToTrade = `Look for short rallies into the 50/200 EMA resistance. Invalidation above 200 EMA at $${stop.toFixed(2)}.`;
+      break;
+
+    case "MACD_CROSSOVER":
+      meaning = isBull
+        ? "MACD Line crossed above Signal Line with expanding bullish histogram bars: Momentum acceleration to the upside."
+        : "MACD Line crossed below Signal Line with expanding bearish histogram bars: Momentum acceleration to the downside.";
+      whereItWillGo = isBull
+        ? `Upward momentum expansion towards $${target.toFixed(2)}.`
+        : `Downward momentum acceleration towards $${target.toFixed(2)}.`;
+      howToTrade = isBull
+        ? `Buy the MACD signal line crossover. Stop loss at $${stop.toFixed(2)}.`
+        : `Short the MACD signal line cross under. Stop loss at $${stop.toFixed(2)}.`;
+      break;
+
+    case "RSI_REVERSAL":
+      meaning = isBull
+        ? "RSI Oversold Dip-Bounce: RSI fell below 30 into deep oversold territory and is now rebounding back upward."
+        : "RSI Overbought Rejection: RSI spiked above 70 into overextended territory and is now rolling back downward.";
+      whereItWillGo = isBull
+        ? `Mean reversion bounce UPWARD towards $${target.toFixed(2)}.`
+        : `Mean reversion pullback DOWNWARD towards $${target.toFixed(2)}.`;
+      howToTrade = isBull
+        ? `Buy the oversold reversal confirmation. Stop at swing low $${stop.toFixed(2)}.`
+        : `Sell the overbought exhaustion rollover. Stop at swing high $${stop.toFixed(2)}.`;
+      break;
+
+    case "SUPERTREND_FLIP":
+      meaning = isBull
+        ? "Supertrend Trend Flip (Green): Price broke cleanly above ATR volatility resistance band, flipping the algorithmic trend to Bullish."
+        : "Supertrend Trend Flip (Red): Price broke cleanly below ATR volatility support band, flipping the algorithmic trend to Bearish.";
+      whereItWillGo = isBull
+        ? `Algorithmic trend continuation UPWARD towards $${target.toFixed(2)}.`
+        : `Algorithmic trend continuation DOWNWARD towards $${target.toFixed(2)}.`;
+      howToTrade = isBull
+        ? `Hold long positions with dynamic trailing stop on the green Supertrend line at $${stop.toFixed(2)}.`
+        : `Hold short positions with dynamic trailing stop on the red Supertrend line at $${stop.toFixed(2)}.`;
+      break;
+
+    case "BB_RSI_CONFLUENCE":
+      meaning = isBull
+        ? "Bollinger Band Lower Touch + RSI Oversold Confluence: High-probability 2-sigma statistical mean reversion buy setup."
+        : "Bollinger Band Upper Rejection + RSI Overbought Confluence: High-probability 2-sigma statistical mean reversion sell setup.";
+      whereItWillGo = isBull
+        ? `Price predicted to revert UPWARD back to the 20 SMA midline at $${target.toFixed(2)}.`
+        : `Price predicted to revert DOWNWARD back to the 20 SMA midline at $${target.toFixed(2)}.`;
+      howToTrade = isBull
+        ? `Take long mean-reversion trade targeting the BB midline. Stop loss below the lower band at $${stop.toFixed(2)}.`
+        : `Take short mean-reversion trade targeting the BB midline. Stop loss above the upper band at $${stop.toFixed(2)}.`;
+      break;
+
     default:
       meaning = `${pattern.name}: ${isBull ? "Bullish" : isBear ? "Bearish" : "Neutral"} technical pattern formation.`;
       whereItWillGo = isBull

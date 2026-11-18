@@ -239,3 +239,118 @@ export function calculateMACD(
 
   return { macdLine, signalLine, histogram };
 }
+
+export interface SupertrendResult {
+  trend: ("BULLISH" | "BEARISH" | null)[];
+  supertrend: (number | null)[];
+}
+
+export function calculateSupertrend(
+  candles: OHLCV[],
+  period: number = 10,
+  multiplier: number = 3
+): SupertrendResult {
+  const n = candles.length;
+  const trend: ("BULLISH" | "BEARISH" | null)[] = new Array(n).fill(null);
+  const supertrend: (number | null)[] = new Array(n).fill(null);
+
+  if (n < period) return { trend, supertrend };
+
+  const atr = calculateATR(candles, period);
+  const upperBand: number[] = new Array(n).fill(0);
+  const lowerBand: number[] = new Array(n).fill(0);
+
+  for (let i = 0; i < n; i++) {
+    const c = candles[i];
+    const a = atr[i] ?? (c.high - c.low);
+    const hl2 = (c.high + c.low) / 2;
+
+    const basicUpper = hl2 + multiplier * a;
+    const basicLower = hl2 - multiplier * a;
+
+    if (i === 0) {
+      upperBand[i] = basicUpper;
+      lowerBand[i] = basicLower;
+      trend[i] = c.close >= basicLower ? "BULLISH" : "BEARISH";
+      supertrend[i] = trend[i] === "BULLISH" ? lowerBand[i] : upperBand[i];
+      continue;
+    }
+
+    const prevClose = candles[i - 1].close;
+    const prevUpper = upperBand[i - 1];
+    const prevLower = lowerBand[i - 1];
+
+    upperBand[i] = basicUpper < prevUpper || prevClose > prevUpper ? basicUpper : prevUpper;
+    lowerBand[i] = basicLower > prevLower || prevClose < prevLower ? basicLower : prevLower;
+
+    const prevTrend = trend[i - 1] ?? "BULLISH";
+
+    if (prevTrend === "BULLISH") {
+      if (c.close < lowerBand[i]) {
+        trend[i] = "BEARISH";
+        supertrend[i] = upperBand[i];
+      } else {
+        trend[i] = "BULLISH";
+        supertrend[i] = lowerBand[i];
+      }
+    } else {
+      if (c.close > upperBand[i]) {
+        trend[i] = "BULLISH";
+        supertrend[i] = lowerBand[i];
+      } else {
+        trend[i] = "BEARISH";
+        supertrend[i] = upperBand[i];
+      }
+    }
+  }
+
+  return { trend, supertrend };
+}
+
+export interface StochasticResult {
+  k: (number | null)[];
+  d: (number | null)[];
+}
+
+export function calculateStochastic(
+  candles: OHLCV[],
+  periodK: number = 14,
+  smoothK: number = 3,
+  periodD: number = 3
+): StochasticResult {
+  const n = candles.length;
+  const rawK: (number | null)[] = new Array(n).fill(null);
+
+  for (let i = periodK - 1; i < n; i++) {
+    let highestHigh = -Infinity;
+    let lowestLow = Infinity;
+    for (let j = i - periodK + 1; j <= i; j++) {
+      if (candles[j].high > highestHigh) highestHigh = candles[j].high;
+      if (candles[j].low < lowestLow) lowestLow = candles[j].low;
+    }
+    const range = highestHigh - lowestLow;
+    rawK[i] = range === 0 ? 50 : ((candles[i].close - lowestLow) / range) * 100;
+  }
+
+  const validK = rawK.map((v) => v ?? 50);
+  const k = calculateSMA(validK, smoothK);
+  const validSmoothK = k.map((v) => v ?? 50);
+  const d = calculateSMA(validSmoothK, periodD);
+
+  return { k, d };
+}
+
+export function calculateVWAP(candles: OHLCV[]): (number | null)[] {
+  const result: (number | null)[] = new Array(candles.length).fill(null);
+  let cumVol = 0;
+  let cumVolPrice = 0;
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    const typicalPrice = (c.high + c.low + c.close) / 3;
+    const vol = (c.volume && c.volume > 0) ? c.volume : (c.tickVolume || 1);
+    cumVol += vol;
+    cumVolPrice += typicalPrice * vol;
+    result[i] = cumVol === 0 ? typicalPrice : cumVolPrice / cumVol;
+  }
+  return result;
+}

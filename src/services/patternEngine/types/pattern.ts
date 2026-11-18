@@ -5,7 +5,8 @@ export type PatternFamily =
   | "CLASSICAL_CHART"
   | "HARMONIC"
   | "MARKET_STRUCTURE"
-  | "STATISTICAL";
+  | "STATISTICAL"
+  | "STRATEGY";
 
 export type PatternDirection = "BULLISH" | "BEARISH" | "NEUTRAL";
 

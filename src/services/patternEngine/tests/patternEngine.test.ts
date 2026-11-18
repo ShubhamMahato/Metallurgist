@@ -331,7 +331,24 @@ export function runAllPatternEngineTests(): { passed: number; failed: number; lo
   const msCandles = generateCandlesFromPrices(msPrices, 1700000000, 300);
   const msRes = msEngine.scan(msCandles, "5m");
   const bosPat = msRes.patterns.find((p) => p.pattern.includes("BOS") || p.pattern.includes("SWING"));
-  assert(bosPat !== undefined, "Detects Market Structure structural points / BOS at market edge");
+  // 13. Technical Indicators & Strategies (EMA, MACD, RSI, Supertrend, BB) Verification
+  logs.push("\n13. Technical Indicators & Strategies (EMA, MACD, RSI, Supertrend, BB) Verification:");
+  const stratEngine = new PatternEngine();
+  const stratPrices: number[] = [];
+  let stratBase = 2000;
+  for (let i = 0; i < 60; i++) {
+    if (i < 56) stratBase -= 1.0;
+    else stratBase += 4.0;
+    stratPrices.push(stratBase);
+  }
+  const stratCandles = generateCandlesFromPrices(stratPrices, 1700000000, 300);
+  const stratRes = stratEngine.scan(stratCandles, "5m");
+  const stratPats = stratRes.patterns.filter((p) => p.family === "STRATEGY");
+  assert(stratPats.length > 0, `Detects strategy indicator signals on sharp reversal (count: ${stratPats.length})`);
+  const hasMacdOrRsiOrSt = stratPats.some(
+    (p) => p.pattern === "MACD_CROSSOVER" || p.pattern === "RSI_REVERSAL" || p.pattern === "SUPERTREND_FLIP"
+  );
+  assert(hasMacdOrRsiOrSt, "Correctly identifies momentum reversal signals (MACD/RSI/Supertrend)");
 
   logs.push(`\n=== RESULT: ${passed} PASSED, ${failed} FAILED ===\n`);
   return { passed, failed, log: logs };

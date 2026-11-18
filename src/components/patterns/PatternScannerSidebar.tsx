@@ -82,6 +82,8 @@ export const PatternScannerSidebar: React.FC<PatternScannerSidebarProps> = ({
         return "Structure";
       case "STATISTICAL":
         return "Statistical";
+      case "STRATEGY":
+        return "Strategy";
       default:
         return fam;
     }
@@ -176,6 +178,7 @@ export const PatternScannerSidebar: React.FC<PatternScannerSidebarProps> = ({
         <div className="flex items-center gap-1 overflow-x-auto mt-2.5 pb-0.5 no-scrollbar touch-pan-x">
           {[
             { id: "ALL", label: "All" },
+            { id: "STRATEGY", label: "Strategies" },
             { id: "CANDLESTICK", label: "Candle" },
             { id: "CLASSICAL_CHART", label: "Classical" },
             { id: "HARMONIC", label: "Harmonic" },

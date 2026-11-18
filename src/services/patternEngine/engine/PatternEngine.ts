@@ -6,6 +6,7 @@ import { ClassicalPatternDetector } from "../detectors/classical/classicalDetect
 import { HarmonicPatternDetector } from "../detectors/harmonic/harmonicDetector";
 import { MarketStructureDetector } from "../detectors/marketStructure/marketStructureDetector";
 import { StatisticalPatternDetector } from "../detectors/statistical/statisticalDetector";
+import { StrategyDetector } from "../detectors/strategy/strategyDetector";
 
 export interface PatternScanResult {
   patterns: DetectedPattern[];
@@ -21,6 +22,7 @@ export class PatternEngine {
   private harmonicDetector: HarmonicPatternDetector;
   private marketStructureDetector: MarketStructureDetector;
   private statisticalDetector: StatisticalPatternDetector;
+  private strategyDetector: StrategyDetector;
 
   // Stored state: id -> DetectedPattern
   private patternStore: Map<string, DetectedPattern> = new Map();
@@ -34,6 +36,7 @@ export class PatternEngine {
     this.harmonicDetector = new HarmonicPatternDetector();
     this.marketStructureDetector = new MarketStructureDetector();
     this.statisticalDetector = new StatisticalPatternDetector();
+    this.strategyDetector = new StrategyDetector();
   }
 
   /**
@@ -96,6 +99,14 @@ export class PatternEngine {
       detectedList.push(...statResult);
     } catch (err) {
       console.warn("Statistical detector error:", err);
+    }
+
+    // F. Indicators & Technical Strategies (EMA, MACD, RSI, Supertrend)
+    try {
+      const stratResult = this.strategyDetector.detect(candles, swings, timeframe, symbol);
+      detectedList.push(...stratResult);
+    } catch (err) {
+      console.warn("Strategy detector error:", err);
     }
 
     // 3. Reconcile with Stored Patterns (Lifecycle Transitions & Deduplication)
