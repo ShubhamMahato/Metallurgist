@@ -48,10 +48,17 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     };
   }, []);
 
-  // Standard full view of all candlesticks coming from Biquote API
+  // Standard normal view showing recent candles at a comfortable scale
   const zoomToGoodView = useCallback((totalCount: number) => {
     if (!chartRef.current || totalCount === 0) return;
-    chartRef.current.timeScale().fitContent();
+    const timeScale = chartRef.current.timeScale();
+    // Maintain a consistent, natural trading view showing the most recent ~65-70 candles
+    const visibleBars = Math.min(Math.max(totalCount, 30), 70);
+    const rightOffset = 10;
+    timeScale.setVisibleLogicalRange({
+      from: totalCount - visibleBars,
+      to: totalCount - 1 + rightOffset,
+    });
   }, []);
 
   // Initialize and attach Lightweight Chart
@@ -104,10 +111,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         secondsVisible: false,
         borderVisible: true,
         borderColor: "#334155",
-        rightOffset: 18,
-        barSpacing: 18,
+        rightOffset: 10,
+        barSpacing: 12,
         minBarSpacing: 0.5, // Allows zooming all the way out to see the full historical dataset
-        maxBarSpacing: 50,  // Allows zooming in for deep candle inspection
+        maxBarSpacing: 32,  // Prevents giant distorted candles if zoomed in
         tickMarkFormatter: (time: Time, tickMarkType: TickMarkType) => {
           let ts: number;
           if (typeof time === "number") {
@@ -202,6 +209,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
   // Update candle data in chart series
   const lastTfRef = useRef<string>("");
+  const lastCandleCountRef = useRef<number>(0);
   useEffect(() => {
     if (!seriesRef.current || candles.length === 0) return;
 
@@ -215,9 +223,13 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     seriesRef.current.setData(chartData);
 
-    // Set initial balanced view whenever timeframe changes or when chart loads first data
-    if (lastTfRef.current !== timeframe) {
+    // Set normal balanced view whenever timeframe changes or when full dataset arrives
+    const tfChanged = lastTfRef.current !== timeframe;
+    const historyArrived = tfChanged || (lastCandleCountRef.current < 20 && chartData.length >= 20);
+
+    if (historyArrived) {
       lastTfRef.current = timeframe;
+      lastCandleCountRef.current = chartData.length;
       requestAnimationFrame(() => {
         zoomToGoodView(chartData.length);
       });

@@ -154,10 +154,9 @@ export const TimeframeSelector: React.FC<TimeframeSelectorProps> = ({
                     ? "bg-amber-500 text-slate-950 font-bold shadow-xs ring-1 ring-amber-400"
                     : "bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800 active:bg-slate-700"
                 }`}
-                title={tf.isDerived ? `${tf.label} (Aggregate from 5m)` : tf.label}
+                title={tf.label}
               >
                 {tf.label}
-                {tf.isDerived && <span className="text-[9px] ml-0.5 opacity-60 font-bold">*</span>}
               </button>
             );
           })}
@@ -263,10 +262,9 @@ export const TimeframeSelector: React.FC<TimeframeSelectorProps> = ({
                       ? "bg-amber-500 text-slate-950 font-bold shadow-sm ring-1 ring-amber-400"
                       : "bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700"
                   }`}
-                  title={tf.isDerived ? `${tf.label} (Aggregate from 5m)` : tf.label}
+                  title={tf.label}
                 >
                   {tf.label}
-                  {tf.isDerived && <span className="text-[9px] ml-0.5 opacity-60 font-bold">*</span>}
                 </button>
               );
             })}
