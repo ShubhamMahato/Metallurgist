@@ -155,13 +155,13 @@ export const PatternOverlayRenderer: React.FC<PatternOverlayRendererProps> = ({
                   />
                 )}
 
-                {/* Neckline / Rim Resistance Line */}
+                {/* Neckline / Rim Resistance Line - spans strictly across pattern candles */}
                 {pattern.levels.neckline && (
                   (() => {
                     const yNeck = coordinateConverter.priceToY(pattern.levels.neckline);
-                    if (yNeck === null) return null;
-                    const xStart = points[0]?.x ?? 40;
-                    const xEnd = Math.max(width - 60, points[points.length - 1]?.x ?? width);
+                    if (yNeck === null || points.length === 0) return null;
+                    const xStart = points[0].x;
+                    const xEnd = points[points.length - 1].x;
                     return (
                       <g>
                         <line
@@ -173,8 +173,8 @@ export const PatternOverlayRenderer: React.FC<PatternOverlayRendererProps> = ({
                           strokeWidth="2"
                           strokeDasharray="6,4"
                         />
-                        <rect x={xEnd - 75} y={yNeck - 12} width="70" height="18" rx="4" fill="#78350f" opacity="0.9" />
-                        <text x={xEnd - 40} y={yNeck} fill="#fef3c7" fontSize="10" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
+                        <rect x={xEnd - 70} y={yNeck - 12} width="68" height="18" rx="4" fill="#78350f" opacity="0.9" />
+                        <text x={xEnd - 36} y={yNeck} fill="#fef3c7" fontSize="10" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
                           Rim/Neck {pattern.levels.neckline.toFixed(1)}
                         </text>
                       </g>
@@ -182,14 +182,14 @@ export const PatternOverlayRenderer: React.FC<PatternOverlayRendererProps> = ({
                   })()
                 )}
 
-                {/* Upper and Lower Boundaries (Triangles / Wedges) */}
+                {/* Upper and Lower Boundaries (Triangles / Wedges) - spans strictly across pattern candles */}
                 {pattern.levels.upperBoundary && pattern.levels.lowerBoundary && (
                   (() => {
                     const yUpper = coordinateConverter.priceToY(pattern.levels.upperBoundary);
                     const yLower = coordinateConverter.priceToY(pattern.levels.lowerBoundary);
-                    if (yUpper === null || yLower === null) return null;
-                    const xStart = points[0]?.x ?? 60;
-                    const xEnd = Math.max(width - 60, points[points.length - 1]?.x ?? width);
+                    if (yUpper === null || yLower === null || points.length === 0) return null;
+                    const xStart = points[0].x;
+                    const xEnd = points[points.length - 1].x;
                     return (
                       <g>
                         <line x1={xStart} y1={yUpper} x2={xEnd} y2={yUpper} stroke="#0ea5e9" strokeWidth="1.5" strokeDasharray="5,4" />
@@ -366,30 +366,29 @@ export const PatternOverlayRenderer: React.FC<PatternOverlayRendererProps> = ({
               </g>
             )}
 
-            {/* TARGET LEVEL HORIZONTAL BAR */}
+            {/* TARGET LEVEL HORIZONTAL BAR - strictly bounded to pattern candle range */}
             {pattern.levels.target1 && !proj && (
               (() => {
                 const yTarget = coordinateConverter.priceToY(pattern.levels.target1);
-                if (yTarget === null) return null;
+                if (yTarget === null || points.length === 0) return null;
                 const lastPt = points[points.length - 1];
-                const startX = lastPt ? lastPt.x : width / 2;
-                const targetX = Math.min(width - 40, startX + 90);
+                const startX = points[0].x;
+                const targetX = lastPt.x;
 
                 return (
                   <g>
                     <line
                       x1={startX}
-                      y1={lastPt ? lastPt.y : yTarget}
+                      y1={yTarget}
                       x2={targetX}
                       y2={yTarget}
                       stroke={isBullish ? "#10b981" : "#f43f5e"}
-                      strokeWidth="2"
+                      strokeWidth="1.5"
                       strokeDasharray="5,4"
-                      markerEnd={isBullish ? "url(#arrow-target-bullish)" : "url(#arrow-target-bearish)"}
                     />
-                    <g transform={`translate(${Math.max(20, targetX - 50)}, ${yTarget - 12})`}>
-                      <rect width="135" height="22" rx="5" fill={isBullish ? "#064e3b" : "#881337"} stroke={isBullish ? "#10b981" : "#f43f5e"} strokeWidth="1" />
-                      <text x="67" y="11" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
+                    <g transform={`translate(${Math.max(10, targetX - 110)}, ${yTarget - 11})`}>
+                      <rect width="110" height="20" rx="4" fill={isBullish ? "#064e3b" : "#881337"} stroke={isBullish ? "#10b981" : "#f43f5e"} strokeWidth="1" />
+                      <text x="55" y="10" fill="#ffffff" fontSize="9" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
                         {isBullish ? "▲ Target: $" : "▼ Target: $"}{pattern.levels.target1.toFixed(1)}
                       </text>
                     </g>

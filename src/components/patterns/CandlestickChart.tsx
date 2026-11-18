@@ -48,7 +48,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     };
   }, []);
 
-  // Standard full view of all candlesticks coming from Biquote API
+  // Standard full view of all candlesticks
   const zoomToGoodView = useCallback((totalCount: number) => {
     if (!chartRef.current || totalCount === 0) return;
     chartRef.current.timeScale().fitContent();
@@ -104,7 +104,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         secondsVisible: false,
         borderVisible: true,
         borderColor: "#334155",
-        rightOffset: 18,
+        rightOffset: 4,
         barSpacing: 18,
         minBarSpacing: 0.5, // Allows zooming all the way out to see the full historical dataset
         maxBarSpacing: 50,  // Allows zooming in for deep candle inspection
@@ -226,7 +226,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     setCoordinateVersion((v) => v + 1);
   }, [candles, timeframe, zoomToGoodView]);
 
-  // Coordinate converter function for SVG overlay (supports historical and future timestamps)
+  // Coordinate converter function for SVG overlay (strictly maps candles that exist on chart)
   const timeToX = useCallback(
     (time: number): number | null => {
       if (!chartRef.current || candles.length === 0) return null;
@@ -235,34 +235,17 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         const direct = timeScale.timeToCoordinate(time as UTCTimestamp);
         if (direct !== null) return direct;
 
-        // If future timestamp beyond the latest candle: project into the right-side whitespace
+        // If timestamp is beyond the latest candle: do NOT project into the empty void
         const lastCandle = candles[candles.length - 1];
         if (time > lastCandle.timestamp) {
-          const lastX = timeScale.timeToCoordinate(lastCandle.timestamp as UTCTimestamp);
-          if (lastX === null) return null;
-
-          const tfDef = TIMEFRAMES.find((t) => t.id === timeframe);
-          const stepSec = (tfDef ? tfDef.minutes : 5) * 60;
-          const barsAhead = (time - lastCandle.timestamp) / stepSec;
-
-          // Compute pixel width of 1 candle based on latest candles
-          let barSpacing = 14;
-          if (candles.length > 1) {
-            const prevCandle = candles[candles.length - 2];
-            const prevX = timeScale.timeToCoordinate(prevCandle.timestamp as UTCTimestamp);
-            if (prevX !== null && lastX > prevX) {
-              const diffBars = Math.max(1, (lastCandle.timestamp - prevCandle.timestamp) / stepSec);
-              barSpacing = (lastX - prevX) / diffBars;
-            }
-          }
-          return lastX + barsAhead * barSpacing;
+          return null;
         }
         return null;
       } catch {
         return null;
       }
     },
-    [candles, timeframe]
+    [candles]
   );
 
   const priceToY = useCallback(
@@ -376,7 +359,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
               <Clock size={11} className="text-amber-400 shrink-0" />
               <span>{formatCandleInterval(activeCandle, timeframe)}</span>
               {activeCandle.isOpen && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" title="Live candle forming" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" title="Current candle forming" />
               )}
             </div>
           )}

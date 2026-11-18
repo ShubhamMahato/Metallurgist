@@ -210,7 +210,7 @@ export const PatternScannerSidebar: React.FC<PatternScannerSidebarProps> = ({
               No patterns detected on {timeframe} yet.
             </p>
             <p className="text-[10px] text-slate-500 mt-1 max-w-[220px]">
-              The scanner continuously evaluates incoming candles for valid setups and updates live.
+              The scanner continuously evaluates incoming candles for valid setups and updates in real time.
             </p>
           </div>
         ) : (
