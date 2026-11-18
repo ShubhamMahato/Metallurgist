@@ -153,7 +153,7 @@ export default function PatternScannerPage() {
   return (
     <AppLayout>
       {/* Full-height Trading Terminal Container */}
-      <div className="flex-1 flex flex-col bg-[#070a12] text-slate-100 h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)] max-h-[calc(100dvh-3.5rem)] sm:max-h-[calc(100dvh-4rem)] min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-[#070a12] text-slate-100 h-[calc(100dvh-3rem)] sm:h-[calc(100dvh-4rem)] max-h-[calc(100dvh-3rem)] sm:max-h-[calc(100dvh-4rem)] min-h-0 overflow-hidden">
         {/* 1. Header Toolbar with Data Source Selector & Timeframes */}
         <TimeframeSelector
           activeTimeframe={timeframe}
@@ -165,6 +165,11 @@ export default function PatternScannerPage() {
           dataSourceMode={dataSourceMode}
           onChangeDataSourceMode={handleDataSourceModeChange}
           socketStatus={socketStatus}
+          mobileTab={mobileTab}
+          onChangeMobileTab={setMobileTab}
+          patternCount={patterns.length}
+          activeOverlayCount={selectedPatternIds.length}
+          symbol="XAU/USD"
         />
 
         {/* Error Notification Banner */}
@@ -183,42 +188,6 @@ export default function PatternScannerPage() {
             </button>
           </div>
         )}
-
-        {/* Mobile / Tablet Tab Switcher */}
-        <div className="lg:hidden flex items-center bg-slate-950 border-b border-slate-800 px-3 py-1.5 justify-between shrink-0">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setMobileTab("chart")}
-              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer flex items-center gap-1.5 ${
-                mobileTab === "chart"
-                  ? "bg-amber-500 text-slate-950 shadow-xs"
-                  : "text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800"
-              }`}
-            >
-              <LineChart size={13} />
-              <span>Chart</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTab("scanner")}
-              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer flex items-center gap-1.5 ${
-                mobileTab === "scanner"
-                  ? "bg-amber-500 text-slate-950 shadow-xs"
-                  : "text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800"
-              }`}
-            >
-              <Sliders size={13} />
-              <span>Scanner ({patterns.length})</span>
-            </button>
-          </div>
-
-          {selectedPatternIds.length > 0 && (
-            <span className="text-[10px] text-amber-400 font-mono font-semibold">
-              1 Active Overlay
-            </span>
-          )}
-        </div>
 
         {/* 2. Main Terminal Split View: Chart (75-80%) + Scanner (20-25%) */}
         <div className="flex-1 w-full flex flex-col lg:flex-row min-h-0 overflow-hidden">
