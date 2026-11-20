@@ -123,7 +123,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
   // Close indicator menu on outside click
   useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
       if (
         indicatorMenuRef.current &&
         !indicatorMenuRef.current.contains(e.target as Node)
@@ -133,9 +133,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     };
     if (isIndicatorMenuOpen) {
       document.addEventListener("mousedown", handleOutsideClick);
+      document.addEventListener("touchstart", handleOutsideClick);
     }
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
     };
   }, [isIndicatorMenuOpen]);
 
@@ -826,141 +828,149 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
             {/* Indicators Modal / Dropdown Menu */}
             {isIndicatorMenuOpen && (
-              <div className="absolute right-0 mt-1.5 w-72 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl p-2.5 z-50 text-slate-200 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-amber-400">
-                    <Sparkles size={13} />
-                    <span>Strategies & Indicators</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsIndicatorMenuOpen(false)}
-                    className="p-1 text-slate-400 hover:text-slate-200 rounded cursor-pointer"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
+              <>
+                {/* Mobile backdrop overlay to prevent touch scrolling behind and close on tap */}
+                <div
+                  className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 sm:hidden"
+                  onClick={() => setIsIndicatorMenuOpen(false)}
+                />
 
-                {/* Quick Presets */}
-                <div className="py-2 border-b border-slate-800">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                    Trading Presets
-                  </div>
-                  <div className="flex flex-wrap gap-1">
+                <div className="fixed inset-x-3 top-1/2 -translate-y-1/2 max-w-sm mx-auto max-h-[82vh] overflow-y-auto z-50 sm:translate-y-0 sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-72 sm:max-h-[85vh] sm:mx-0 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl p-2.5 text-slate-200 animate-in fade-in zoom-in-95 duration-150 custom-scrollbar">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-amber-400">
+                      <Sparkles size={13} />
+                      <span>Strategies & Indicators</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setPreset("ribbon")}
-                      className="px-2 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-slate-700 text-sky-300 cursor-pointer transition-colors border border-sky-500/30"
+                      onClick={() => setIsIndicatorMenuOpen(false)}
+                      className="p-1 text-slate-400 hover:text-slate-200 rounded cursor-pointer"
                     >
-                      EMA Ribbon
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreset("trend")}
-                      className="px-2 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-slate-700 text-emerald-300 cursor-pointer transition-colors border border-emerald-500/30"
-                    >
-                      Supertrend + MACD
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreset("meanReversion")}
-                      className="px-2 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-slate-700 text-purple-300 cursor-pointer transition-colors border border-purple-500/30"
-                    >
-                      Bollinger + RSI
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreset("clear")}
-                      className="px-2 py-0.5 rounded text-[10px] bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 cursor-pointer transition-colors border border-rose-800/40"
-                    >
-                      Clear
+                      <X size={12} />
                     </button>
                   </div>
-                </div>
 
-                {/* Overlays List */}
-                <div className="py-2 border-b border-slate-800 space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                    Chart Overlays
-                  </div>
-                  {[
-                    { id: "ema9" as IndicatorId, label: "EMA 9 (Fast Momentum)", color: "#38bdf8" },
-                    { id: "ema21" as IndicatorId, label: "EMA 21 (Dynamic Support)", color: "#fbbf24" },
-                    { id: "ema50" as IndicatorId, label: "EMA 50 (Intermediate Trend)", color: "#a855f7" },
-                    { id: "ema200" as IndicatorId, label: "EMA 200 (Macro Bull/Bear)", color: "#f43f5e" },
-                    { id: "bb" as IndicatorId, label: "Bollinger Bands (20, 2)", color: "#818cf8" },
-                    { id: "supertrend" as IndicatorId, label: "Supertrend (10, 3 ATR)", color: "#10b981" },
-                    { id: "vwap" as IndicatorId, label: "VWAP (Volume-Weighted)", color: "#ec4899" },
-                  ].map((ind) => {
-                    const isChecked = activeIndicators.has(ind.id);
-                    return (
-                      <div
-                        key={ind.id}
-                        onClick={() => toggleIndicator(ind.id)}
-                        className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer transition-colors text-xs ${
-                          isChecked ? "bg-slate-800/80 text-slate-100" : "hover:bg-slate-800/50 text-slate-400"
-                        }`}
+                  {/* Quick Presets */}
+                  <div className="py-2 border-b border-slate-800">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Trading Presets
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPreset("ribbon")}
+                        className="px-2 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-slate-700 text-sky-300 cursor-pointer transition-colors border border-sky-500/30"
                       >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: ind.color }}
-                          />
-                          <span>{ind.label}</span>
-                        </div>
+                        EMA Ribbon
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreset("trend")}
+                        className="px-2 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-slate-700 text-emerald-300 cursor-pointer transition-colors border border-emerald-500/30"
+                      >
+                        Supertrend + MACD
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreset("meanReversion")}
+                        className="px-2 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-slate-700 text-purple-300 cursor-pointer transition-colors border border-purple-500/30"
+                      >
+                        Bollinger + RSI
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreset("clear")}
+                        className="px-2 py-0.5 rounded text-[10px] bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 cursor-pointer transition-colors border border-rose-800/40"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Overlays List */}
+                  <div className="py-2 border-b border-slate-800 space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Chart Overlays
+                    </div>
+                    {[
+                      { id: "ema9" as IndicatorId, label: "EMA 9 (Fast Momentum)", color: "#38bdf8" },
+                      { id: "ema21" as IndicatorId, label: "EMA 21 (Dynamic Support)", color: "#fbbf24" },
+                      { id: "ema50" as IndicatorId, label: "EMA 50 (Intermediate Trend)", color: "#a855f7" },
+                      { id: "ema200" as IndicatorId, label: "EMA 200 (Macro Bull/Bear)", color: "#f43f5e" },
+                      { id: "bb" as IndicatorId, label: "Bollinger Bands (20, 2)", color: "#818cf8" },
+                      { id: "supertrend" as IndicatorId, label: "Supertrend (10, 3 ATR)", color: "#10b981" },
+                      { id: "vwap" as IndicatorId, label: "VWAP (Volume-Weighted)", color: "#ec4899" },
+                    ].map((ind) => {
+                      const isChecked = activeIndicators.has(ind.id);
+                      return (
                         <div
-                          className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                            isChecked
-                              ? "bg-amber-500 border-amber-500 text-slate-950 font-bold"
-                              : "border-slate-700 bg-slate-900"
+                          key={ind.id}
+                          onClick={() => toggleIndicator(ind.id)}
+                          className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer transition-colors text-xs ${
+                            isChecked ? "bg-slate-800/80 text-slate-100" : "hover:bg-slate-800/50 text-slate-400"
                           }`}
                         >
-                          {isChecked && <Check size={11} strokeWidth={3} />}
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: ind.color }}
+                            />
+                            <span>{ind.label}</span>
+                          </div>
+                          <div
+                            className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                              isChecked
+                                ? "bg-amber-500 border-amber-500 text-slate-950 font-bold"
+                                : "border-slate-700 bg-slate-900"
+                            }`}
+                          >
+                            {isChecked && <Check size={11} strokeWidth={3} />}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Sub-panes */}
-                <div className="pt-2 space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                    Oscillators (Sub-Panes)
+                      );
+                    })}
                   </div>
-                  {[
-                    { id: "rsi" as IndicatorId, label: "RSI (14 Overbought/Oversold)", color: "#c084fc" },
-                    { id: "macd" as IndicatorId, label: "MACD (12, 26, 9 Momentum)", color: "#38bdf8" },
-                  ].map((ind) => {
-                    const isChecked = activeIndicators.has(ind.id);
-                    return (
-                      <div
-                        key={ind.id}
-                        onClick={() => toggleIndicator(ind.id)}
-                        className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer transition-colors text-xs ${
-                          isChecked ? "bg-slate-800/80 text-slate-100" : "hover:bg-slate-800/50 text-slate-400"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: ind.color }}
-                          />
-                          <span>{ind.label}</span>
-                        </div>
+
+                  {/* Sub-panes */}
+                  <div className="pt-2 space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Oscillators (Sub-Panes)
+                    </div>
+                    {[
+                      { id: "rsi" as IndicatorId, label: "RSI (14 Overbought/Oversold)", color: "#c084fc" },
+                      { id: "macd" as IndicatorId, label: "MACD (12, 26, 9 Momentum)", color: "#38bdf8" },
+                    ].map((ind) => {
+                      const isChecked = activeIndicators.has(ind.id);
+                      return (
                         <div
-                          className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                            isChecked
-                              ? "bg-amber-500 border-amber-500 text-slate-950 font-bold"
-                              : "border-slate-700 bg-slate-900"
+                          key={ind.id}
+                          onClick={() => toggleIndicator(ind.id)}
+                          className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer transition-colors text-xs ${
+                            isChecked ? "bg-slate-800/80 text-slate-100" : "hover:bg-slate-800/50 text-slate-400"
                           }`}
                         >
-                          {isChecked && <Check size={11} strokeWidth={3} />}
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: ind.color }}
+                            />
+                            <span>{ind.label}</span>
+                          </div>
+                          <div
+                            className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                              isChecked
+                                ? "bg-amber-500 border-amber-500 text-slate-950 font-bold"
+                                : "border-slate-700 bg-slate-900"
+                            }`}
+                          >
+                            {isChecked && <Check size={11} strokeWidth={3} />}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
 
